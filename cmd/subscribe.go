@@ -28,29 +28,31 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/client"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	w "github.com/vulcanize/ipld-eth-server/pkg/serve"
 )
 
-// streamEthSubscriptionCmd represents the streamEthSubscription command
-var streamEthSubscriptionCmd = &cobra.Command{
-	Use:   "streamEthSubscription",
+// subscribeCmd represents the subscribe command
+var subscribeCmd = &cobra.Command{
+	Use:   "subscribe",
 	Short: "This command is used to subscribe to the eth ipfs watcher data stream with the provided filters",
 	Long: `This command is for demo and testing purposes and is used to subscribe to the watcher with the provided subscription configuration parameters.
 It does not do anything with the data streamed from the watcher other than unpack it and print it out for demonstration purposes.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		subCommand = cmd.CalledAs()
 		logWithCommand = *log.WithField("SubCommand", subCommand)
-		streamEthSubscription()
+		subscribe()
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(streamEthSubscriptionCmd)
+	rootCmd.AddCommand(subscribeCmd)
 }
 
-func streamEthSubscription() {
+func subscribe() {
 	// Prep the subscription config/filters to be sent to the server
 	ethSubConfig, err := eth.NewEthSubscriptionConfig()
 	if err != nil {
@@ -85,7 +87,7 @@ func streamEthSubscription() {
 				logWithCommand.Error(payload.Err)
 				continue
 			}
-			var ethData eth.IPLDs
+			var ethData eth2.IPLDs
 			if err := rlp.DecodeBytes(payload.Data, &ethData); err != nil {
 				logWithCommand.Error(err)
 				continue

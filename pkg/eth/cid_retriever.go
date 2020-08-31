@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"database/sql"
 	"fmt"
 	"math/big"
 
@@ -31,7 +30,6 @@ import (
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
-	"github.com/vulcanize/ipld-eth-server/utils"
 )
 
 // Retriever interface for substituting mocks in tests
@@ -444,56 +442,6 @@ func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageF
 	}
 	storageNodeCIDs := make([]eth2.StorageNodeWithStateKeyModel, 0)
 	return storageNodeCIDs, tx.Select(&storageNodeCIDs, pgStr, args...)
-}
-
-// RetrieveGapsInData is used to find the the block numbers at which we are missing data in the db
-// it finds the union of heights where no data exists and where the times_validated is lower than the validation level
-func (ecr *CIDRetriever) RetrieveGapsInData(validationLevel int) ([]eth2.DBGap, error) {
-	log.Info("searching for gaps in the eth ipfs watcher database")
-	startingBlock, err := ecr.RetrieveFirstBlockNumber()
-	if err != nil {
-		return nil, fmt.Errorf("eth CIDRetriever RetrieveFirstBlockNumber error: %v", err)
-	}
-	var initialGap []eth2.DBGap
-	if startingBlock != 0 {
-		stop := uint64(startingBlock - 1)
-		log.Infof("found gap at the beginning of the eth sync from 0 to %d", stop)
-		initialGap = []eth2.DBGap{{
-			Start: 0,
-			Stop:  stop,
-		}}
-	}
-
-	pgStr := `SELECT header_cids.block_number + 1 AS start, min(fr.block_number) - 1 AS stop FROM eth.header_cids
-				LEFT JOIN eth.header_cids r on eth.header_cids.block_number = r.block_number - 1
-				LEFT JOIN eth.header_cids fr on eth.header_cids.block_number < fr.block_number
-				WHERE r.block_number is NULL and fr.block_number IS NOT NULL
-				GROUP BY header_cids.block_number, r.block_number`
-	results := make([]struct {
-		Start uint64 `db:"start"`
-		Stop  uint64 `db:"stop"`
-	}, 0)
-	if err := ecr.db.Select(&results, pgStr); err != nil && err != sql.ErrNoRows {
-		return nil, err
-	}
-	emptyGaps := make([]eth2.DBGap, len(results))
-	for i, res := range results {
-		emptyGaps[i] = eth2.DBGap{
-			Start: res.Start,
-			Stop:  res.Stop,
-		}
-	}
-
-	// Find sections of blocks where we are below the validation level
-	// There will be no overlap between these "gaps" and the ones above
-	pgStr = `SELECT block_number FROM eth.header_cids
-			WHERE times_validated < $1
-			ORDER BY block_number`
-	var heights []uint64
-	if err := ecr.db.Select(&heights, pgStr, validationLevel); err != nil && err != sql.ErrNoRows {
-		return nil, err
-	}
-	return append(append(initialGap, emptyGaps...), utils.MissingHeightsToGaps(heights)...), nil
 }
 
 // RetrieveBlockByHash returns all of the CIDs needed to compose an entire block, for a given block hash

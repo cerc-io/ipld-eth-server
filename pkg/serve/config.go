@@ -46,7 +46,6 @@ type Config struct {
 	WSEndpoint   string
 	HTTPEndpoint string
 	IPCEndpoint  string
-	NodeInfo     node.Info
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -80,18 +79,11 @@ func NewConfig() (*Config, error) {
 	}
 	c.HTTPEndpoint = httpPath
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB := utils.LoadPostgres(c.DBConfig, c.NodeInfo)
+	serveDB := utils.LoadPostgres(c.DBConfig, postgres.Info{})
 	c.DB = &serveDB
 
 	return c, nil
 }
-
-type mode string
-
-var (
-	Sync  mode = "sync"
-	Serve mode = "serve"
-)
 
 func overrideDBConnConfig(con *postgres.Config) {
 	viper.BindEnv("database.server.maxIdle", SERVER_MAX_IDLE_CONNECTIONS)

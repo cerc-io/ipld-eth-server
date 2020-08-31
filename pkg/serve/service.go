@@ -52,8 +52,6 @@ type Server interface {
 	Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings)
 	// Method to unsubscribe from the service
 	Unsubscribe(id rpc.ID)
-	// Method to access the node info for the service
-	Node() *node.Info
 	// Method to access chain type
 	Chain() shared.ChainType
 }
@@ -74,8 +72,6 @@ type Service struct {
 	Subscriptions map[common.Hash]map[rpc.ID]Subscription
 	// A mapping of subscription params hash to the corresponding subscription params
 	SubscriptionTypes map[common.Hash]eth.SubscriptionSettings
-	// Info for the Geth node that this watcher is working with
-	NodeInfo *node.Info
 	// Underlying db
 	db *postgres.DB
 	// wg for syncing serve processes
@@ -353,11 +349,6 @@ func (sap *Service) Stop() error {
 	sap.close()
 	sap.Unlock()
 	return nil
-}
-
-// Node returns the node info for this service
-func (sap *Service) Node() *node.Info {
-	return sap.NodeInfo
 }
 
 // Chain returns the chain type for this service
