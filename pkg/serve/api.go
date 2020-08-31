@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package watch
+package serve
 
 import (
 	"context"
@@ -36,20 +36,20 @@ const APIName = "vdb"
 // APIVersion is the version of the state diffing service API
 const APIVersion = "0.0.1"
 
-// PublicWatcherAPI is the public api for the watcher
-type PublicWatcherAPI struct {
-	w Watcher
+// PublicServerAPI is the public api for the watcher
+type PublicServerAPI struct {
+	w Server
 }
 
-// NewPublicWatcherAPI creates a new PublicWatcherAPI with the provided underlying Watcher process
-func NewPublicWatcherAPI(w Watcher) *PublicWatcherAPI {
-	return &PublicWatcherAPI{
+// NewPublicServerAPI creates a new PublicServerAPI with the provided underlying Server process
+func NewPublicServerAPI(w Server) *PublicServerAPI {
+	return &PublicServerAPI{
 		w: w,
 	}
 }
 
 // Stream is the public method to setup a subscription that fires off IPLD payloads as they are processed
-func (api *PublicWatcherAPI) Stream(ctx context.Context, params eth.SubscriptionSettings) (*rpc.Subscription, error) {
+func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionSettings) (*rpc.Subscription, error) {
 	// ensure that the RPC connection supports subscriptions
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
@@ -89,12 +89,12 @@ func (api *PublicWatcherAPI) Stream(ctx context.Context, params eth.Subscription
 
 // Node is a public rpc method to allow transformers to fetch the node info for the watcher
 // NOTE: this is the node info for the node that the watcher is syncing from, not the node info for the watcher itself
-func (api *PublicWatcherAPI) Node() *node.Info {
+func (api *PublicServerAPI) Node() *node.Info {
 	return api.w.Node()
 }
 
 // Chain returns the chain type that this watcher instance supports
-func (api *PublicWatcherAPI) Chain() shared.ChainType {
+func (api *PublicServerAPI) Chain() shared.ChainType {
 	return api.w.Chain()
 }
 

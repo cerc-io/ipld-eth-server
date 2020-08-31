@@ -28,9 +28,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/client"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
-	w "github.com/vulcanize/ipfs-blockchain-watcher/pkg/watch"
+	"github.com/vulcanize/ipld-eth-server/pkg/client"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	w "github.com/vulcanize/ipld-eth-server/pkg/serve"
 )
 
 // streamEthSubscriptionCmd represents the streamEthSubscription command

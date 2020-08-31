@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package watch
+package serve
 
 import (
 	"fmt"
@@ -40,10 +40,10 @@ const (
 	PayloadChanBufferSize = 2000
 )
 
-// Watcher is the top level interface for streaming, converting to IPLDs, publishing,
+// Server is the top level interface for streaming, converting to IPLDs, publishing,
 // and indexing all chain data; screening this data; and serving it up to subscribed clients
 // This service is compatible with the Ethereum service interface (node.Service)
-type Watcher interface {
+type Server interface {
 	// APIs(), Protocols(), Start() and Stop()
 	ethnode.Service
 	// Pub-Sub handling event loop
@@ -82,8 +82,8 @@ type Service struct {
 	serveWg *sync.WaitGroup
 }
 
-// NewWatcher creates a new Watcher using an underlying Service struct
-func NewWatcher(settings *Config) (Watcher, error) {
+// NewServer creates a new Server using an underlying Service struct
+func NewServer(settings *Config) (Server, error) {
 	sn := new(Service)
 	sn.Retriever = eth.NewCIDRetriever(settings.DB)
 	sn.IPLDFetcher = eth.NewIPLDFetcher(settings.DB)
@@ -108,7 +108,7 @@ func (sap *Service) APIs() []rpc.API {
 		{
 			Namespace: APIName,
 			Version:   APIVersion,
-			Service:   NewPublicWatcherAPI(sap),
+			Service:   NewPublicServerAPI(sap),
 			Public:    true,
 		},
 		{
