@@ -18,7 +18,7 @@ package mocks
 
 import (
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 // CIDRetriever is a mock CID retriever for use in tests

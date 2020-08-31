@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// Client is used by watchers to stream chain IPLD data from a vulcanizedb ipfs-blockchain-watcher
+// Client is used by watchers to stream chain IPLD data from a vulcanizedb ipld-eth-server
 package client
 
 import (
@@ -22,10 +22,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/watch"
+	"github.com/vulcanize/ipld-eth-server/pkg/watch"
 )
 
-// Client is used to subscribe to the ipfs-blockchain-watcher ipld data stream
+// Client is used to subscribe to the ipld-eth-server ipld data stream
 type Client struct {
 	c *rpc.Client
 }
@@ -37,7 +37,7 @@ func NewClient(c *rpc.Client) *Client {
 	}
 }
 
-// Stream is the main loop for subscribing to iplds from an ipfs-blockchain-watcher server
+// Stream is the main loop for subscribing to iplds from an ipld-eth-server server
 func (c *Client) Stream(payloadChan chan watch.SubscriptionPayload, rlpParams []byte) (*rpc.ClientSubscription, error) {
 	return c.c.Subscribe(context.Background(), "vdb", payloadChan, "stream", rlpParams)
 }

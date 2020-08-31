@@ -24,10 +24,10 @@ import (
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/btc"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/pkg/btc"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 // NewResponseFilterer constructs a ResponseFilterer for the provided chain type

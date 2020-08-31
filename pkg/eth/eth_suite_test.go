@@ -27,7 +27,7 @@ import (
 
 func TestETHWatcher(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ETH IPFS Watcher Suite Test")
+	RunSpecs(t, "eth ipld server eth suite test")
 }
 
 var _ = BeforeSuite(func() {

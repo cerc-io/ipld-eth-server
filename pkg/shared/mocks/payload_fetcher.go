@@ -20,7 +20,7 @@ import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 // PayloadFetcher mock for tests

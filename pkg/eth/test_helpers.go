@@ -19,6 +19,7 @@ package eth
 import (
 	. "github.com/onsi/gomega"
 
+	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
 )
 
@@ -45,7 +46,7 @@ func TearDownDB(db *postgres.DB) {
 }
 
 // TxModelsContainsCID used to check if a list of TxModels contains a specific cid string
-func TxModelsContainsCID(txs []TxModel, cid string) bool {
+func TxModelsContainsCID(txs []eth.TxModel, cid string) bool {
 	for _, tx := range txs {
 		if tx.CID == cid {
 			return true
@@ -55,7 +56,7 @@ func TxModelsContainsCID(txs []TxModel, cid string) bool {
 }
 
 // ListContainsBytes used to check if a list of byte arrays contains a particular byte array
-func ReceiptModelsContainsCID(rcts []ReceiptModel, cid string) bool {
+func ReceiptModelsContainsCID(rcts []eth.ReceiptModel, cid string) bool {
 	for _, rct := range rcts {
 		if rct.CID == cid {
 			return true

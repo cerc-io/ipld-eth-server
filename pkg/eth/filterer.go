@@ -18,7 +18,6 @@ package eth
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -27,10 +26,15 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/multiformats/go-multihash"
 
+	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs"
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs/ipld"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
 )
+
+// Filterer interface for substituing mocks in tests
+type Filterer interface {
+	Filter(filter SubscriptionSettings, payload eth.ConvertedPayload) (*eth.IPLDs, error)
+}
 
 // ResponseFilterer satisfies the ResponseFilterer interface for ethereum
 type ResponseFilterer struct{}
@@ -41,42 +45,34 @@ func NewResponseFilterer() *ResponseFilterer {
 }
 
 // Filter is used to filter through eth data to extract and package requested data into a Payload
-func (s *ResponseFilterer) Filter(filter shared.SubscriptionSettings, payload shared.ConvertedData) (shared.IPLDs, error) {
-	ethFilters, ok := filter.(*SubscriptionSettings)
-	if !ok {
-		return IPLDs{}, fmt.Errorf("eth filterer expected filter type %T got %T", &SubscriptionSettings{}, filter)
-	}
-	ethPayload, ok := payload.(ConvertedPayload)
-	if !ok {
-		return IPLDs{}, fmt.Errorf("eth filterer expected payload type %T got %T", ConvertedPayload{}, payload)
-	}
-	if checkRange(ethFilters.Start.Int64(), ethFilters.End.Int64(), ethPayload.Block.Number().Int64()) {
-		response := new(IPLDs)
-		response.TotalDifficulty = ethPayload.TotalDifficulty
-		if err := s.filterHeaders(ethFilters.HeaderFilter, response, ethPayload); err != nil {
-			return IPLDs{}, err
+func (s *ResponseFilterer) Filter(filter SubscriptionSettings, payload eth.ConvertedPayload) (*eth.IPLDs, error) {
+	if checkRange(filter.Start.Int64(), filter.End.Int64(), payload.Block.Number().Int64()) {
+		response := new(eth.IPLDs)
+		response.TotalDifficulty = payload.TotalDifficulty
+		if err := s.filterHeaders(filter.HeaderFilter, response, payload); err != nil {
+			return nil, err
 		}
-		txHashes, err := s.filterTransactions(ethFilters.TxFilter, response, ethPayload)
+		txHashes, err := s.filterTransactions(filter.TxFilter, response, payload)
 		if err != nil {
-			return IPLDs{}, err
+			return nil, err
 		}
 		var filterTxs []common.Hash
-		if ethFilters.ReceiptFilter.MatchTxs {
+		if filter.ReceiptFilter.MatchTxs {
 			filterTxs = txHashes
 		}
-		if err := s.filerReceipts(ethFilters.ReceiptFilter, response, ethPayload, filterTxs); err != nil {
-			return IPLDs{}, err
+		if err := s.filerReceipts(filter.ReceiptFilter, response, payload, filterTxs); err != nil {
+			return nil, err
 		}
-		if err := s.filterStateAndStorage(ethFilters.StateFilter, ethFilters.StorageFilter, response, ethPayload); err != nil {
-			return IPLDs{}, err
+		if err := s.filterStateAndStorage(filter.StateFilter, filter.StorageFilter, response, payload); err != nil {
+			return nil, err
 		}
-		response.BlockNumber = ethPayload.Block.Number()
-		return *response, nil
+		response.BlockNumber = payload.Block.Number()
+		return response, nil
 	}
-	return IPLDs{}, nil
+	return nil, nil
 }
 
-func (s *ResponseFilterer) filterHeaders(headerFilter HeaderFilter, response *IPLDs, payload ConvertedPayload) error {
+func (s *ResponseFilterer) filterHeaders(headerFilter HeaderFilter, response *eth.IPLDs, payload eth.ConvertedPayload) error {
 	if !headerFilter.Off {
 		headerRLP, err := rlp.EncodeToBytes(payload.Block.Header())
 		if err != nil {
@@ -118,7 +114,7 @@ func checkRange(start, end, actual int64) bool {
 	return false
 }
 
-func (s *ResponseFilterer) filterTransactions(trxFilter TxFilter, response *IPLDs, payload ConvertedPayload) ([]common.Hash, error) {
+func (s *ResponseFilterer) filterTransactions(trxFilter TxFilter, response *eth.IPLDs, payload eth.ConvertedPayload) ([]common.Hash, error) {
 	var trxHashes []common.Hash
 	if !trxFilter.Off {
 		trxLen := len(payload.Block.Body().Transactions)
@@ -166,7 +162,7 @@ func checkTransactionAddrs(wantedSrc, wantedDst []string, actualSrc, actualDst s
 	return false
 }
 
-func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *IPLDs, payload ConvertedPayload, trxHashes []common.Hash) error {
+func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *eth.IPLDs, payload eth.ConvertedPayload, trxHashes []common.Hash) error {
 	if !receiptFilter.Off {
 		response.Receipts = make([]ipfs.BlockModel, 0, len(payload.Receipts))
 		for i, receipt := range payload.Receipts {
@@ -256,9 +252,9 @@ func slicesShareString(slice1, slice2 []string) int {
 }
 
 // filterStateAndStorage filters state and storage nodes into the response according to the provided filters
-func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storageFilter StorageFilter, response *IPLDs, payload ConvertedPayload) error {
-	response.StateNodes = make([]StateNode, 0, len(payload.StateNodes))
-	response.StorageNodes = make([]StorageNode, 0)
+func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storageFilter StorageFilter, response *eth.IPLDs, payload eth.ConvertedPayload) error {
+	response.StateNodes = make([]eth.StateNode, 0, len(payload.StateNodes))
+	response.StorageNodes = make([]eth.StorageNode, 0)
 	stateAddressFilters := make([]common.Hash, len(stateFilter.Addresses))
 	for i, addr := range stateFilter.Addresses {
 		stateAddressFilters[i] = crypto.Keccak256Hash(common.HexToAddress(addr).Bytes())
@@ -278,7 +274,7 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 				if err != nil {
 					return err
 				}
-				response.StateNodes = append(response.StateNodes, StateNode{
+				response.StateNodes = append(response.StateNodes, eth.StateNode{
 					StateLeafKey: stateNode.LeafKey,
 					Path:         stateNode.Path,
 					IPLD: ipfs.BlockModel{
@@ -296,7 +292,7 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 					if err != nil {
 						return err
 					}
-					response.StorageNodes = append(response.StorageNodes, StorageNode{
+					response.StorageNodes = append(response.StorageNodes, eth.StorageNode{
 						StateLeafKey:   stateNode.LeafKey,
 						StorageLeafKey: storageNode.LeafKey,
 						IPLD: ipfs.BlockModel{

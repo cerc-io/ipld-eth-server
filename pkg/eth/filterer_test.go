@@ -23,10 +23,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth/mocks"
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -40,10 +41,9 @@ var _ = Describe("Filterer", func() {
 		})
 
 		It("Transcribes all the data from the IPLDPayload into the StreamPayload if given an open filter", func() {
-			payload, err := filterer.Filter(openFilter, mocks.MockConvertedPayload)
+			iplds, err := filterer.Filter(openFilter, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds, ok := payload.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds).ToNot(BeNil())
 			Expect(iplds.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds.Header).To(Equal(mocks.MockIPLDs.Header))
 			var expectedEmptyUncles []ipfs.BlockModel
@@ -76,10 +76,9 @@ var _ = Describe("Filterer", func() {
 		})
 
 		It("Applies filters from the provided config.Subscription", func() {
-			payload1, err := filterer.Filter(rctAddressFilter, mocks.MockConvertedPayload)
+			iplds1, err := filterer.Filter(rctAddressFilter, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds1, ok := payload1.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds1).ToNot(BeNil())
 			Expect(iplds1.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds1.Header).To(Equal(ipfs.BlockModel{}))
 			Expect(len(iplds1.Uncles)).To(Equal(0))
@@ -92,10 +91,9 @@ var _ = Describe("Filterer", func() {
 				CID:  mocks.Rct1IPLD.Cid().String(),
 			}))
 
-			payload2, err := filterer.Filter(rctTopicsFilter, mocks.MockConvertedPayload)
+			iplds2, err := filterer.Filter(rctTopicsFilter, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds2, ok := payload2.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds2).ToNot(BeNil())
 			Expect(iplds2.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds2.Header).To(Equal(ipfs.BlockModel{}))
 			Expect(len(iplds2.Uncles)).To(Equal(0))
@@ -108,10 +106,9 @@ var _ = Describe("Filterer", func() {
 				CID:  mocks.Rct1IPLD.Cid().String(),
 			}))
 
-			payload3, err := filterer.Filter(rctTopicsAndAddressFilter, mocks.MockConvertedPayload)
+			iplds3, err := filterer.Filter(rctTopicsAndAddressFilter, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds3, ok := payload3.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds3).ToNot(BeNil())
 			Expect(iplds3.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds3.Header).To(Equal(ipfs.BlockModel{}))
 			Expect(len(iplds3.Uncles)).To(Equal(0))
@@ -124,10 +121,9 @@ var _ = Describe("Filterer", func() {
 				CID:  mocks.Rct1IPLD.Cid().String(),
 			}))
 
-			payload4, err := filterer.Filter(rctAddressesAndTopicFilter, mocks.MockConvertedPayload)
+			iplds4, err := filterer.Filter(rctAddressesAndTopicFilter, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds4, ok := payload4.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds4).ToNot(BeNil())
 			Expect(iplds4.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds4.Header).To(Equal(ipfs.BlockModel{}))
 			Expect(len(iplds4.Uncles)).To(Equal(0))
@@ -140,10 +136,9 @@ var _ = Describe("Filterer", func() {
 				CID:  mocks.Rct2IPLD.Cid().String(),
 			}))
 
-			payload5, err := filterer.Filter(rctsForAllCollectedTrxs, mocks.MockConvertedPayload)
+			iplds5, err := filterer.Filter(rctsForAllCollectedTrxs, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds5, ok := payload5.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds5).ToNot(BeNil())
 			Expect(iplds5.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds5.Header).To(Equal(ipfs.BlockModel{}))
 			Expect(len(iplds5.Uncles)).To(Equal(0))
@@ -158,10 +153,9 @@ var _ = Describe("Filterer", func() {
 			Expect(shared.IPLDsContainBytes(iplds5.Receipts, mocks.MockReceipts.GetRlp(1))).To(BeTrue())
 			Expect(shared.IPLDsContainBytes(iplds5.Receipts, mocks.MockReceipts.GetRlp(2))).To(BeTrue())
 
-			payload6, err := filterer.Filter(rctsForSelectCollectedTrxs, mocks.MockConvertedPayload)
+			iplds6, err := filterer.Filter(rctsForSelectCollectedTrxs, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds6, ok := payload6.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds6).ToNot(BeNil())
 			Expect(iplds6.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds6.Header).To(Equal(ipfs.BlockModel{}))
 			Expect(len(iplds6.Uncles)).To(Equal(0))
@@ -175,10 +169,9 @@ var _ = Describe("Filterer", func() {
 				CID:  mocks.Rct2IPLD.Cid().String(),
 			}))
 
-			payload7, err := filterer.Filter(stateFilter, mocks.MockConvertedPayload)
+			iplds7, err := filterer.Filter(stateFilter, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds7, ok := payload7.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds7).ToNot(BeNil())
 			Expect(iplds7.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds7.Header).To(Equal(ipfs.BlockModel{}))
 			Expect(len(iplds7.Uncles)).To(Equal(0))
@@ -192,10 +185,9 @@ var _ = Describe("Filterer", func() {
 				CID:  mocks.State2IPLD.Cid().String(),
 			}))
 
-			payload8, err := filterer.Filter(rctTopicsAndAddressFilterFail, mocks.MockConvertedPayload)
+			iplds8, err := filterer.Filter(rctTopicsAndAddressFilterFail, mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
-			iplds8, ok := payload8.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds8).ToNot(BeNil())
 			Expect(iplds8.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds8.Header).To(Equal(ipfs.BlockModel{}))
 			Expect(len(iplds8.Uncles)).To(Equal(0))

@@ -20,15 +20,14 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/btc"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
 	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/node"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
-	v "github.com/vulcanize/ipfs-blockchain-watcher/version"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
+	v "github.com/vulcanize/ipld-eth-server/version"
 )
 
 // APIName is the namespace used for the state diffing service API
@@ -50,24 +49,7 @@ func NewPublicWatcherAPI(w Watcher) *PublicWatcherAPI {
 }
 
 // Stream is the public method to setup a subscription that fires off IPLD payloads as they are processed
-func (api *PublicWatcherAPI) Stream(ctx context.Context, rlpParams []byte) (*rpc.Subscription, error) {
-	var params shared.SubscriptionSettings
-	switch api.w.Chain() {
-	case shared.Ethereum:
-		var ethParams eth.SubscriptionSettings
-		if err := rlp.DecodeBytes(rlpParams, &ethParams); err != nil {
-			return nil, err
-		}
-		params = &ethParams
-	case shared.Bitcoin:
-		var btcParams btc.SubscriptionSettings
-		if err := rlp.DecodeBytes(rlpParams, &btcParams); err != nil {
-			return nil, err
-		}
-		params = &btcParams
-	default:
-		panic("ipfs-blockchain-watcher is not configured for a specific chain type")
-	}
+func (api *PublicWatcherAPI) Stream(ctx context.Context, params eth.SubscriptionSettings) (*rpc.Subscription, error) {
 	// ensure that the RPC connection supports subscriptions
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
@@ -107,7 +89,7 @@ func (api *PublicWatcherAPI) Stream(ctx context.Context, rlpParams []byte) (*rpc
 
 // Node is a public rpc method to allow transformers to fetch the node info for the watcher
 // NOTE: this is the node info for the node that the watcher is syncing from, not the node info for the watcher itself
-func (api *PublicWatcherAPI) Node() *node.Node {
+func (api *PublicWatcherAPI) Node() *node.Info {
 	return api.w.Node()
 }
 
@@ -136,7 +118,7 @@ func (iapi *InfoAPI) NodeInfo() *p2p.NodeInfo {
 	return &p2p.NodeInfo{
 		// TODO: formalize this
 		ID:   "vulcanizeDB",
-		Name: "ipfs-blockchain-watcher",
+		Name: "ipld-eth-server",
 	}
 }
 

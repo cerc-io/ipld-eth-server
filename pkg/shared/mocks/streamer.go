@@ -18,7 +18,7 @@ package mocks
 
 import (
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 // PayloadStreamer mock struct

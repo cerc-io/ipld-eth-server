@@ -20,7 +20,8 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -127,7 +128,7 @@ func (pea *PublicEthAPI) GetLogs(ctx context.Context, crit ethereum.FilterQuery)
 	}
 	start := startingBlock.Int64()
 	end := endingBlock.Int64()
-	allRctCIDs := make([]ReceiptModel, 0)
+	allRctCIDs := make([]eth.ReceiptModel, 0)
 	for i := start; i <= end; i++ {
 		rctCIDs, err := pea.B.Retriever.RetrieveRctCIDs(tx, filter, i, nil, nil)
 		if err != nil {
@@ -181,7 +182,7 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 }
 
 // GetTransactionByHash returns the transaction for the given hash
-// eth ipfs-blockchain-watcher cannot currently handle pending/tx_pool txs
+// eth ipld-eth-server cannot currently handle pending/tx_pool txs
 func (pea *PublicEthAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) (*RPCTransaction, error) {
 	// Try to return an already finalized transaction
 	tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
