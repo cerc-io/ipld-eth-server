@@ -7,15 +7,15 @@ RUN apk add busybox-extras
 # this is probably a noob move, but I want apk from alpine for the above but need to avoid Go 1.13 below as this error still occurs https://github.com/ipfs/go-ipfs/issues/6603
 FROM golang:1.12.4 as builder
 
-# Get and build ipfs-blockchain-watcher
-ADD . /go/src/github.com/vulcanize/ipfs-blockchain-watcher
+# Get and build ipld-eth-server
+ADD . /go/src/github.com/vulcanize/ipld-eth-server
 
 # Build migration tool
 RUN go get -u -d github.com/pressly/goose/cmd/goose
 WORKDIR /go/src/github.com/pressly/goose/cmd/goose
 RUN GCO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -tags='no_mysql no_sqlite' -o goose .
 
-WORKDIR /go/src/github.com/vulcanize/ipfs-blockchain-watcher
+WORKDIR /go/src/github.com/vulcanize/ipld-eth-server
 
 # app container
 FROM alpine
@@ -29,12 +29,12 @@ USER $USER
 
 # chown first so dir is writable
 # note: using $USER is merged, but not in the stable release yet
-COPY --chown=5000:5000 --from=builder /go/src/github.com/vulcanize/ipfs-blockchain-watcher/dockerfiles/migrations/startup_script.sh .
+COPY --chown=5000:5000 --from=builder /go/src/github.com/vulcanize/ipld-eth-server/dockerfiles/migrations/startup_script.sh .
 
 
 # keep binaries immutable
 COPY --from=builder /go/src/github.com/pressly/goose/cmd/goose/goose goose
-COPY --from=builder /go/src/github.com/vulcanize/ipfs-blockchain-watcher/db/migrations migrations/vulcanizedb
+COPY --from=builder /go/src/github.com/vulcanize/ipld-eth-server/db/migrations migrations/vulcanizedb
 # XXX dir is already writeable RUN touch vulcanizedb.log
 
 CMD ["./startup_script.sh"]

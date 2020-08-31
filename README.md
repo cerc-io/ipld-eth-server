@@ -1,8 +1,8 @@
-# ipfs-blockchain-watcher
+# ipld-eth-server
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/vulcanize/ipfs-blockchain-watcher)](https://goreportcard.com/report/github.com/vulcanize/ipfs-blockchain-watcher)
+[![Go Report Card](https://goreportcard.com/badge/github.com/vulcanize/ipld-eth-server)](https://goreportcard.com/report/github.com/vulcanize/ipld-eth-server)
 
->  ipfs-blockchain-watcher is used to extract, transform, and load all eth or btc data into an IPFS-backing Postgres datastore while generating useful secondary indexes around the data in other Postgres tables
+>  ipld-eth-server is used to extract, transform, and load all eth or btc data into an IPFS-backing Postgres datastore while generating useful secondary indexes around the data in other Postgres tables
 
 ## Table of Contents
 1. [Background](#background)
@@ -13,13 +13,13 @@
 1. [License](#license)
 
 ## Background
-ipfs-blockchain-watcher is a collection of interfaces that are used to extract, process, store, and index
-all blockchain data in Postgres-IPFS. The raw data indexed by ipfs-blockchain-watcher serves as the basis for more specific watchers and applications.
+ipld-eth-server is a collection of interfaces that are used to extract, process, store, and index
+all blockchain data in Postgres-IPFS. The raw data indexed by ipld-eth-server serves as the basis for more specific watchers and applications.
 
 Currently the service supports complete processing of all Bitcoin and Ethereum data.
 
 ## Architecture
-More details on the design of ipfs-blockchain-watcher can be found in [here](./documentation/architecture.md)
+More details on the design of ipld-eth-server can be found in [here](./documentation/architecture.md)
 
 ## Dependencies
 Minimal build dependencies
@@ -49,7 +49,7 @@ is required for running the automated tests and is used by the `make migrate` co
 1. [Install Postgres](https://wiki.postgresql.org/wiki/Detailed_installation_guides)
 1. Create a superuser for yourself and make sure `psql --list` works without prompting for a password.
 1. `createdb vulcanize_public`
-1. `cd $GOPATH/src/github.com/vulcanize/ipfs-blockchain-watcher`
+1. `cd $GOPATH/src/github.com/vulcanize/ipld-eth-server`
 1.  Run the migrations: `make migrate HOST_NAME=localhost NAME=vulcanize_public PORT=5432`
     - There are optional vars `USER=username:password` if the database user is not the default user `postgres` and/or a password is present
     - To rollback a single step: `make rollback NAME=vulcanize_public`
@@ -68,7 +68,7 @@ Data is stored in an [IPFS-backing Postgres datastore](https://github.com/ipfs/g
 By default data is written directly to the ipfs blockstore in Postgres; the public.blocks table.
 In this case no further IPFS configuration is needed at this time.
 
-Optionally, ipfs-blockchain-watcher can be configured to function through an internal ipfs node interface using the flag: `-ipfs-mode=interface`.
+Optionally, ipld-eth-server can be configured to function through an internal ipfs node interface using the flag: `-ipfs-mode=interface`.
 Operating through the ipfs interface provides the option to configure a block exchange that can search remotely for IPLD data found missing in the local datastore.
 This option is irrelevant in most cases and this mode has some disadvantages, namely:
 
@@ -79,7 +79,7 @@ This option is irrelevant in most cases and this mode has some disadvantages, na
 More information for configuring Postgres-IPFS can be found [here](./documentation/ipfs.md)
 
 ### Blockchain
-This section describes how to setup an Ethereum or Bitcoin node to serve as a data source for ipfs-blockchain-watcher
+This section describes how to setup an Ethereum or Bitcoin node to serve as a data source for ipld-eth-server
 
 #### Ethereum
 For Ethereum, [a special fork of go-ethereum](https://github.com/vulcanize/go-ethereum/tree/statediff_at_anyblock-1.9.11) is currently *requirde*.
@@ -122,7 +122,7 @@ The default ws url is "127.0.0.1:8546" and the default http url is "127.0.0.1:85
 These values will be used as the `ethereum.wsPath` and `ethereum.httpPath` in the config, respectively.
 
 #### Bitcoin
-For Bitcoin, ipfs-blockchain-watcher is able to operate entirely through the universally exposed JSON-RPC interfaces.
+For Bitcoin, ipld-eth-server is able to operate entirely through the universally exposed JSON-RPC interfaces.
 This means any of the standard full nodes can be used (e.g. bitcoind, btcd) as the data source.
 
 Point at a remote node or set one up locally using the instructions for [bitcoind](https://github.com/bitcoin/bitcoin) and [btcd](https://github.com/btcsuite/btcd).
@@ -133,11 +133,11 @@ The default http url is "127.0.0.1:8332". We will use the http endpoint as both 
 ### Watcher
 Finally, setup the watcher process itself.
 
-Start by downloading ipfs-blockchain-watcher and moving into the repo:
+Start by downloading ipld-eth-server and moving into the repo:
 
-`GO111MODULE=off go get -d github.com/vulcanize/ipfs-blockchain-watcher`
+`GO111MODULE=off go get -d github.com/vulcanize/ipld-eth-server`
 
-`cd $GOPATH/src/github.com/vulcanize/ipfs-blockchain-watcher`
+`cd $GOPATH/src/github.com/vulcanize/ipld-eth-server`
 
 Then, build the binary:
 
@@ -146,11 +146,11 @@ Then, build the binary:
 ## Usage
 After building the binary, run as
 
-`./ipfs-blockchain-watcher watch --config=<the name of your config file.toml>`
+`./ipld-eth-server watch --config=<the name of your config file.toml>`
 
 ### Configuration
 
-Below is the set of universal config parameters for the ipfs-blockchain-watcher command, in .toml form, with the respective environmental variables commented to the side.
+Below is the set of universal config parameters for the ipld-eth-server command, in .toml form, with the respective environmental variables commented to the side.
 This set of parameters needs to be set no matter the chain type.
 
 ```toml
@@ -207,7 +207,7 @@ For Ethereum:
 ```
 
 ### Exposing the data
-A number of different APIs for remote access to ipfs-blockchain-watcher data can be exposed, these are discussed in more detail [here](./documentation/apis.md)
+A number of different APIs for remote access to ipld-eth-server data can be exposed, these are discussed in more detail [here](./documentation/apis.md)
 
 ### Testing
 `make test` will run the unit tests  

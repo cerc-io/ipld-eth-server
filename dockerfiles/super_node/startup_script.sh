@@ -49,7 +49,7 @@ fi
 # If IPFS initialization was successful
 if [[ $? -eq 0 ]]; then
     echo "Running the VulcanizeDB process"
-    ./ipfs-blockchain-watcher ${VDB_COMMAND} --config=config.toml
+    ./ipld-eth-server ${VDB_COMMAND} --config=config.toml
 else
     echo "Could not initialize IPFS."
     exit 1
