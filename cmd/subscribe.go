@@ -70,11 +70,7 @@ func subscribe() {
 	payloadChan := make(chan w.SubscriptionPayload, 20000)
 
 	// Subscribe to the watcher service with the given config/filter parameters
-	rlpParams, err := rlp.EncodeToBytes(ethSubConfig)
-	if err != nil {
-		logWithCommand.Fatal(err)
-	}
-	sub, err := subClient.Stream(payloadChan, rlpParams)
+	sub, err := subClient.Stream(payloadChan, *ethSubConfig)
 	if err != nil {
 		logWithCommand.Fatal(err)
 	}

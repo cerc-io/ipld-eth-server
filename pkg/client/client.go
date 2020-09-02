@@ -20,6 +20,8 @@ package client
 import (
 	"context"
 
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/serve"
@@ -38,6 +40,6 @@ func NewClient(c *rpc.Client) *Client {
 }
 
 // Stream is the main loop for subscribing to iplds from an ipld-eth-server server
-func (c *Client) Stream(payloadChan chan serve.SubscriptionPayload, rlpParams []byte) (*rpc.ClientSubscription, error) {
-	return c.c.Subscribe(context.Background(), "vdb", payloadChan, "stream", rlpParams)
+func (c *Client) Stream(payloadChan chan serve.SubscriptionPayload, params eth.SubscriptionSettings) (*rpc.ClientSubscription, error) {
+	return c.c.Subscribe(context.Background(), "vdb", payloadChan, "stream", params)
 }

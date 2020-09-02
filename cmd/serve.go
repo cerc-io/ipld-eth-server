@@ -77,17 +77,17 @@ func serve() {
 }
 
 func startServers(server s.Server, settings *s.Config) error {
-	logWithCommand.Debug("starting up IPC server")
+	logWithCommand.Info("starting up IPC server")
 	_, _, err := rpc.StartIPCEndpoint(settings.IPCEndpoint, server.APIs())
 	if err != nil {
 		return err
 	}
-	logWithCommand.Debug("starting up WS server")
+	logWithCommand.Info("starting up WS server")
 	_, _, err = rpc.StartWSEndpoint(settings.WSEndpoint, server.APIs(), []string{"vdb"}, nil, true)
 	if err != nil {
 		return err
 	}
-	logWithCommand.Debug("starting up HTTP server")
+	logWithCommand.Info("starting up HTTP server")
 	_, _, err = rpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth"}, nil, nil, rpc.HTTPTimeouts{})
 	return err
 }
