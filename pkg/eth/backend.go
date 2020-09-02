@@ -30,9 +30,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	ipfsethdb "github.com/vulcanize/pg-ipfs-ethdb"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -120,7 +120,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log
 }
 
 // BlockByNumber returns the requested canonical block.
-// Since the ipfs-blockchain-watcher database can contain forked blocks, it is recommended to fetch BlockByHash as
+// Since the ipld-eth-server database can contain forked blocks, it is recommended to fetch BlockByHash as
 // fetching by number can return non-deterministic results (returns the first block found at that height)
 func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Block, error) {
 	var err error

@@ -21,19 +21,20 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth/mocks"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -85,7 +86,7 @@ var _ = Describe("API", func() {
 		db                *postgres.DB
 		retriever         *eth.CIDRetriever
 		fetcher           *eth.IPLDFetcher
-		indexAndPublisher *eth.IPLDPublisher
+		indexAndPublisher *eth2.IPLDPublisher
 		backend           *eth.Backend
 		api               *eth.PublicEthAPI
 	)
@@ -95,7 +96,7 @@ var _ = Describe("API", func() {
 		Expect(err).ToNot(HaveOccurred())
 		retriever = eth.NewCIDRetriever(db)
 		fetcher = eth.NewIPLDFetcher(db)
-		indexAndPublisher = eth.NewIPLDPublisher(db)
+		indexAndPublisher = eth2.NewIPLDPublisher(db)
 		backend = &eth.Backend{
 			Retriever: retriever,
 			Fetcher:   fetcher,

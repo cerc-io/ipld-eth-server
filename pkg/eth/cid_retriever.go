@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"database/sql"
 	"fmt"
 	"math/big"
 
@@ -27,10 +26,18 @@ import (
 	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
-	"github.com/vulcanize/ipfs-blockchain-watcher/utils"
+	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
+
+// Retriever interface for substituting mocks in tests
+type Retriever interface {
+	RetrieveFirstBlockNumber() (int64, error)
+	RetrieveLastBlockNumber() (int64, error)
+	Retrieve(filter SubscriptionSettings, blockNumber int64) ([]eth2.CIDWrapper, bool, error)
+}
 
 // CIDRetriever satisfies the CIDRetriever interface for ethereum
 type CIDRetriever struct {
@@ -59,11 +66,7 @@ func (ecr *CIDRetriever) RetrieveLastBlockNumber() (int64, error) {
 }
 
 // Retrieve is used to retrieve all of the CIDs which conform to the passed StreamFilters
-func (ecr *CIDRetriever) Retrieve(filter shared.SubscriptionSettings, blockNumber int64) ([]shared.CIDsForFetching, bool, error) {
-	streamFilter, ok := filter.(*SubscriptionSettings)
-	if !ok {
-		return nil, true, fmt.Errorf("eth retriever expected filter type %T got %T", &SubscriptionSettings{}, filter)
-	}
+func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64) ([]eth2.CIDWrapper, bool, error) {
 	log.Debug("retrieving cids")
 
 	// Begin new db tx
@@ -88,15 +91,15 @@ func (ecr *CIDRetriever) Retrieve(filter shared.SubscriptionSettings, blockNumbe
 		log.Error("header cid retrieval error")
 		return nil, true, err
 	}
-	cws := make([]shared.CIDsForFetching, len(headers))
+	cws := make([]eth2.CIDWrapper, len(headers))
 	empty := true
 	for i, header := range headers {
-		cw := new(CIDWrapper)
+		cw := new(eth2.CIDWrapper)
 		cw.BlockNumber = big.NewInt(blockNumber)
-		if !streamFilter.HeaderFilter.Off {
+		if !filter.HeaderFilter.Off {
 			cw.Header = header
 			empty = false
-			if streamFilter.HeaderFilter.Uncles {
+			if filter.HeaderFilter.Uncles {
 				// Retrieve uncle cids for this header id
 				uncleCIDs, err := ecr.RetrieveUncleCIDsByHeaderID(tx, header.ID)
 				if err != nil {
@@ -107,8 +110,8 @@ func (ecr *CIDRetriever) Retrieve(filter shared.SubscriptionSettings, blockNumbe
 			}
 		}
 		// Retrieve cached trx CIDs
-		if !streamFilter.TxFilter.Off {
-			cw.Transactions, err = ecr.RetrieveTxCIDs(tx, streamFilter.TxFilter, header.ID)
+		if !filter.TxFilter.Off {
+			cw.Transactions, err = ecr.RetrieveTxCIDs(tx, filter.TxFilter, header.ID)
 			if err != nil {
 				log.Error("transaction cid retrieval error")
 				return nil, true, err
@@ -122,8 +125,8 @@ func (ecr *CIDRetriever) Retrieve(filter shared.SubscriptionSettings, blockNumbe
 			trxIds[j] = tx.ID
 		}
 		// Retrieve cached receipt CIDs
-		if !streamFilter.ReceiptFilter.Off {
-			cw.Receipts, err = ecr.RetrieveRctCIDsByHeaderID(tx, streamFilter.ReceiptFilter, header.ID, trxIds)
+		if !filter.ReceiptFilter.Off {
+			cw.Receipts, err = ecr.RetrieveRctCIDsByHeaderID(tx, filter.ReceiptFilter, header.ID, trxIds)
 			if err != nil {
 				log.Error("receipt cid retrieval error")
 				return nil, true, err
@@ -133,8 +136,8 @@ func (ecr *CIDRetriever) Retrieve(filter shared.SubscriptionSettings, blockNumbe
 			}
 		}
 		// Retrieve cached state CIDs
-		if !streamFilter.StateFilter.Off {
-			cw.StateNodes, err = ecr.RetrieveStateCIDs(tx, streamFilter.StateFilter, header.ID)
+		if !filter.StateFilter.Off {
+			cw.StateNodes, err = ecr.RetrieveStateCIDs(tx, filter.StateFilter, header.ID)
 			if err != nil {
 				log.Error("state cid retrieval error")
 				return nil, true, err
@@ -144,8 +147,8 @@ func (ecr *CIDRetriever) Retrieve(filter shared.SubscriptionSettings, blockNumbe
 			}
 		}
 		// Retrieve cached storage CIDs
-		if !streamFilter.StorageFilter.Off {
-			cw.StorageNodes, err = ecr.RetrieveStorageCIDs(tx, streamFilter.StorageFilter, header.ID)
+		if !filter.StorageFilter.Off {
+			cw.StorageNodes, err = ecr.RetrieveStorageCIDs(tx, filter.StorageFilter, header.ID)
 			if err != nil {
 				log.Error("storage cid retrieval error")
 				return nil, true, err
@@ -154,25 +157,25 @@ func (ecr *CIDRetriever) Retrieve(filter shared.SubscriptionSettings, blockNumbe
 				empty = false
 			}
 		}
-		cws[i] = cw
+		cws[i] = *cw
 	}
 
 	return cws, empty, err
 }
 
 // RetrieveHeaderCIDs retrieves and returns all of the header cids at the provided blockheight
-func (ecr *CIDRetriever) RetrieveHeaderCIDs(tx *sqlx.Tx, blockNumber int64) ([]HeaderModel, error) {
+func (ecr *CIDRetriever) RetrieveHeaderCIDs(tx *sqlx.Tx, blockNumber int64) ([]eth2.HeaderModel, error) {
 	log.Debug("retrieving header cids for block ", blockNumber)
-	headers := make([]HeaderModel, 0)
+	headers := make([]eth2.HeaderModel, 0)
 	pgStr := `SELECT * FROM eth.header_cids
 				WHERE block_number = $1`
 	return headers, tx.Select(&headers, pgStr, blockNumber)
 }
 
 // RetrieveUncleCIDsByHeaderID retrieves and returns all of the uncle cids for the provided header
-func (ecr *CIDRetriever) RetrieveUncleCIDsByHeaderID(tx *sqlx.Tx, headerID int64) ([]UncleModel, error) {
+func (ecr *CIDRetriever) RetrieveUncleCIDsByHeaderID(tx *sqlx.Tx, headerID int64) ([]eth2.UncleModel, error) {
 	log.Debug("retrieving uncle cids for block id ", headerID)
-	headers := make([]UncleModel, 0)
+	headers := make([]eth2.UncleModel, 0)
 	pgStr := `SELECT * FROM eth.uncle_cids
 				WHERE header_id = $1`
 	return headers, tx.Select(&headers, pgStr, headerID)
@@ -180,10 +183,10 @@ func (ecr *CIDRetriever) RetrieveUncleCIDsByHeaderID(tx *sqlx.Tx, headerID int64
 
 // RetrieveTxCIDs retrieves and returns all of the trx cids at the provided blockheight that conform to the provided filter parameters
 // also returns the ids for the returned transaction cids
-func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID int64) ([]TxModel, error) {
+func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID int64) ([]eth2.TxModel, error) {
 	log.Debug("retrieving transaction cids for header id ", headerID)
 	args := make([]interface{}, 0, 3)
-	results := make([]TxModel, 0)
+	results := make([]eth2.TxModel, 0)
 	id := 1
 	pgStr := fmt.Sprintf(`SELECT transaction_cids.id, transaction_cids.header_id,
  			transaction_cids.tx_hash, transaction_cids.cid, transaction_cids.mh_key,
@@ -208,7 +211,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID
 
 // RetrieveRctCIDsByHeaderID retrieves and returns all of the rct cids at the provided header ID that conform to the provided
 // filter parameters and correspond to the provided tx ids
-func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter ReceiptFilter, headerID int64, trxIds []int64) ([]ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter ReceiptFilter, headerID int64, trxIds []int64) ([]eth2.ReceiptModel, error) {
 	log.Debug("retrieving receipt cids for header id ", headerID)
 	args := make([]interface{}, 0, 4)
 	pgStr := `SELECT receipt_cids.id, receipt_cids.tx_id, receipt_cids.cid, receipt_cids.mh_key,
@@ -282,13 +285,13 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 		}
 	}
 	pgStr += ` ORDER BY transaction_cids.index`
-	receiptCids := make([]ReceiptModel, 0)
+	receiptCids := make([]eth2.ReceiptModel, 0)
 	return receiptCids, tx.Select(&receiptCids, pgStr, args...)
 }
 
 // RetrieveRctCIDs retrieves and returns all of the rct cids at the provided blockheight or block hash that conform to the provided
 // filter parameters and correspond to the provided tx ids
-func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash, trxIds []int64) ([]ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash, trxIds []int64) ([]eth2.ReceiptModel, error) {
 	log.Debug("retrieving receipt cids for block ", blockNumber)
 	args := make([]interface{}, 0, 5)
 	pgStr := `SELECT receipt_cids.id, receipt_cids.tx_id, receipt_cids.cid, receipt_cids.mh_key,
@@ -370,7 +373,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, b
 		}
 	}
 	pgStr += ` ORDER BY transaction_cids.index`
-	receiptCids := make([]ReceiptModel, 0)
+	receiptCids := make([]eth2.ReceiptModel, 0)
 	return receiptCids, tx.Select(&receiptCids, pgStr, args...)
 }
 
@@ -384,7 +387,7 @@ func hasTopics(topics [][]string) bool {
 }
 
 // RetrieveStateCIDs retrieves and returns all of the state node cids at the provided header ID that conform to the provided filter parameters
-func (ecr *CIDRetriever) RetrieveStateCIDs(tx *sqlx.Tx, stateFilter StateFilter, headerID int64) ([]StateNodeModel, error) {
+func (ecr *CIDRetriever) RetrieveStateCIDs(tx *sqlx.Tx, stateFilter StateFilter, headerID int64) ([]eth2.StateNodeModel, error) {
 	log.Debug("retrieving state cids for header id ", headerID)
 	args := make([]interface{}, 0, 2)
 	pgStr := `SELECT state_cids.id, state_cids.header_id,
@@ -404,12 +407,12 @@ func (ecr *CIDRetriever) RetrieveStateCIDs(tx *sqlx.Tx, stateFilter StateFilter,
 	if !stateFilter.IntermediateNodes {
 		pgStr += ` AND state_cids.node_type = 2`
 	}
-	stateNodeCIDs := make([]StateNodeModel, 0)
+	stateNodeCIDs := make([]eth2.StateNodeModel, 0)
 	return stateNodeCIDs, tx.Select(&stateNodeCIDs, pgStr, args...)
 }
 
 // RetrieveStorageCIDs retrieves and returns all of the storage node cids at the provided header id that conform to the provided filter parameters
-func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageFilter, headerID int64) ([]StorageNodeWithStateKeyModel, error) {
+func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageFilter, headerID int64) ([]eth2.StorageNodeWithStateKeyModel, error) {
 	log.Debug("retrieving storage cids for header id ", headerID)
 	args := make([]interface{}, 0, 3)
 	pgStr := `SELECT storage_cids.id, storage_cids.state_id, storage_cids.storage_leaf_key, storage_cids.node_type,
@@ -437,68 +440,18 @@ func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageF
 	if !storageFilter.IntermediateNodes {
 		pgStr += ` AND storage_cids.node_type = 2`
 	}
-	storageNodeCIDs := make([]StorageNodeWithStateKeyModel, 0)
+	storageNodeCIDs := make([]eth2.StorageNodeWithStateKeyModel, 0)
 	return storageNodeCIDs, tx.Select(&storageNodeCIDs, pgStr, args...)
 }
 
-// RetrieveGapsInData is used to find the the block numbers at which we are missing data in the db
-// it finds the union of heights where no data exists and where the times_validated is lower than the validation level
-func (ecr *CIDRetriever) RetrieveGapsInData(validationLevel int) ([]shared.Gap, error) {
-	log.Info("searching for gaps in the eth ipfs watcher database")
-	startingBlock, err := ecr.RetrieveFirstBlockNumber()
-	if err != nil {
-		return nil, fmt.Errorf("eth CIDRetriever RetrieveFirstBlockNumber error: %v", err)
-	}
-	var initialGap []shared.Gap
-	if startingBlock != 0 {
-		stop := uint64(startingBlock - 1)
-		log.Infof("found gap at the beginning of the eth sync from 0 to %d", stop)
-		initialGap = []shared.Gap{{
-			Start: 0,
-			Stop:  stop,
-		}}
-	}
-
-	pgStr := `SELECT header_cids.block_number + 1 AS start, min(fr.block_number) - 1 AS stop FROM eth.header_cids
-				LEFT JOIN eth.header_cids r on eth.header_cids.block_number = r.block_number - 1
-				LEFT JOIN eth.header_cids fr on eth.header_cids.block_number < fr.block_number
-				WHERE r.block_number is NULL and fr.block_number IS NOT NULL
-				GROUP BY header_cids.block_number, r.block_number`
-	results := make([]struct {
-		Start uint64 `db:"start"`
-		Stop  uint64 `db:"stop"`
-	}, 0)
-	if err := ecr.db.Select(&results, pgStr); err != nil && err != sql.ErrNoRows {
-		return nil, err
-	}
-	emptyGaps := make([]shared.Gap, len(results))
-	for i, res := range results {
-		emptyGaps[i] = shared.Gap{
-			Start: res.Start,
-			Stop:  res.Stop,
-		}
-	}
-
-	// Find sections of blocks where we are below the validation level
-	// There will be no overlap between these "gaps" and the ones above
-	pgStr = `SELECT block_number FROM eth.header_cids
-			WHERE times_validated < $1
-			ORDER BY block_number`
-	var heights []uint64
-	if err := ecr.db.Select(&heights, pgStr, validationLevel); err != nil && err != sql.ErrNoRows {
-		return nil, err
-	}
-	return append(append(initialGap, emptyGaps...), utils.MissingHeightsToGaps(heights)...), nil
-}
-
 // RetrieveBlockByHash returns all of the CIDs needed to compose an entire block, for a given block hash
-func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (HeaderModel, []UncleModel, []TxModel, []ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (eth2.HeaderModel, []eth2.UncleModel, []eth2.TxModel, []eth2.ReceiptModel, error) {
 	log.Debug("retrieving block cids for block hash ", blockHash.String())
 
 	// Begin new db tx
 	tx, err := ecr.db.Beginx()
 	if err != nil {
-		return HeaderModel{}, nil, nil, nil, err
+		return eth2.HeaderModel{}, nil, nil, nil, err
 	}
 	defer func() {
 		if p := recover(); p != nil {
@@ -514,17 +467,17 @@ func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (HeaderModel
 	headerCID, err := ecr.RetrieveHeaderCIDByHash(tx, blockHash)
 	if err != nil {
 		log.Error("header cid retrieval error")
-		return HeaderModel{}, nil, nil, nil, err
+		return eth2.HeaderModel{}, nil, nil, nil, err
 	}
 	uncleCIDs, err := ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID.ID)
 	if err != nil {
 		log.Error("uncle cid retrieval error")
-		return HeaderModel{}, nil, nil, nil, err
+		return eth2.HeaderModel{}, nil, nil, nil, err
 	}
 	txCIDs, err := ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.ID)
 	if err != nil {
 		log.Error("tx cid retrieval error")
-		return HeaderModel{}, nil, nil, nil, err
+		return eth2.HeaderModel{}, nil, nil, nil, err
 	}
 	txIDs := make([]int64, len(txCIDs))
 	for i, txCID := range txCIDs {
@@ -538,13 +491,13 @@ func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (HeaderModel
 }
 
 // RetrieveBlockByNumber returns all of the CIDs needed to compose an entire block, for a given block number
-func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (HeaderModel, []UncleModel, []TxModel, []ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (eth2.HeaderModel, []eth2.UncleModel, []eth2.TxModel, []eth2.ReceiptModel, error) {
 	log.Debug("retrieving block cids for block number ", blockNumber)
 
 	// Begin new db tx
 	tx, err := ecr.db.Beginx()
 	if err != nil {
-		return HeaderModel{}, nil, nil, nil, err
+		return eth2.HeaderModel{}, nil, nil, nil, err
 	}
 	defer func() {
 		if p := recover(); p != nil {
@@ -560,20 +513,20 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (HeaderModel, 
 	headerCID, err := ecr.RetrieveHeaderCIDs(tx, blockNumber)
 	if err != nil {
 		log.Error("header cid retrieval error")
-		return HeaderModel{}, nil, nil, nil, err
+		return eth2.HeaderModel{}, nil, nil, nil, err
 	}
 	if len(headerCID) < 1 {
-		return HeaderModel{}, nil, nil, nil, fmt.Errorf("header cid retrieval error, no header CIDs found at block %d", blockNumber)
+		return eth2.HeaderModel{}, nil, nil, nil, fmt.Errorf("header cid retrieval error, no header CIDs found at block %d", blockNumber)
 	}
 	uncleCIDs, err := ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID[0].ID)
 	if err != nil {
 		log.Error("uncle cid retrieval error")
-		return HeaderModel{}, nil, nil, nil, err
+		return eth2.HeaderModel{}, nil, nil, nil, err
 	}
 	txCIDs, err := ecr.RetrieveTxCIDsByHeaderID(tx, headerCID[0].ID)
 	if err != nil {
 		log.Error("tx cid retrieval error")
-		return HeaderModel{}, nil, nil, nil, err
+		return eth2.HeaderModel{}, nil, nil, nil, err
 	}
 	txIDs := make([]int64, len(txCIDs))
 	for i, txCID := range txCIDs {
@@ -587,26 +540,26 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (HeaderModel, 
 }
 
 // RetrieveHeaderCIDByHash returns the header for the given block hash
-func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.Hash) (HeaderModel, error) {
+func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.Hash) (eth2.HeaderModel, error) {
 	log.Debug("retrieving header cids for block hash ", blockHash.String())
 	pgStr := `SELECT * FROM eth.header_cids
 			WHERE block_hash = $1`
-	var headerCID HeaderModel
+	var headerCID eth2.HeaderModel
 	return headerCID, tx.Get(&headerCID, pgStr, blockHash.String())
 }
 
 // RetrieveTxCIDsByHeaderID retrieves all tx CIDs for the given header id
-func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID int64) ([]TxModel, error) {
+func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID int64) ([]eth2.TxModel, error) {
 	log.Debug("retrieving tx cids for block id ", headerID)
 	pgStr := `SELECT * FROM eth.transaction_cids
 			WHERE header_id = $1
 			ORDER BY index`
-	var txCIDs []TxModel
+	var txCIDs []eth2.TxModel
 	return txCIDs, tx.Select(&txCIDs, pgStr, headerID)
 }
 
 // RetrieveReceiptCIDsByTxIDs retrieves receipt CIDs by their associated tx IDs
-func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txIDs []int64) ([]ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txIDs []int64) ([]eth2.ReceiptModel, error) {
 	log.Debugf("retrieving receipt cids for tx ids %v", txIDs)
 	pgStr := `SELECT receipt_cids.id, receipt_cids.tx_id, receipt_cids.cid, receipt_cids.mh_key,
  			receipt_cids.contract, receipt_cids.contract_hash, receipt_cids.topic0s, receipt_cids.topic1s,
@@ -615,6 +568,6 @@ func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txIDs []int64) 
 			WHERE tx_id = ANY($1::INTEGER[])
 			AND receipt_cids.tx_id = transaction_cids.id
 			ORDER BY transaction_cids.index`
-	var rctCIDs []ReceiptModel
+	var rctCIDs []eth2.ReceiptModel
 	return rctCIDs, tx.Select(&rctCIDs, pgStr, pq.Array(txIDs))
 }

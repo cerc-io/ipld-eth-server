@@ -20,8 +20,6 @@ import (
 	"math/big"
 
 	"github.com/spf13/viper"
-
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
 )
 
 // SubscriptionSettings config is used by a subscriber to specify what eth data to stream from the watcher
@@ -124,29 +122,4 @@ func NewEthSubscriptionConfig() (*SubscriptionSettings, error) {
 		StorageKeys:       viper.GetStringSlice("watcher.ethSubscription.storageFilter.storageKeys"),
 	}
 	return sc, nil
-}
-
-// StartingBlock satisfies the SubscriptionSettings() interface
-func (sc *SubscriptionSettings) StartingBlock() *big.Int {
-	return sc.Start
-}
-
-// EndingBlock satisfies the SubscriptionSettings() interface
-func (sc *SubscriptionSettings) EndingBlock() *big.Int {
-	return sc.End
-}
-
-// HistoricalData satisfies the SubscriptionSettings() interface
-func (sc *SubscriptionSettings) HistoricalData() bool {
-	return sc.BackFill
-}
-
-// HistoricalDataOnly satisfies the SubscriptionSettings() interface
-func (sc *SubscriptionSettings) HistoricalDataOnly() bool {
-	return sc.BackFillOnly
-}
-
-// ChainType satisfies the SubscriptionSettings() interface
-func (sc *SubscriptionSettings) ChainType() shared.ChainType {
-	return shared.Ethereum
 }

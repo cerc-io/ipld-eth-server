@@ -14,22 +14,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package eth_test
+package serve
 
-import (
-	"io/ioutil"
-	"testing"
+import log "github.com/sirupsen/logrus"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
-)
-
-func TestETHWatcher(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "eth ipld server eth suite test")
+func sendNonBlockingErr(sub Subscription, err error) {
+	log.Error(err)
+	select {
+	case sub.PayloadChan <- SubscriptionPayload{Data: nil, Err: err.Error(), Flag: EmptyFlag}:
+	default:
+		log.Infof("unable to send error to subscription %s", sub.ID)
+	}
 }
 
-var _ = BeforeSuite(func() {
-	logrus.SetOutput(ioutil.Discard)
-})
+func sendNonBlockingQuit(sub Subscription) {
+	select {
+	case sub.QuitChan <- true:
+		log.Infof("closing subscription %s", sub.ID)
+	default:
+		log.Infof("unable to close subscription %s; channel has no receiver", sub.ID)
+	}
+}

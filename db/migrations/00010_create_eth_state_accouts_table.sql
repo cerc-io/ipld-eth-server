@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE eth.state_accounts (
   id                    SERIAL PRIMARY KEY,
-  state_id              INTEGER NOT NULL REFERENCES eth.state_cids (id) ON DELETE CASCADE,
+  state_id              INTEGER NOT NULL REFERENCES eth.state_cids (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
   balance               NUMERIC NOT NULL,
   nonce                 INTEGER NOT NULL,
   code_hash             BYTEA NOT NULL,

@@ -20,15 +20,17 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth/mocks"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/shared"
+	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
 	db            *postgres.DB
-	pubAndIndexer *eth.IPLDPublisher
+	pubAndIndexer *eth2.IPLDPublisher
 	fetcher       *eth.IPLDFetcher
 )
 
@@ -38,7 +40,7 @@ var _ = Describe("IPLDFetcher", func() {
 			var err error
 			db, err = shared.SetupDB()
 			Expect(err).ToNot(HaveOccurred())
-			pubAndIndexer = eth.NewIPLDPublisher(db)
+			pubAndIndexer = eth2.NewIPLDPublisher(db)
 			err = pubAndIndexer.Publish(mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			fetcher = eth.NewIPLDFetcher(db)
@@ -48,10 +50,9 @@ var _ = Describe("IPLDFetcher", func() {
 		})
 
 		It("Fetches and returns IPLDs for the CIDs provided in the CIDWrapper", func() {
-			i, err := fetcher.Fetch(mocks.MockCIDWrapper)
+			iplds, err := fetcher.Fetch(*mocks.MockCIDWrapper)
 			Expect(err).ToNot(HaveOccurred())
-			iplds, ok := i.(eth.IPLDs)
-			Expect(ok).To(BeTrue())
+			Expect(iplds).ToNot(BeNil())
 			Expect(iplds.TotalDifficulty).To(Equal(mocks.MockConvertedPayload.TotalDifficulty))
 			Expect(iplds.BlockNumber).To(Equal(mocks.MockConvertedPayload.Block.Number()))
 			Expect(iplds.Header).To(Equal(mocks.MockIPLDs.Header))

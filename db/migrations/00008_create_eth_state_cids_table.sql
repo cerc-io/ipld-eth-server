@@ -6,7 +6,7 @@ CREATE TABLE eth.state_cids (
   cid                   TEXT NOT NULL,
   mh_key                TEXT NOT NULL REFERENCES public.blocks (key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
   state_path            BYTEA,
-  node_type             INTEGER,
+  node_type             INTEGER NOT NULL,
   diff                  BOOLEAN NOT NULL DEFAULT FALSE,
   UNIQUE (header_id, state_path)
 );

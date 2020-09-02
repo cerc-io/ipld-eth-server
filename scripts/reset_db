@@ -11,9 +11,9 @@ fi
 
 db=$1
 dir=$(basename "$(pwd)")
-if [ $dir != "ipfs-blockchain-watcher" ]
+if [ $dir != "ipld-eth-server" ]
 then
-  echo "Run me from the ipfs-blockchain-watcher root dir"
+  echo "Run me from the ipld-eth-server root dir"
   exit 1
 fi
 

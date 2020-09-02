@@ -33,7 +33,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:              "ipfs-blockchain-watcher",
+	Use:              "ipld-eth-server",
 	PersistentPreRun: initFuncs,
 }
 
