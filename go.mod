@@ -16,10 +16,8 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.7.0
-	github.com/vulcanize/ipld-eth-indexer v0.0.11-alpha
+	github.com/vulcanize/ipld-eth-indexer v0.2.0-alpha
 	github.com/vulcanize/pg-ipfs-ethdb v0.0.1-alpha
 )
 
 replace github.com/ethereum/go-ethereum v1.9.11 => github.com/vulcanize/go-ethereum v1.9.11-statediff-0.0.5
-
-replace github.com/vulcanize/ipld-eth-indexer => /Users/iannorden/go/src/github.com/vulcanize/ipld-eth-indexer
