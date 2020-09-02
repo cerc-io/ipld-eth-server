@@ -26,9 +26,9 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/multiformats/go-multihash"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs/ipld"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs/ipld"
 )
 
 // Filterer interface for substituing mocks in tests

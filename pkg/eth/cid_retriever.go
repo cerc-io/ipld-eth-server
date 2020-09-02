@@ -26,8 +26,8 @@ import (
 	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
-	eth2 "github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
+	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )

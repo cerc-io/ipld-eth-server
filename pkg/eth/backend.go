@@ -30,8 +30,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	ipfsethdb "github.com/vulcanize/pg-ipfs-ethdb"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 

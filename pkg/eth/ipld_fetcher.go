@@ -25,9 +25,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )

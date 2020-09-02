@@ -20,12 +20,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/vulcanize/ipld-eth-indexer/pkg/node"
+
 	"github.com/spf13/viper"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/node"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
-	"github.com/vulcanize/ipld-eth-server/utils"
+	"github.com/vulcanize/ipld-eth-indexer/utils"
 )
 
 // Env variables
@@ -79,7 +80,7 @@ func NewConfig() (*Config, error) {
 	}
 	c.HTTPEndpoint = httpPath
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB := utils.LoadPostgres(c.DBConfig, postgres.Info{})
+	serveDB := utils.LoadPostgres(c.DBConfig, node.Info{})
 	c.DB = &serveDB
 
 	return c, nil

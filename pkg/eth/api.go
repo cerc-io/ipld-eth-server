@@ -20,7 +20,7 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 
 	"github.com/ethereum/go-ethereum"

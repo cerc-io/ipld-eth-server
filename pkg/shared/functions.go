@@ -24,7 +24,7 @@ import (
 	node "github.com/ipfs/go-ipld-format"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/ipfs/ipld"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs/ipld"
 )
 
 // HandleZeroAddrPointer will return an emtpy string for a nil address pointer

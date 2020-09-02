@@ -18,22 +18,22 @@ package cmd
 import (
 	"os"
 	"os/signal"
-	s "sync"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/serve"
+	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
 	v "github.com/vulcanize/ipld-eth-server/version"
 )
 
-// watchCmd represents the watch command
-var watchCmd = &cobra.Command{
-	Use:   "watch",
+// serveCmd represents the serve command
+var serveCmd = &cobra.Command{
+	Use:   "serve",
 	Short: "serve chain data from PG-IPFS",
 	Long: `This command configures a VulcanizeDB ipld-eth-server.
 
@@ -41,82 +41,81 @@ var watchCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		subCommand = cmd.CalledAs()
 		logWithCommand = *log.WithField("SubCommand", subCommand)
-		watch()
+		serve()
 	},
 }
 
-func watch() {
+func serve() {
 	logWithCommand.Infof("running ipld-eth-server version: %s", v.VersionWithMeta)
 
 	var forwardPayloadChan chan eth.ConvertedPayload
-	wg := new(s.WaitGroup)
-	logWithCommand.Debug("loading watcher configuration variables")
-	watcherConfig, err := serve.NewConfig()
+	wg := new(sync.WaitGroup)
+	logWithCommand.Debug("loading server configuration variables")
+	serverConfig, err := s.NewConfig()
 	if err != nil {
 		logWithCommand.Fatal(err)
 	}
-	logWithCommand.Infof("watcher config: %+v", watcherConfig)
-	logWithCommand.Debug("initializing new watcher service")
-	s, err := serve.NewServer(watcherConfig)
+	logWithCommand.Infof("server config: %+v", serverConfig)
+	logWithCommand.Debug("initializing new server service")
+	server, err := s.NewServer(serverConfig)
 	if err != nil {
 		logWithCommand.Fatal(err)
 	}
 
-	logWithCommand.Info("starting up watcher servers")
-	forwardPayloadChan = make(chan eth.ConvertedPayload, serve.PayloadChanBufferSize)
-	s.Serve(wg, forwardPayloadChan)
-	if err := startServers(s, watcherConfig); err != nil {
+	logWithCommand.Info("starting up server servers")
+	forwardPayloadChan = make(chan eth.ConvertedPayload, s.PayloadChanBufferSize)
+	server.Serve(wg, forwardPayloadChan)
+	if err := startServers(server, serverConfig); err != nil {
 		logWithCommand.Fatal(err)
 	}
-
 
 	shutdown := make(chan os.Signal)
 	signal.Notify(shutdown, os.Interrupt)
 	<-shutdown
-	s.Stop()
+	server.Stop()
 	wg.Wait()
 }
 
-func startServers(watcher serve.Server, settings *serve.Config) error {
+func startServers(server s.Server, settings *s.Config) error {
 	logWithCommand.Debug("starting up IPC server")
-	_, _, err := rpc.StartIPCEndpoint(settings.IPCEndpoint, watcher.APIs())
+	_, _, err := rpc.StartIPCEndpoint(settings.IPCEndpoint, server.APIs())
 	if err != nil {
 		return err
 	}
 	logWithCommand.Debug("starting up WS server")
-	_, _, err = rpc.StartWSEndpoint(settings.WSEndpoint, watcher.APIs(), []string{"vdb"}, nil, true)
+	_, _, err = rpc.StartWSEndpoint(settings.WSEndpoint, server.APIs(), []string{"vdb"}, nil, true)
 	if err != nil {
 		return err
 	}
 	logWithCommand.Debug("starting up HTTP server")
-	_, _, err = rpc.StartHTTPEndpoint(settings.HTTPEndpoint, watcher.APIs(), []string{"eth"}, nil, nil, rpc.HTTPTimeouts{})
+	_, _, err = rpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth"}, nil, nil, rpc.HTTPTimeouts{})
 	return err
 }
 
 func init() {
-	rootCmd.AddCommand(watchCmd)
+	rootCmd.AddCommand(serveCmd)
 
 	// flags for all config variables
-	watchCmd.PersistentFlags().String("watcher-ws-path", "", "vdb server ws path")
-	watchCmd.PersistentFlags().String("watcher-http-path", "", "vdb server http path")
-	watchCmd.PersistentFlags().String("watcher-ipc-path", "", "vdb server ipc path")
+	serveCmd.PersistentFlags().String("server-ws-path", "", "vdb server ws path")
+	serveCmd.PersistentFlags().String("server-http-path", "", "vdb server http path")
+	serveCmd.PersistentFlags().String("server-ipc-path", "", "vdb server ipc path")
 
-	watchCmd.PersistentFlags().String("eth-ws-path", "", "ws url for ethereum node")
-	watchCmd.PersistentFlags().String("eth-http-path", "", "http url for ethereum node")
-	watchCmd.PersistentFlags().String("eth-node-id", "", "eth node id")
-	watchCmd.PersistentFlags().String("eth-client-name", "", "eth client name")
-	watchCmd.PersistentFlags().String("eth-genesis-block", "", "eth genesis block hash")
-	watchCmd.PersistentFlags().String("eth-network-id", "", "eth network id")
+	serveCmd.PersistentFlags().String("eth-ws-path", "", "ws url for ethereum node")
+	serveCmd.PersistentFlags().String("eth-http-path", "", "http url for ethereum node")
+	serveCmd.PersistentFlags().String("eth-node-id", "", "eth node id")
+	serveCmd.PersistentFlags().String("eth-client-name", "", "eth client name")
+	serveCmd.PersistentFlags().String("eth-genesis-block", "", "eth genesis block hash")
+	serveCmd.PersistentFlags().String("eth-network-id", "", "eth network id")
 
 	// and their bindings
-	viper.BindPFlag("watcher.wsPath", watchCmd.PersistentFlags().Lookup("watcher-ws-path"))
-	viper.BindPFlag("watcher.httpPath", watchCmd.PersistentFlags().Lookup("watcher-http-path"))
-	viper.BindPFlag("watcher.ipcPath", watchCmd.PersistentFlags().Lookup("watcher-ipc-path"))
+	viper.BindPFlag("server.wsPath", serveCmd.PersistentFlags().Lookup("server-ws-path"))
+	viper.BindPFlag("server.httpPath", serveCmd.PersistentFlags().Lookup("server-http-path"))
+	viper.BindPFlag("server.ipcPath", serveCmd.PersistentFlags().Lookup("server-ipc-path"))
 
-	viper.BindPFlag("ethereum.wsPath", watchCmd.PersistentFlags().Lookup("eth-ws-path"))
-	viper.BindPFlag("ethereum.httpPath", watchCmd.PersistentFlags().Lookup("eth-http-path"))
-	viper.BindPFlag("ethereum.nodeID", watchCmd.PersistentFlags().Lookup("eth-node-id"))
-	viper.BindPFlag("ethereum.clientName", watchCmd.PersistentFlags().Lookup("eth-client-name"))
-	viper.BindPFlag("ethereum.genesisBlock", watchCmd.PersistentFlags().Lookup("eth-genesis-block"))
-	viper.BindPFlag("ethereum.networkID", watchCmd.PersistentFlags().Lookup("eth-network-id"))
+	viper.BindPFlag("ethereum.wsPath", serveCmd.PersistentFlags().Lookup("eth-ws-path"))
+	viper.BindPFlag("ethereum.httpPath", serveCmd.PersistentFlags().Lookup("eth-http-path"))
+	viper.BindPFlag("ethereum.nodeID", serveCmd.PersistentFlags().Lookup("eth-node-id"))
+	viper.BindPFlag("ethereum.clientName", serveCmd.PersistentFlags().Lookup("eth-client-name"))
+	viper.BindPFlag("ethereum.genesisBlock", serveCmd.PersistentFlags().Lookup("eth-genesis-block"))
+	viper.BindPFlag("ethereum.networkID", serveCmd.PersistentFlags().Lookup("eth-network-id"))
 }

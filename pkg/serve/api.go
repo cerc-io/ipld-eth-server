@@ -23,8 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/node"
-
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	v "github.com/vulcanize/ipld-eth-server/version"
@@ -85,12 +83,6 @@ func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionS
 	}()
 
 	return rpcSub, nil
-}
-
-// Node is a public rpc method to allow transformers to fetch the node info for the watcher
-// NOTE: this is the node info for the node that the watcher is syncing from, not the node info for the watcher itself
-func (api *PublicServerAPI) Node() *node.Info {
-	return api.w.Node()
 }
 
 // Chain returns the chain type that this watcher instance supports

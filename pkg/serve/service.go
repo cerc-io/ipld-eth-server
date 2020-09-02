@@ -28,9 +28,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 
-	eth2 "github.com/vulcanize/ipfs-blockchain-watcher/pkg/eth"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/node"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
+	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
@@ -88,7 +87,6 @@ func NewServer(settings *Config) (Server, error) {
 	sn.QuitChan = make(chan bool)
 	sn.Subscriptions = make(map[common.Hash]map[rpc.ID]Subscription)
 	sn.SubscriptionTypes = make(map[common.Hash]eth.SubscriptionSettings)
-	sn.NodeInfo = &settings.NodeInfo
 	return sn, nil
 }
 
@@ -273,7 +271,7 @@ func (sap *Service) sendHistoricalData(sub Subscription, id rpc.ID, params eth.S
 		for i := startingBlock; i <= endingBlock; i++ {
 			select {
 			case <-sap.QuitChan:
-				log.Infof("%s watcher historical data feed to subscription %s closed", id)
+				log.Infof("ethereum historical data feed to subscription %s closed", id)
 				return
 			default:
 			}
@@ -309,7 +307,7 @@ func (sap *Service) sendHistoricalData(sub Subscription, id rpc.ID, params eth.S
 		case sub.PayloadChan <- SubscriptionPayload{Data: nil, Err: "", Flag: BackFillCompleteFlag}:
 			log.Debugf("eth ipld server sending backFill completion notice to subscription %s", id)
 		default:
-			log.Infof("eth ipld server unable to send backFill completion notice to %s subscription %s", id)
+			log.Infof("eth ipld server unable to send backFill completion notice to subscription %s", id)
 		}
 	}()
 	return nil

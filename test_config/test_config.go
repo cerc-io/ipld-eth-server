@@ -22,7 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 )
 
 var DBConfig postgres.Config

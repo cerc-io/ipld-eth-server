@@ -18,7 +18,7 @@ package shared
 
 import (
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipfs-blockchain-watcher/pkg/node"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/node"
 )
 
 // Env variables
