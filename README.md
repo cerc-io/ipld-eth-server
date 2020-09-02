@@ -79,13 +79,13 @@ TODO: Port the IPLD RPC subscription endpoints after the decoupling
 #### Ethereum JSON-RPC
 ipld-eth-server currently recapitulates portions of the Ethereum JSON-RPC api standard.
 
-The currently supported standard endpoints are:
-`eth_blockNumber`
-`eth_getLogs`
-`eth_getHeaderByNumber`
-`eth_getBlockByNumber`
-`eth_getBlockByHash`
-`eth_getTransactionByHash`
+The currently supported standard endpoints are:  
+`eth_blockNumber`  
+`eth_getLogs`  
+`eth_getHeaderByNumber`  
+`eth_getBlockByNumber`  
+`eth_getBlockByHash`  
+`eth_getTransactionByHash`  
 
 TODO: Add the rest of the standard endpoints add unique endpoints (e.g. getSlice)
 
