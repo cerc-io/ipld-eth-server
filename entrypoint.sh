@@ -13,7 +13,7 @@ set +x
 #test $DATABASE_USER
 #test $DATABASE_PASSWORD
 #test $IPFS_INIT
-VDB_COMMAND=${VDB_COMMAND:-watch}
+#VDB_COMMAND=${VDB_COMMAND:-watch}
 set +e
 
 # Construct the connection string for postgres
@@ -31,29 +31,13 @@ if [ $rv != 0 ]; then
 fi
 
 
-echo "Beginning the vulcanizedb process"
-VDB_CONFIG_FILE=${VDB_CONFIG_FILE:-config.toml}
-DEFAULT_OPTIONS="--config=$VDB_CONFIG_FILE"
-VDB_FULL_CL=${VDB_FULL_CL:-$VDB_COMMAND $DEFAULT_OPTIONS}
-echo running: ./ipld-eth-server $VDB_FULL_CL $@
+echo "Beginning the ipld-eth-server process"
 
-case "$1" in
-  "/bin/sh" )
-    echo dropping to shell
-    exec /bin/sh
-esac
-
-vdb_args="$@"
-# default is to use the config passed by the build arg
-if [[ -z "$vdb_args" ]]; then
-  vdb_args="--config=config.toml"
-fi
-
-echo running: ./ipld-eth-server $vdb_args
-./ipld-eth-server $vdb_args
+echo running: ./ipld-eth-server ${VDB_COMMAND} --config=config.toml
+./ipld-eth-server ${VDB_COMMAND} --config=config.toml
 rv=$?
 
 if [ $rv != 0 ]; then
-  echo "VulcanizeDB startup failed"
+  echo "ipld-eth-server startup failed"
   exit 1
 fi

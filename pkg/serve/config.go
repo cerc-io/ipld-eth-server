@@ -60,12 +60,12 @@ func NewConfig() (*Config, error) {
 
 	c.DBConfig.Init()
 
-	wsPath := viper.GetString("watcher.wsPath")
+	wsPath := viper.GetString("server.wsPath")
 	if wsPath == "" {
 		wsPath = "127.0.0.1:8080"
 	}
 	c.WSEndpoint = wsPath
-	ipcPath := viper.GetString("watcher.ipcPath")
+	ipcPath := viper.GetString("server.ipcPath")
 	if ipcPath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -74,7 +74,7 @@ func NewConfig() (*Config, error) {
 		ipcPath = filepath.Join(home, ".vulcanize/vulcanize.ipc")
 	}
 	c.IPCEndpoint = ipcPath
-	httpPath := viper.GetString("watcher.httpPath")
+	httpPath := viper.GetString("server.httpPath")
 	if httpPath == "" {
 		httpPath = "127.0.0.1:8081"
 	}
