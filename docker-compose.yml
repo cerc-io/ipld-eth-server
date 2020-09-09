@@ -1,0 +1,78 @@
+version: '3.2'
+
+services:
+  dapptools:
+    restart: unless-stopped
+    image: vulcanize/dapptools:v0.29.0-statediff-0.0.2
+    ports:
+      - "127.0.0.1:8545:8545"
+      - "127.0.0.1:8546:8546"
+
+  db:
+    restart: always
+    image: postgres:10.12-alpine
+    environment:
+      POSTGRES_USER: "vdbm"
+      POSTGRES_DB: "vulcanize_public"
+      POSTGRES_PASSWORD: "password"
+    volumes:
+     - vdb_db_eth_server:/var/lib/postgresql/data
+    ports:
+     - "127.0.0.1:8077:5432"
+
+  eth-indexer:
+    restart: unless-stopped
+    depends_on:
+      - db
+      - dapptools
+    image: vulcanize/ipld-eth-indexer:v0.3.0-alpha
+    environment:
+      DATABASE_NAME: vulcanize_public
+      DATABASE_HOSTNAME: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: vdbm
+      DATABASE_PASSWORD: password
+      ETH_WS_PATH: "dapptools:8546"
+      ETH_HTTP_PATH: "dapptools:8545"
+      ETH_CHAIN_ID: 4
+      ETH_NETWORK_ID: 4
+      VDB_COMMAND: sync
+
+  eth-server:
+    depends_on:
+      - db
+    build:
+      context: ./
+      cache_from:
+       - alpine:latest
+       - golang:1.13-alpine
+    environment:
+      VDB_COMMAND: "serve"
+      DATABASE_NAME: "vulcanize_public"
+      DATABASE_HOSTNAME: "db"
+      DATABASE_PORT: 5432
+      DATABASE_USER: "vdbm"
+      DATABASE_PASSWORD: "password"
+      SERVER_WS_PATH: "0.0.0.0:8081"
+      SERVER_HTTP_PATH: "0.0.0.0:8082"
+    ports:
+     - "127.0.0.1:8080:8080"
+     - "127.0.0.1:8081:8081"
+
+  graphql:
+    restart: unless-stopped
+    depends_on:
+      - db
+    image: vulcanize/postgraphile:v1.0.1
+    environment:
+      - PG_HOST=db
+      - PG_PORT=5432
+      - PG_DATABASE=vulcanize_public
+      - PG_USER=vdbm
+      - PG_PASSWORD=password
+      - SCHEMA=public,eth
+    ports:
+      - "127.0.0.1:5000:5000"
+
+volumes:
+  vdb_db_eth_server:

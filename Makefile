@@ -137,3 +137,8 @@ version_migrations:
 import:
 	test -n "$(NAME)" # $$NAME
 	psql $(NAME) < db/schema.sql
+
+## Build docker image
+.PHONY: docker-build
+docker-build:
+	docker build -t vulcanize/ipld-eth-server .
