@@ -63,7 +63,7 @@ services:
     restart: unless-stopped
     depends_on:
       - db
-    image: vulcanize/postgraphile:v1.0
+    image: vulcanize/postgraphile:v1.0.1
     environment:
       - PG_HOST=db
       - PG_PORT=5432
