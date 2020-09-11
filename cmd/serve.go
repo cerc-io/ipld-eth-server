@@ -88,7 +88,7 @@ func startServers(server s.Server, settings *s.Config) error {
 		return err
 	}
 	logWithCommand.Info("starting up HTTP server")
-	_, _, err = rpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth"}, nil, nil, rpc.HTTPTimeouts{})
+	_, _, err = rpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
 	return err
 }
 
