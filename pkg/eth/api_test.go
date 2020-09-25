@@ -30,10 +30,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth/mocks"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
