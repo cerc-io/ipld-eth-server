@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/node"
+	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 
 	"github.com/spf13/viper"
 
@@ -81,6 +82,7 @@ func NewConfig() (*Config, error) {
 	c.HTTPEndpoint = httpPath
 	overrideDBConnConfig(&c.DBConfig)
 	serveDB := utils.LoadPostgres(c.DBConfig, node.Info{})
+	prom.RegisterDBCollector(c.DBConfig.Name, serveDB.DB)
 	c.DB = &serveDB
 
 	return c, nil
