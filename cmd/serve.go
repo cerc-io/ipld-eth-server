@@ -27,6 +27,8 @@ import (
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 
+	srpc "github.com/vulcanize/ipld-eth-server/pkg/rpc"
+
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
 	v "github.com/vulcanize/ipld-eth-server/version"
 )
@@ -78,17 +80,18 @@ func serve() {
 
 func startServers(server s.Server, settings *s.Config) error {
 	logWithCommand.Info("starting up IPC server")
-	_, _, err := rpc.StartIPCEndpoint(settings.IPCEndpoint, server.APIs())
+	_, _, err := srpc.StartIPCEndpoint(settings.IPCEndpoint, server.APIs())
 	if err != nil {
 		return err
 	}
 	logWithCommand.Info("starting up WS server")
-	_, _, err = rpc.StartWSEndpoint(settings.WSEndpoint, server.APIs(), []string{"vdb"}, nil, true)
+	_, _, err = srpc.StartWSEndpoint(settings.WSEndpoint, server.APIs(), []string{"vdb"}, nil, true)
 	if err != nil {
 		return err
 	}
 	logWithCommand.Info("starting up HTTP server")
-	_, _, err = rpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
+	_, _, err = srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
+
 	return err
 }
 
