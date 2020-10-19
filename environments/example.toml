@@ -1,5 +1,5 @@
 [database]
-    name     = "vulcanize_public" # $DATABASE_NAME
+    name     = "vulcanize_public1" # $DATABASE_NAME
     hostname = "localhost" # $DATABASE_HOSTNAME
     port     = 5432 # $DATABASE_PORT
     user     = "postgres" # $DATABASE_USER

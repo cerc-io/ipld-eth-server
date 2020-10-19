@@ -109,9 +109,15 @@ func init() {
 
 	rootCmd.PersistentFlags().Bool("metrics", false, "enable metrics")
 
+<<<<<<< HEAD
 	rootCmd.PersistentFlags().Bool("http", false, "enable http service for prometheus")
 	rootCmd.PersistentFlags().String("http-addr", "127.0.0.1", "http host for prometheus")
 	rootCmd.PersistentFlags().String("http-port", "8080", "http port for prometheus")
+=======
+	rootCmd.PersistentFlags().Bool("http", false, "enable http service")
+	rootCmd.PersistentFlags().String("http-addr", "127.0.0.1", "http host")
+	rootCmd.PersistentFlags().String("http-port", "8080", "http port")
+>>>>>>> efebea7a186d6b78f7808210545f4b3565796934
 
 	viper.BindPFlag("logfile", rootCmd.PersistentFlags().Lookup("logfile"))
 	viper.BindPFlag("database.name", rootCmd.PersistentFlags().Lookup("database-name"))
