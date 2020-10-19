@@ -19,12 +19,8 @@ var (
 
 	httpCount    prometheus.Counter
 	httpDuration prometheus.Histogram
-
-	wsCount    prometheus.Counter
-	wsDuration prometheus.Histogram
-
-	ipcCount    prometheus.Counter
-	ipcDuration prometheus.Gauge
+	wsCount      prometheus.Gauge
+	ipcCount     prometheus.Gauge
 )
 
 // Init module initialization
@@ -35,39 +31,27 @@ func Init() {
 		Namespace: namespace,
 		Subsystem: subsystemHTTP,
 		Name:      "count",
-		Help:      "",
+		Help:      "http request count",
 	})
 	httpDuration = promauto.NewHistogram(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: subsystemHTTP,
 		Name:      "duration",
-		Help:      "",
+		Help:      "http request duration",
 	})
 
-	wsCount = promauto.NewCounter(prometheus.CounterOpts{
+	wsCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: subsystemWS,
 		Name:      "count",
-		Help:      "",
-	})
-	wsDuration = promauto.NewHistogram(prometheus.HistogramOpts{
-		Namespace: namespace,
-		Subsystem: subsystemWS,
-		Name:      "duration",
-		Help:      "",
+		Help:      "websocket conntection count",
 	})
 
-	ipcCount = promauto.NewCounter(prometheus.CounterOpts{
+	ipcCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: subsystemIPC,
 		Name:      "count",
-		Help:      "",
-	})
-	ipcDuration = promauto.NewGauge(prometheus.GaugeOpts{
-		Namespace: namespace,
-		Subsystem: subsystemIPC,
-		Name:      "duration",
-		Help:      "",
+		Help:      "unix socket connection count",
 	})
 }
 

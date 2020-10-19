@@ -2,10 +2,12 @@ package prom
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// HTTPMiddleware http connection metric reader
 func HTTPMiddleware(next http.Handler) http.Handler {
 	if !metrics {
 		return next
@@ -14,12 +16,14 @@ func HTTPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		httpCount.Inc()
 
-		timer := prometheus.NewTimer(httpDuration)
+		start := time.Now()
 		next.ServeHTTP(w, r)
-		timer.ObserveDuration()
+		duration := time.Now().Sub(start)
+		httpDuration.Observe(float64(duration.Seconds()))
 	})
 }
 
+// WSMiddleware websocket connection counter
 func WSMiddleware(next http.Handler) http.Handler {
 	if !metrics {
 		return next
@@ -27,9 +31,18 @@ func WSMiddleware(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		wsCount.Inc()
-
-		timer := prometheus.NewTimer(wsDuration)
 		next.ServeHTTP(w, r)
-		timer.ObserveDuration()
+		wsCount.Dec()
 	})
+}
+
+// IPCMiddleware unix-socket connection counter
+func IPCMiddleware(server *rpc.Server, client rpc.Conn) {
+	if metrics {
+		ipcCount.Inc()
+	}
+	server.ServeCodec(rpc.NewCodec(client), 0)
+	if metrics {
+		ipcCount.Dec()
+	}
 }

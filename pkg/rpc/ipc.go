@@ -1,15 +1,15 @@
 package rpc
 
 import (
-	"C"
-
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 
+	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
+	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 )
 
 var (
@@ -38,6 +38,22 @@ func ipcListen(endpoint string) (net.Listener, error) {
 	return l, nil
 }
 
+func ipcServe(srv *rpc.Server, listener net.Listener) {
+	for {
+		conn, err := listener.Accept()
+		if netutil.IsTemporaryError(err) {
+			log.WithError(err).Warn("rpc accept error")
+			continue
+		}
+		if err != nil {
+			log.WithError(err).Warn("unknown error")
+			continue
+		}
+		log.WithField("addr", conn.RemoteAddr()).Trace("accepted ipc connection")
+		go prom.IPCMiddleware(srv, conn)
+	}
+}
+
 // StartIPCEndpoint starts an IPC endpoint.
 func StartIPCEndpoint(ipcEndpoint string, apis []rpc.API) (net.Listener, *rpc.Server, error) {
 	// Register all the APIs exposed by the services.
@@ -53,6 +69,7 @@ func StartIPCEndpoint(ipcEndpoint string, apis []rpc.API) (net.Listener, *rpc.Se
 	if err != nil {
 		return nil, nil, err
 	}
-	go handler.ServeListener(listener)
+
+	go ipcServe(handler, listener)
 	return listener, handler, nil
 }
