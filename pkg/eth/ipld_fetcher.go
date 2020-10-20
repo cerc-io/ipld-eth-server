@@ -34,7 +34,7 @@ import (
 
 // Fetcher interface for substituting mocks in tests
 type Fetcher interface {
-	Fetch(cids eth.CIDWrapper) (*eth.IPLDs, error)
+	Fetch(cids CIDWrapper) (*IPLDs, error)
 }
 
 // IPLDFetcher satisfies the IPLDFetcher interface for ethereum
@@ -51,9 +51,9 @@ func NewIPLDFetcher(db *postgres.DB) *IPLDFetcher {
 }
 
 // Fetch is the exported method for fetching and returning all the IPLDS specified in the CIDWrapper
-func (f *IPLDFetcher) Fetch(cids eth.CIDWrapper) (*eth.IPLDs, error) {
+func (f *IPLDFetcher) Fetch(cids CIDWrapper) (*IPLDs, error) {
 	log.Debug("fetching iplds")
-	iplds := new(eth.IPLDs)
+	iplds := new(IPLDs)
 	var ok bool
 	iplds.TotalDifficulty, ok = new(big.Int).SetString(cids.Header.TotalDifficulty, 10)
 	if !ok {
@@ -168,9 +168,9 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []eth.ReceiptModel) ([]ipfs.Bl
 }
 
 // FetchState fetches state nodes
-func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []eth.StateNodeModel) ([]eth.StateNode, error) {
+func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []eth.StateNodeModel) ([]StateNode, error) {
 	log.Debug("fetching state iplds")
-	stateNodes := make([]eth.StateNode, 0, len(cids))
+	stateNodes := make([]StateNode, 0, len(cids))
 	for _, stateNode := range cids {
 		if stateNode.CID == "" {
 			continue
@@ -179,7 +179,7 @@ func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []eth.StateNodeModel) ([]eth.
 		if err != nil {
 			return nil, err
 		}
-		stateNodes = append(stateNodes, eth.StateNode{
+		stateNodes = append(stateNodes, StateNode{
 			IPLD: ipfs.BlockModel{
 				Data: stateBytes,
 				CID:  stateNode.CID,
@@ -193,9 +193,9 @@ func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []eth.StateNodeModel) ([]eth.
 }
 
 // FetchStorage fetches storage nodes
-func (f *IPLDFetcher) FetchStorage(tx *sqlx.Tx, cids []eth.StorageNodeWithStateKeyModel) ([]eth.StorageNode, error) {
+func (f *IPLDFetcher) FetchStorage(tx *sqlx.Tx, cids []eth.StorageNodeWithStateKeyModel) ([]StorageNode, error) {
 	log.Debug("fetching storage iplds")
-	storageNodes := make([]eth.StorageNode, 0, len(cids))
+	storageNodes := make([]StorageNode, 0, len(cids))
 	for _, storageNode := range cids {
 		if storageNode.CID == "" || storageNode.StateKey == "" {
 			continue
@@ -204,7 +204,7 @@ func (f *IPLDFetcher) FetchStorage(tx *sqlx.Tx, cids []eth.StorageNodeWithStateK
 		if err != nil {
 			return nil, err
 		}
-		storageNodes = append(storageNodes, eth.StorageNode{
+		storageNodes = append(storageNodes, StorageNode{
 			IPLD: ipfs.BlockModel{
 				Data: storageBytes,
 				CID:  storageNode.CID,

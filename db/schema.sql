@@ -361,7 +361,8 @@ CREATE TABLE public.nodes (
     client_name character varying,
     genesis_block character varying(66),
     network_id character varying,
-    node_id character varying(128)
+    node_id character varying(128),
+    chain_id integer
 );
 
 
@@ -595,7 +596,7 @@ ALTER TABLE ONLY public.goose_db_version
 --
 
 ALTER TABLE ONLY public.nodes
-    ADD CONSTRAINT node_uc UNIQUE (genesis_block, network_id, node_id);
+    ADD CONSTRAINT node_uc UNIQUE (genesis_block, network_id, node_id, chain_id);
 
 
 --

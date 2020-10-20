@@ -19,9 +19,10 @@ package eth_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth/mocks"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
+	mocks2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -41,7 +42,7 @@ var _ = Describe("IPLDFetcher", func() {
 			db, err = shared.SetupDB()
 			Expect(err).ToNot(HaveOccurred())
 			pubAndIndexer = eth2.NewIPLDPublisher(db)
-			err = pubAndIndexer.Publish(mocks.MockConvertedPayload)
+			err = pubAndIndexer.Publish(mocks2.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			fetcher = eth.NewIPLDFetcher(db)
 		})
@@ -53,8 +54,8 @@ var _ = Describe("IPLDFetcher", func() {
 			iplds, err := fetcher.Fetch(*mocks.MockCIDWrapper)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds).ToNot(BeNil())
-			Expect(iplds.TotalDifficulty).To(Equal(mocks.MockConvertedPayload.TotalDifficulty))
-			Expect(iplds.BlockNumber).To(Equal(mocks.MockConvertedPayload.Block.Number()))
+			Expect(iplds.TotalDifficulty).To(Equal(mocks2.MockConvertedPayload.TotalDifficulty))
+			Expect(iplds.BlockNumber).To(Equal(mocks2.MockConvertedPayload.Block.Number()))
 			Expect(iplds.Header).To(Equal(mocks.MockIPLDs.Header))
 			Expect(len(iplds.Uncles)).To(Equal(0))
 			Expect(iplds.Transactions).To(Equal(mocks.MockIPLDs.Transactions))
