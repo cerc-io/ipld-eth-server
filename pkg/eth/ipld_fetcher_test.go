@@ -19,29 +19,28 @@ package eth_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth/mocks"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
-var (
-	db            *postgres.DB
-	pubAndIndexer *eth2.IPLDPublisher
-	fetcher       *eth.IPLDFetcher
-)
-
 var _ = Describe("IPLDFetcher", func() {
+	var (
+		db            *postgres.DB
+		pubAndIndexer *eth2.IPLDPublisher
+		fetcher       *eth.IPLDFetcher
+	)
 	Describe("Fetch", func() {
 		BeforeEach(func() {
 			var err error
 			db, err = shared.SetupDB()
 			Expect(err).ToNot(HaveOccurred())
 			pubAndIndexer = eth2.NewIPLDPublisher(db)
-			err = pubAndIndexer.Publish(mocks.MockConvertedPayload)
+			err = pubAndIndexer.Publish(test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			fetcher = eth.NewIPLDFetcher(db)
 		})
@@ -50,17 +49,17 @@ var _ = Describe("IPLDFetcher", func() {
 		})
 
 		It("Fetches and returns IPLDs for the CIDs provided in the CIDWrapper", func() {
-			iplds, err := fetcher.Fetch(*mocks.MockCIDWrapper)
+			iplds, err := fetcher.Fetch(*test_helpers.MockCIDWrapper)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds).ToNot(BeNil())
-			Expect(iplds.TotalDifficulty).To(Equal(mocks.MockConvertedPayload.TotalDifficulty))
-			Expect(iplds.BlockNumber).To(Equal(mocks.MockConvertedPayload.Block.Number()))
-			Expect(iplds.Header).To(Equal(mocks.MockIPLDs.Header))
+			Expect(iplds.TotalDifficulty).To(Equal(test_helpers.MockConvertedPayload.TotalDifficulty))
+			Expect(iplds.BlockNumber).To(Equal(test_helpers.MockConvertedPayload.Block.Number()))
+			Expect(iplds.Header).To(Equal(test_helpers.MockIPLDs.Header))
 			Expect(len(iplds.Uncles)).To(Equal(0))
-			Expect(iplds.Transactions).To(Equal(mocks.MockIPLDs.Transactions))
-			Expect(iplds.Receipts).To(Equal(mocks.MockIPLDs.Receipts))
-			Expect(iplds.StateNodes).To(Equal(mocks.MockIPLDs.StateNodes))
-			Expect(iplds.StorageNodes).To(Equal(mocks.MockIPLDs.StorageNodes))
+			Expect(iplds.Transactions).To(Equal(test_helpers.MockIPLDs.Transactions))
+			Expect(iplds.Receipts).To(Equal(test_helpers.MockIPLDs.Receipts))
+			Expect(iplds.StateNodes).To(Equal(test_helpers.MockIPLDs.StateNodes))
+			Expect(iplds.StorageNodes).To(Equal(test_helpers.MockIPLDs.StorageNodes))
 		})
 	})
 })

@@ -19,15 +19,19 @@ package eth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/core/state"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	ipfsethdb "github.com/vulcanize/pg-ipfs-ethdb"
@@ -38,26 +42,57 @@ import (
 )
 
 var (
-	errPendingBlockNumber = errors.New("pending block number not supported")
+	errPendingBlockNumber  = errors.New("pending block number not supported")
+	errNegativeBlockNumber = errors.New("negative block number not supported")
+)
+
+const (
+	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
+									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
+									WHERE id = (SELECT canonical_header($1))`
+	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
+									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
+									WHERE id = (SELECT canonical_header($1))`
 )
 
 type Backend struct {
-	Retriever *CIDRetriever
-	Fetcher   *IPLDFetcher
-	DB        *postgres.DB
-	EthDB     ethdb.Database
+	// underlying postgres db
+	DB *postgres.DB
+
+	// postgres db interfaces
+	Retriever     *CIDRetriever
+	Fetcher       *IPLDFetcher
+	IPLDRetriever *IPLDRetriever
+
+	// ethereum interfaces
+	EthDB         ethdb.Database
+	StateDatabase state.Database
+
+	Config *Config
 }
 
-func NewEthBackend(db *postgres.DB) (*Backend, error) {
+type Config struct {
+	ChainConfig   *params.ChainConfig
+	VmConfig      vm.Config
+	DefaultSender *common.Address
+	RPCGasCap     *big.Int
+}
+
+func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
 	r := NewCIDRetriever(db)
+	ethDB := ipfsethdb.NewDatabase(db.DB)
 	return &Backend{
-		Retriever: r,
-		Fetcher:   NewIPLDFetcher(db),
-		DB:        db,
-		EthDB:     ipfsethdb.NewDatabase(db.DB),
+		DB:            db,
+		Retriever:     r,
+		Fetcher:       NewIPLDFetcher(db),
+		IPLDRetriever: NewIPLDRetriever(db),
+		EthDB:         ethDB,
+		StateDatabase: state.NewDatabase(ethDB),
+		Config:        c,
 	}, nil
 }
 
+// HeaderByNumber gets the canonical header for the provided block number
 func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Header, error) {
 	var err error
 	number := blockNumber.Int64()
@@ -67,23 +102,38 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumbe
 			return nil, err
 		}
 	}
+	if blockNumber == rpc.EarliestBlockNumber {
+		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		if err != nil {
+			return nil, err
+		}
+	}
 	if blockNumber == rpc.PendingBlockNumber {
 		return nil, errPendingBlockNumber
 	}
-
-	var headerBytes []byte
-	pgStr := `SELECT DISTINCT ON (block_number) data
-			FROM public.blocks INNER JOIN eth.header_cids ON (header_cids.mh_key = blocks.key)
-			WHERE block_number = $1
-			ORDER BY block_number, times_validated DESC`
-	if err := b.DB.Get(&headerBytes, pgStr, number); err != nil {
-		return nil, fmt.Errorf("header at block %d is not available; err %s", number, err.Error())
+	if number < 0 {
+		return nil, errNegativeBlockNumber
 	}
+	_, canonicalHeaderRLP, err := b.GetCanonicalHeader(uint64(number))
+	if err != nil {
+		return nil, err
+	}
+
 	header := new(types.Header)
-	return header, rlp.DecodeBytes(headerBytes, header)
+	return header, rlp.DecodeBytes(canonicalHeaderRLP, header)
 }
 
-// GetTd retrieves and returns the total difficulty at the given block hash
+// HeaderByHash gets the header for the provided block hash
+func (b *Backend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(hash)
+	if err != nil {
+		return nil, err
+	}
+	header := new(types.Header)
+	return header, rlp.DecodeBytes(headerRLP, header)
+}
+
+// GetTd gets the total difficulty at the given block hash
 func (b *Backend) GetTd(blockHash common.Hash) (*big.Int, error) {
 	pgStr := `SELECT td FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
@@ -101,13 +151,8 @@ func (b *Backend) GetTd(blockHash common.Hash) (*big.Int, error) {
 
 // GetLogs returns all the logs for the given block hash
 func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
-	pgStr := `SELECT blocks.data FROM public.blocks, eth.receipt_cids, eth.transaction_cids, eth.header_cids
-			WHERE header_cids.block_hash = $1
-			AND receipt_cids.tx_id = transaction_cids.id
-			AND transaction_cids.header_id = header_cids.id
-			ORDER BY transaction_cids.index ASC`
-	var receiptBytes [][]byte
-	if err := b.DB.Select(&receiptBytes, pgStr, hash.Hex()); err != nil {
+	_, receiptBytes, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+	if err != nil {
 		return nil, err
 	}
 	logs := make([][]*types.Log, len(receiptBytes))
@@ -122,8 +167,6 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log
 }
 
 // BlockByNumber returns the requested canonical block.
-// Since the ipld-eth-server database can contain forked blocks, it is recommended to fetch BlockByHash as
-// fetching by number can return non-deterministic results (returns the first block found at that height)
 func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Block, error) {
 	var err error
 	number := blockNumber.Int64()
@@ -133,11 +176,26 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 			return nil, err
 		}
 	}
+	if blockNumber == rpc.EarliestBlockNumber {
+		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		if err != nil {
+			return nil, err
+		}
+	}
 	if blockNumber == rpc.PendingBlockNumber {
 		return nil, errPendingBlockNumber
 	}
+	if number < 0 {
+		return nil, errNegativeBlockNumber
+	}
+	// Get the canonical hash
+	canonicalHash := b.GetCanonicalHash(uint64(number))
+	if err != nil {
+		return nil, err
+	}
 	// Retrieve all the CIDs for the block
-	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByNumber(number)
+	// TODO: optimize this by retrieving iplds directly rather than the cids first (this is remanent from when we fetched iplds through ipfs blockservice interface)
+	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(canonicalHash)
 	if err != nil {
 		return nil, err
 	}
@@ -526,29 +584,20 @@ func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHas
 		if header == nil {
 			return nil, nil, errors.New("header for hash not found")
 		}
-		if blockNrOrHash.RequireCanonical && b.eth.blockchain.GetCanonicalHash(header.Number.Uint64()) != hash {
+		if blockNrOrHash.RequireCanonical && b.GetCanonicalHash(header.Number.Uint64()) != hash {
 			return nil, nil, errors.New("hash is not currently canonical")
 		}
-		stateDb, err := b.eth.BlockChain().StateAt(header.Root)
+		stateDb, err := state.New(header.Root, b.StateDatabase)
 		return stateDb, header, err
 	}
 	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
-}
-
-func (b *Backend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	return b.GetHeaderByHash(hash), nil
-}
-
-func (b *Backend) GetHeaderByHash(hash common.Hash) *types.Header {
-
 }
 
 // StateAndHeaderByNumber returns the statedb and header for a provided block number
 func (b *Backend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Pending state is only known by the miner
 	if number == rpc.PendingBlockNumber {
-		block, state := b.eth.miner.Pending()
-		return state, block.Header(), nil
+		return nil, nil, errPendingBlockNumber
 	}
 	// Otherwise resolve the block number and return its state
 	header, err := b.HeaderByNumber(ctx, number)
@@ -558,6 +607,48 @@ func (b *Backend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNu
 	if header == nil {
 		return nil, nil, errors.New("header not found")
 	}
-	stateDb, err := b.eth.BlockChain().StateAt(header.Root)
+	stateDb, err := state.New(header.Root, b.StateDatabase)
 	return stateDb, header, err
+}
+
+// GetCanonicalHash gets the canonical hash for the provided number, if there is one
+func (b *Backend) GetCanonicalHash(number uint64) common.Hash {
+	var hashResult string
+	if err := b.DB.Get(&hashResult, RetrieveCanonicalBlockHashByNumber, number); err != nil {
+		return common.Hash{}
+	}
+	return common.HexToHash(hashResult)
+}
+
+type rowResult struct {
+	CID  string
+	Data []byte
+}
+
+// GetCanonicalHeader gets the canonical header for the provided number, if there is one
+func (b *Backend) GetCanonicalHeader(number uint64) (string, []byte, error) {
+	headerResult := new(rowResult)
+	return headerResult.CID, headerResult.Data, b.DB.QueryRowx(RetrieveCanonicalHeaderByNumber, number).StructScan(headerResult)
+}
+
+// GetEVM constructs and returns a vm.EVM
+func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, error) {
+	state.SetBalance(msg.From(), math.MaxBig256)
+	c := core.NewEVMContext(msg, header, b, nil)
+	return vm.NewEVM(c, state, b.Config.ChainConfig, b.Config.VmConfig), nil
+}
+
+// Engine satisfied the ChainContext interface
+func (b *Backend) Engine() consensus.Engine {
+	// TODO: we need to support more than just ethash based engines
+	return ethash.NewFaker()
+}
+
+// GetHeader satisfied the ChainContext interface
+func (b *Backend) GetHeader(hash common.Hash, height uint64) *types.Header {
+	header, err := b.HeaderByHash(context.Background(), hash)
+	if err != nil {
+		return nil
+	}
+	return header
 }

@@ -23,6 +23,55 @@ SET row_security = off;
 CREATE SCHEMA eth;
 
 
+--
+-- Name: canonical_header(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.canonical_header(height bigint) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  current_weight INT;
+  heaviest_weight INT DEFAULT 0;
+  heaviest_id INT;
+  r eth.header_cids%ROWTYPE;
+BEGIN
+  FOR r IN SELECT * FROM eth.header_cids
+  WHERE block_number = height
+  LOOP
+    SELECT INTO current_weight * FROM header_weight(r.block_hash);
+    IF current_weight > heaviest_weight THEN
+        heaviest_weight := current_weight;
+        heaviest_id := r.id;
+    END IF;
+  END LOOP;
+  RETURN heaviest_id;
+END
+$$;
+
+
+--
+-- Name: header_weight(character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.header_weight(hash character varying) RETURNS bigint
+    LANGUAGE sql
+    AS $$
+  WITH RECURSIVE validator AS (
+          SELECT block_hash, parent_hash, block_number
+          FROM eth.header_cids
+          WHERE block_hash = hash
+      UNION
+          SELECT eth.header_cids.block_hash, eth.header_cids.parent_hash, eth.header_cids.block_number
+          FROM eth.header_cids
+          INNER JOIN validator
+            ON eth.header_cids.parent_hash = validator.block_hash
+            AND eth.header_cids.block_number = validator.block_number + 1
+  )
+  SELECT COUNT(*) FROM validator;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -130,7 +179,7 @@ ALTER SEQUENCE eth.receipt_cids_id_seq OWNED BY eth.receipt_cids.id;
 
 CREATE TABLE eth.state_accounts (
     id integer NOT NULL,
-    state_id integer NOT NULL,
+    state_id bigint NOT NULL,
     balance numeric NOT NULL,
     nonce integer NOT NULL,
     code_hash bytea NOT NULL,
@@ -163,7 +212,7 @@ ALTER SEQUENCE eth.state_accounts_id_seq OWNED BY eth.state_accounts.id;
 --
 
 CREATE TABLE eth.state_cids (
-    id integer NOT NULL,
+    id bigint NOT NULL,
     header_id integer NOT NULL,
     state_leaf_key character varying(66),
     cid text NOT NULL,
@@ -199,8 +248,8 @@ ALTER SEQUENCE eth.state_cids_id_seq OWNED BY eth.state_cids.id;
 --
 
 CREATE TABLE eth.storage_cids (
-    id integer NOT NULL,
-    state_id integer NOT NULL,
+    id bigint NOT NULL,
+    state_id bigint NOT NULL,
     storage_leaf_key character varying(66),
     cid text NOT NULL,
     mh_key text NOT NULL,
@@ -243,7 +292,6 @@ CREATE TABLE eth.transaction_cids (
     mh_key text NOT NULL,
     dst character varying(66) NOT NULL,
     src character varying(66) NOT NULL,
-    deployment boolean NOT NULL,
     tx_data bytea
 );
 
@@ -362,7 +410,7 @@ CREATE TABLE public.nodes (
     genesis_block character varying(66),
     network_id character varying,
     node_id character varying(128),
-    chain_id integer
+    chain_id integer DEFAULT 1
 );
 
 
@@ -605,6 +653,251 @@ ALTER TABLE ONLY public.nodes
 
 ALTER TABLE ONLY public.nodes
     ADD CONSTRAINT nodes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: account_state_id_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX account_state_id_index ON eth.state_accounts USING btree (state_id);
+
+
+--
+-- Name: block_hash_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX block_hash_index ON eth.header_cids USING btree (block_hash);
+
+
+--
+-- Name: block_number_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX block_number_index ON eth.header_cids USING brin (block_number);
+
+
+--
+-- Name: header_cid_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX header_cid_index ON eth.header_cids USING btree (cid);
+
+
+--
+-- Name: header_mh_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX header_mh_index ON eth.header_cids USING btree (mh_key);
+
+
+--
+-- Name: rct_cid_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_cid_index ON eth.receipt_cids USING btree (cid);
+
+
+--
+-- Name: rct_contract_hash_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_contract_hash_index ON eth.receipt_cids USING btree (contract_hash);
+
+
+--
+-- Name: rct_contract_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_contract_index ON eth.receipt_cids USING btree (contract);
+
+
+--
+-- Name: rct_log_contract_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_log_contract_index ON eth.receipt_cids USING gin (log_contracts);
+
+
+--
+-- Name: rct_mh_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_mh_index ON eth.receipt_cids USING btree (mh_key);
+
+
+--
+-- Name: rct_topic0_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_topic0_index ON eth.receipt_cids USING gin (topic0s);
+
+
+--
+-- Name: rct_topic1_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_topic1_index ON eth.receipt_cids USING gin (topic1s);
+
+
+--
+-- Name: rct_topic2_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_topic2_index ON eth.receipt_cids USING gin (topic2s);
+
+
+--
+-- Name: rct_topic3_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_topic3_index ON eth.receipt_cids USING gin (topic3s);
+
+
+--
+-- Name: rct_tx_id_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX rct_tx_id_index ON eth.receipt_cids USING btree (tx_id);
+
+
+--
+-- Name: state_cid_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX state_cid_index ON eth.state_cids USING btree (cid);
+
+
+--
+-- Name: state_header_id_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX state_header_id_index ON eth.state_cids USING btree (header_id);
+
+
+--
+-- Name: state_leaf_key_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX state_leaf_key_index ON eth.state_cids USING btree (state_leaf_key);
+
+
+--
+-- Name: state_mh_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX state_mh_index ON eth.state_cids USING btree (mh_key);
+
+
+--
+-- Name: state_path_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX state_path_index ON eth.state_cids USING btree (state_path);
+
+
+--
+-- Name: state_root_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX state_root_index ON eth.header_cids USING btree (state_root);
+
+
+--
+-- Name: storage_cid_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX storage_cid_index ON eth.storage_cids USING btree (cid);
+
+
+--
+-- Name: storage_leaf_key_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX storage_leaf_key_index ON eth.storage_cids USING btree (storage_leaf_key);
+
+
+--
+-- Name: storage_mh_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX storage_mh_index ON eth.storage_cids USING btree (mh_key);
+
+
+--
+-- Name: storage_path_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX storage_path_index ON eth.storage_cids USING btree (storage_path);
+
+
+--
+-- Name: storage_root_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX storage_root_index ON eth.state_accounts USING btree (storage_root);
+
+
+--
+-- Name: storage_state_id_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX storage_state_id_index ON eth.storage_cids USING btree (state_id);
+
+
+--
+-- Name: timestamp_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX timestamp_index ON eth.header_cids USING brin ("timestamp");
+
+
+--
+-- Name: tx_cid_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX tx_cid_index ON eth.transaction_cids USING btree (cid);
+
+
+--
+-- Name: tx_data_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX tx_data_index ON eth.transaction_cids USING btree (tx_data);
+
+
+--
+-- Name: tx_dst_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX tx_dst_index ON eth.transaction_cids USING btree (dst);
+
+
+--
+-- Name: tx_hash_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX tx_hash_index ON eth.transaction_cids USING btree (tx_hash);
+
+
+--
+-- Name: tx_header_id_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX tx_header_id_index ON eth.transaction_cids USING btree (header_id);
+
+
+--
+-- Name: tx_mh_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX tx_mh_index ON eth.transaction_cids USING btree (mh_key);
+
+
+--
+-- Name: tx_src_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX tx_src_index ON eth.transaction_cids USING btree (src);
 
 
 --

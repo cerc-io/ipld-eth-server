@@ -100,22 +100,16 @@ func init() {
 	serveCmd.PersistentFlags().String("server-http-path", "", "vdb server http path")
 	serveCmd.PersistentFlags().String("server-ipc-path", "", "vdb server ipc path")
 
-	serveCmd.PersistentFlags().String("eth-ws-path", "", "ws url for ethereum node")
-	serveCmd.PersistentFlags().String("eth-http-path", "", "http url for ethereum node")
-	serveCmd.PersistentFlags().String("eth-node-id", "", "eth node id")
-	serveCmd.PersistentFlags().String("eth-client-name", "", "eth client name")
-	serveCmd.PersistentFlags().String("eth-genesis-block", "", "eth genesis block hash")
-	serveCmd.PersistentFlags().String("eth-network-id", "", "eth network id")
+	serveCmd.PersistentFlags().String("eth-chain-id", "1", "eth chain id")
+	serveCmd.PersistentFlags().String("eth-default-sender", "", "default sender address")
+	serveCmd.PersistentFlags().String("eth-rpc-gas-cap", "", "rpc gas cap (for eth_Call execution)")
 
 	// and their bindings
 	viper.BindPFlag("server.wsPath", serveCmd.PersistentFlags().Lookup("server-ws-path"))
 	viper.BindPFlag("server.httpPath", serveCmd.PersistentFlags().Lookup("server-http-path"))
 	viper.BindPFlag("server.ipcPath", serveCmd.PersistentFlags().Lookup("server-ipc-path"))
 
-	viper.BindPFlag("ethereum.wsPath", serveCmd.PersistentFlags().Lookup("eth-ws-path"))
-	viper.BindPFlag("ethereum.httpPath", serveCmd.PersistentFlags().Lookup("eth-http-path"))
-	viper.BindPFlag("ethereum.nodeID", serveCmd.PersistentFlags().Lookup("eth-node-id"))
-	viper.BindPFlag("ethereum.clientName", serveCmd.PersistentFlags().Lookup("eth-client-name"))
-	viper.BindPFlag("ethereum.genesisBlock", serveCmd.PersistentFlags().Lookup("eth-genesis-block"))
-	viper.BindPFlag("ethereum.networkID", serveCmd.PersistentFlags().Lookup("eth-network-id"))
+	viper.BindPFlag("ethereum.chainID", rootCmd.PersistentFlags().Lookup("eth-chain-id"))
+	viper.BindPFlag("ethereum.defaultSender", rootCmd.PersistentFlags().Lookup("eth-default-sender"))
+	viper.BindPFlag("ethereum.rpcGasCap", rootCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
 }
