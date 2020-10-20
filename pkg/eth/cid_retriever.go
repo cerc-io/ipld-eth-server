@@ -36,7 +36,7 @@ import (
 type Retriever interface {
 	RetrieveFirstBlockNumber() (int64, error)
 	RetrieveLastBlockNumber() (int64, error)
-	Retrieve(filter SubscriptionSettings, blockNumber int64) ([]eth2.CIDWrapper, bool, error)
+	Retrieve(filter SubscriptionSettings, blockNumber int64) ([]CIDWrapper, bool, error)
 }
 
 // CIDRetriever satisfies the CIDRetriever interface for ethereum
@@ -66,7 +66,7 @@ func (ecr *CIDRetriever) RetrieveLastBlockNumber() (int64, error) {
 }
 
 // Retrieve is used to retrieve all of the CIDs which conform to the passed StreamFilters
-func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64) ([]eth2.CIDWrapper, bool, error) {
+func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64) ([]CIDWrapper, bool, error) {
 	log.Debug("retrieving cids")
 
 	// Begin new db tx
@@ -91,10 +91,10 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 		log.Error("header cid retrieval error")
 		return nil, true, err
 	}
-	cws := make([]eth2.CIDWrapper, len(headers))
+	cws := make([]CIDWrapper, len(headers))
 	empty := true
 	for i, header := range headers {
-		cw := new(eth2.CIDWrapper)
+		cw := new(CIDWrapper)
 		cw.BlockNumber = big.NewInt(blockNumber)
 		if !filter.HeaderFilter.Off {
 			cw.Header = header

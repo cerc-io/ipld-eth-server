@@ -17,6 +17,7 @@
 package eth_test
 
 import (
+	"github.com/vulcanize/ipld-eth-server/pkg/eth/mocks"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -25,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
+	mocks2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -52,7 +53,7 @@ var (
 			Off: true,
 		},
 		ReceiptFilter: eth.ReceiptFilter{
-			LogAddresses: []string{mocks.Address.String()},
+			LogAddresses: []string{mocks2.Address.String()},
 		},
 		StateFilter: eth.StateFilter{
 			Off: true,
@@ -94,7 +95,7 @@ var (
 				{"0x0000000000000000000000000000000000000000000000000000000000000004"},
 				{"0x0000000000000000000000000000000000000000000000000000000000000006"},
 			},
-			LogAddresses: []string{mocks.Address.String()},
+			LogAddresses: []string{mocks2.Address.String()},
 		},
 		StateFilter: eth.StateFilter{
 			Off: true,
@@ -115,9 +116,9 @@ var (
 		ReceiptFilter: eth.ReceiptFilter{
 			Topics: [][]string{
 				{"0x0000000000000000000000000000000000000000000000000000000000000004"},
-				{"0x0000000000000000000000000000000000000000000000000000000000000007"}, // This topic won't match on the mocks.Address.String() contract receipt
+				{"0x0000000000000000000000000000000000000000000000000000000000000007"}, // This topic won't match on the mocks2.Address.String() contract receipt
 			},
-			LogAddresses: []string{mocks.Address.String()},
+			LogAddresses: []string{mocks2.Address.String()},
 		},
 		StateFilter: eth.StateFilter{
 			Off: true,
@@ -137,7 +138,7 @@ var (
 		},
 		ReceiptFilter: eth.ReceiptFilter{
 			Topics:       [][]string{{"0x0000000000000000000000000000000000000000000000000000000000000005"}},
-			LogAddresses: []string{mocks.Address.String(), mocks.AnotherAddress.String()},
+			LogAddresses: []string{mocks2.Address.String(), mocks2.AnotherAddress.String()},
 		},
 		StateFilter: eth.StateFilter{
 			Off: true,
@@ -172,7 +173,7 @@ var (
 			Off: true,
 		},
 		TxFilter: eth.TxFilter{
-			Dst: []string{mocks.AnotherAddress.String()}, // We only filter for one of the trxs so we will only get the one corresponding receipt
+			Dst: []string{mocks2.AnotherAddress.String()}, // We only filter for one of the trxs so we will only get the one corresponding receipt
 		},
 		ReceiptFilter: eth.ReceiptFilter{
 			MatchTxs:     true,
@@ -199,7 +200,7 @@ var (
 			Off: true,
 		},
 		StateFilter: eth.StateFilter{
-			Addresses: []string{mocks.AccountAddresss.Hex()},
+			Addresses: []string{mocks2.AccountAddresss.Hex()},
 		},
 		StorageFilter: eth.StorageFilter{
 			Off: true,
@@ -249,12 +250,12 @@ var _ = Describe("Retriever", func() {
 			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, mocks.MockCIDWrapper.Receipts[2].CID)).To(BeTrue())
 			Expect(len(cids[0].StateNodes)).To(Equal(2))
 			for _, stateNode := range cids[0].StateNodes {
-				if stateNode.CID == mocks.State1CID.String() {
+				if stateNode.CID == mocks2.State1CID.String() {
 					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(mocks.ContractLeafKey).Hex()))
 					Expect(stateNode.NodeType).To(Equal(2))
 					Expect(stateNode.Path).To(Equal([]byte{'\x06'}))
 				}
-				if stateNode.CID == mocks.State2CID.String() {
+				if stateNode.CID == mocks2.State2CID.String() {
 					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(mocks.AccountLeafKey).Hex()))
 					Expect(stateNode.NodeType).To(Equal(2))
 					Expect(stateNode.Path).To(Equal([]byte{'\x0c'}))
@@ -378,9 +379,9 @@ var _ = Describe("Retriever", func() {
 				ID:       cids7[0].StateNodes[0].ID,
 				HeaderID: cids7[0].StateNodes[0].HeaderID,
 				NodeType: 2,
-				StateKey: common.BytesToHash(mocks.AccountLeafKey).Hex(),
-				CID:      mocks.State2CID.String(),
-				MhKey:    mocks.State2MhKey,
+				StateKey: common.BytesToHash(mocks2.AccountLeafKey).Hex(),
+				CID:      mocks2.State2CID.String(),
+				MhKey:    mocks2.State2MhKey,
 				Path:     []byte{'\x0c'},
 			}))
 
@@ -396,7 +397,7 @@ var _ = Describe("Retriever", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Gets the number of the first block that has data in the database", func() {
-			err := repo.Publish(mocks.MockConvertedPayload)
+			err := repo.Publish(mocks2.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			num, err := retriever.RetrieveFirstBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
@@ -404,7 +405,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Gets the number of the first block that has data in the database", func() {
-			payload := mocks.MockConvertedPayload
+			payload := mocks2.MockConvertedPayload
 			payload.Block = newMockBlock(1010101)
 			err := repo.Publish(payload)
 			Expect(err).ToNot(HaveOccurred())
@@ -414,7 +415,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Gets the number of the first block that has data in the database", func() {
-			payload1 := mocks.MockConvertedPayload
+			payload1 := mocks2.MockConvertedPayload
 			payload1.Block = newMockBlock(1010101)
 			payload2 := payload1
 			payload2.Block = newMockBlock(5)
@@ -434,7 +435,7 @@ var _ = Describe("Retriever", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Gets the number of the latest block that has data in the database", func() {
-			err := repo.Publish(mocks.MockConvertedPayload)
+			err := repo.Publish(mocks2.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			num, err := retriever.RetrieveLastBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
@@ -442,7 +443,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Gets the number of the latest block that has data in the database", func() {
-			payload := mocks.MockConvertedPayload
+			payload := mocks2.MockConvertedPayload
 			payload.Block = newMockBlock(1010101)
 			err := repo.Publish(payload)
 			Expect(err).ToNot(HaveOccurred())
@@ -452,7 +453,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Gets the number of the latest block that has data in the database", func() {
-			payload1 := mocks.MockConvertedPayload
+			payload1 := mocks2.MockConvertedPayload
 			payload1.Block = newMockBlock(1010101)
 			payload2 := payload1
 			payload2.Block = newMockBlock(5)
@@ -468,7 +469,7 @@ var _ = Describe("Retriever", func() {
 })
 
 func newMockBlock(blockNumber uint64) *types.Block {
-	header := mocks.MockHeader
+	header := mocks2.MockHeader
 	header.Number.SetUint64(blockNumber)
-	return types.NewBlock(&mocks.MockHeader, mocks.MockTransactions, nil, mocks.MockReceipts)
+	return types.NewBlock(&mocks2.MockHeader, mocks2.MockTransactions, nil, mocks2.MockReceipts)
 }

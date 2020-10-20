@@ -18,12 +18,13 @@ package eth_test
 
 import (
 	"bytes"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth/mocks"
 
 	"github.com/ethereum/go-ethereum/statediff"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
+	mocks2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -106,7 +107,7 @@ var _ = Describe("Filterer", func() {
 				CID:  mocks.Rct1IPLD.Cid().String(),
 			}))
 
-			iplds3, err := filterer.Filter(rctTopicsAndAddressFilter, mocks.MockConvertedPayload)
+			iplds3, err := filterer.Filter(rctTopicsAndAddressFilter, mocks2.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds3).ToNot(BeNil())
 			Expect(iplds3.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
@@ -169,7 +170,7 @@ var _ = Describe("Filterer", func() {
 				CID:  mocks.Rct2IPLD.Cid().String(),
 			}))
 
-			iplds7, err := filterer.Filter(stateFilter, mocks.MockConvertedPayload)
+			iplds7, err := filterer.Filter(stateFilter, mocks2.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds7).ToNot(BeNil())
 			Expect(iplds7.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))
@@ -179,13 +180,13 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds7.StorageNodes)).To(Equal(0))
 			Expect(len(iplds7.Receipts)).To(Equal(0))
 			Expect(len(iplds7.StateNodes)).To(Equal(1))
-			Expect(iplds7.StateNodes[0].StateLeafKey.Bytes()).To(Equal(mocks.AccountLeafKey))
+			Expect(iplds7.StateNodes[0].StateLeafKey.Bytes()).To(Equal(mocks2.AccountLeafKey))
 			Expect(iplds7.StateNodes[0].IPLD).To(Equal(ipfs.BlockModel{
-				Data: mocks.State2IPLD.RawData(),
-				CID:  mocks.State2IPLD.Cid().String(),
+				Data: mocks2.State2IPLD.RawData(),
+				CID:  mocks2.State2IPLD.Cid().String(),
 			}))
 
-			iplds8, err := filterer.Filter(rctTopicsAndAddressFilterFail, mocks.MockConvertedPayload)
+			iplds8, err := filterer.Filter(rctTopicsAndAddressFilterFail, mocks2.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds8).ToNot(BeNil())
 			Expect(iplds8.BlockNumber.Int64()).To(Equal(mocks.MockIPLDs.BlockNumber.Int64()))

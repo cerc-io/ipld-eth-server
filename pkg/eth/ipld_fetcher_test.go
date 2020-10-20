@@ -19,9 +19,9 @@ package eth_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth/mocks"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
