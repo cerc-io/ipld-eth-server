@@ -227,7 +227,7 @@ var _ = Describe("Retriever", func() {
 
 	Describe("Retrieve", func() {
 		BeforeEach(func() {
-			err := repo.Publish(mocks2.MockConvertedPayload)
+			err := repo.Publish(mocks.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("Retrieves all CIDs for the given blocknumber when provided an open filter", func() {
@@ -251,12 +251,12 @@ var _ = Describe("Retriever", func() {
 			Expect(len(cids[0].StateNodes)).To(Equal(2))
 			for _, stateNode := range cids[0].StateNodes {
 				if stateNode.CID == mocks2.State1CID.String() {
-					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(mocks2.ContractLeafKey).Hex()))
+					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(mocks.ContractLeafKey).Hex()))
 					Expect(stateNode.NodeType).To(Equal(2))
 					Expect(stateNode.Path).To(Equal([]byte{'\x06'}))
 				}
 				if stateNode.CID == mocks2.State2CID.String() {
-					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(mocks2.AccountLeafKey).Hex()))
+					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(mocks.AccountLeafKey).Hex()))
 					Expect(stateNode.NodeType).To(Equal(2))
 					Expect(stateNode.Path).To(Equal([]byte{'\x0c'}))
 				}
@@ -336,15 +336,15 @@ var _ = Describe("Retriever", func() {
 			Expect(cids5[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
 			Expect(cids5[0].Header).To(Equal(eth2.HeaderModel{}))
 			Expect(len(cids5[0].Transactions)).To(Equal(3))
-			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks2.Trx1CID.String())).To(BeTrue())
-			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks2.Trx2CID.String())).To(BeTrue())
-			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks2.Trx3CID.String())).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks.Trx1CID.String())).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks.Trx2CID.String())).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks.Trx3CID.String())).To(BeTrue())
 			Expect(len(cids5[0].StateNodes)).To(Equal(0))
 			Expect(len(cids5[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids5[0].Receipts)).To(Equal(3))
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks2.Rct1CID.String())).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks2.Rct2CID.String())).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks2.Rct3CID.String())).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks.Rct1CID.String())).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks.Rct2CID.String())).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks.Rct3CID.String())).To(BeTrue())
 
 			cids6, empty, err := retriever.Retrieve(rctsForSelectCollectedTrxs, 1)
 			Expect(err).ToNot(HaveOccurred())

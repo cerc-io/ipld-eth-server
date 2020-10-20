@@ -355,6 +355,24 @@ var (
 		},
 	}
 
+	// aggregate payloads
+	MockStateDiffPayload = statediff.Payload{
+		BlockRlp:        MockBlockRlp,
+		StateObjectRlp:  MockStateDiffBytes,
+		ReceiptsRlp:     ReceiptsRlp,
+		TotalDifficulty: MockBlock.Difficulty(),
+	}
+
+	MockConvertedPayload = eth2.ConvertedPayload{
+		TotalDifficulty: MockBlock.Difficulty(),
+		Block:           MockBlock,
+		Receipts:        MockReceipts,
+		TxMetaData:      MockTrxMeta,
+		ReceiptMetaData: MockRctMeta,
+		StorageNodes:    MockStorageNodes,
+		StateNodes:      MockStateNodes,
+	}
+
 	MockCIDWrapper = &eth.CIDWrapper{
 		BlockNumber: new(big.Int).Set(BlockNumber),
 		Header: eth2.HeaderModel{
