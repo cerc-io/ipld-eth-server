@@ -24,6 +24,34 @@ CREATE SCHEMA eth;
 
 
 --
+-- Name: graphql_subscription(); Type: FUNCTION; Schema: eth; Owner: -
+--
+
+CREATE FUNCTION eth.graphql_subscription() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $_$
+declare
+    table_name text = TG_ARGV[0];
+    attribute text = TG_ARGV[1];
+    id text;
+begin
+    execute 'select $1.' || quote_ident(attribute)
+        using new
+        into id;
+    perform pg_notify('postgraphile:' || table_name,
+                      json_build_object(
+                              '__node__', json_build_array(
+                              table_name,
+                              id
+                          )
+                          )::text
+        );
+    return new;
+end;
+$_$;
+
+
+--
 -- Name: canonical_header(bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -859,13 +887,6 @@ CREATE INDEX tx_cid_index ON eth.transaction_cids USING btree (cid);
 
 
 --
--- Name: tx_data_index; Type: INDEX; Schema: eth; Owner: -
---
-
-CREATE INDEX tx_data_index ON eth.transaction_cids USING btree (tx_data);
-
-
---
 -- Name: tx_dst_index; Type: INDEX; Schema: eth; Owner: -
 --
 
@@ -898,6 +919,55 @@ CREATE INDEX tx_mh_index ON eth.transaction_cids USING btree (mh_key);
 --
 
 CREATE INDEX tx_src_index ON eth.transaction_cids USING btree (src);
+
+
+--
+-- Name: header_cids header_cids_ai; Type: TRIGGER; Schema: eth; Owner: -
+--
+
+CREATE TRIGGER header_cids_ai AFTER INSERT ON eth.header_cids FOR EACH ROW EXECUTE FUNCTION eth.graphql_subscription('header_cids', 'id');
+
+
+--
+-- Name: receipt_cids receipt_cids_ai; Type: TRIGGER; Schema: eth; Owner: -
+--
+
+CREATE TRIGGER receipt_cids_ai AFTER INSERT ON eth.receipt_cids FOR EACH ROW EXECUTE FUNCTION eth.graphql_subscription('receipt_cids', 'id');
+
+
+--
+-- Name: state_accounts state_accounts_ai; Type: TRIGGER; Schema: eth; Owner: -
+--
+
+CREATE TRIGGER state_accounts_ai AFTER INSERT ON eth.state_accounts FOR EACH ROW EXECUTE FUNCTION eth.graphql_subscription('state_accounts', 'id');
+
+
+--
+-- Name: state_cids state_cids_ai; Type: TRIGGER; Schema: eth; Owner: -
+--
+
+CREATE TRIGGER state_cids_ai AFTER INSERT ON eth.state_cids FOR EACH ROW EXECUTE FUNCTION eth.graphql_subscription('state_cids', 'id');
+
+
+--
+-- Name: storage_cids storage_cids_ai; Type: TRIGGER; Schema: eth; Owner: -
+--
+
+CREATE TRIGGER storage_cids_ai AFTER INSERT ON eth.storage_cids FOR EACH ROW EXECUTE FUNCTION eth.graphql_subscription('storage_cids', 'id');
+
+
+--
+-- Name: transaction_cids transaction_cids_ai; Type: TRIGGER; Schema: eth; Owner: -
+--
+
+CREATE TRIGGER transaction_cids_ai AFTER INSERT ON eth.transaction_cids FOR EACH ROW EXECUTE FUNCTION eth.graphql_subscription('transaction_cids', 'id');
+
+
+--
+-- Name: uncle_cids uncle_cids_ai; Type: TRIGGER; Schema: eth; Owner: -
+--
+
+CREATE TRIGGER uncle_cids_ai AFTER INSERT ON eth.uncle_cids FOR EACH ROW EXECUTE FUNCTION eth.graphql_subscription('uncle_cids', 'id');
 
 
 --

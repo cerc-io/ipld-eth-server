@@ -25,8 +25,6 @@ CREATE INDEX tx_dst_index ON eth.transaction_cids USING btree (dst);
 
 CREATE INDEX tx_src_index ON eth.transaction_cids USING btree (src);
 
-CREATE INDEX tx_data_index ON eth.transaction_cids USING btree (tx_data);
-
 -- receipt indexes
 CREATE INDEX rct_tx_id_index ON eth.receipt_cids USING btree (tx_id);
 
@@ -107,7 +105,6 @@ DROP INDEX eth.rct_cid_index;
 DROP INDEX eth.rct_tx_id_index;
 
 -- transaction indexes
-DROP INDEX eth.tx_data_index;
 DROP INDEX eth.tx_src_index;
 DROP INDEX eth.tx_dst_index;
 DROP INDEX eth.tx_mh_index;
