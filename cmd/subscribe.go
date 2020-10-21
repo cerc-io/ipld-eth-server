@@ -28,8 +28,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-
 	"github.com/vulcanize/ipld-eth-server/pkg/client"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	w "github.com/vulcanize/ipld-eth-server/pkg/serve"
@@ -83,7 +81,7 @@ func subscribe() {
 				logWithCommand.Error(payload.Err)
 				continue
 			}
-			var ethData eth2.IPLDs
+			var ethData eth.IPLDs
 			if err := rlp.DecodeBytes(payload.Data, &ethData); err != nil {
 				logWithCommand.Error(err)
 				continue

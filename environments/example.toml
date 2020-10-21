@@ -12,3 +12,8 @@
     ipcPath = "~/.vulcanize/vulcanize.ipc" # $SERVER_IPC_PATH
     wsPath = "127.0.0.1:8081" # $SERVER_WS_PATH
     httpPath = "127.0.0.1:8082" # $SERVER_HTTP_PATH
+
+[ethereum]
+    chainID = "1" # $ETH_CHAIN_ID
+    defaultSender = "" # $ETH_DEFAULT_SENDER_ADDR
+    rpcGasCap = "1000000000000" # $ETH_RPC_GAS_CAP

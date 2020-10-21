@@ -17,17 +17,20 @@
 package serve
 
 import (
+	"math/big"
 	"os"
 	"path/filepath"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/spf13/viper"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/node"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-indexer/utils"
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 
-	"github.com/spf13/viper"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
-
-	"github.com/vulcanize/ipld-eth-indexer/utils"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 )
 
 // Env variables
@@ -39,15 +42,24 @@ const (
 	SERVER_MAX_IDLE_CONNECTIONS = "SERVER_MAX_IDLE_CONNECTIONS"
 	SERVER_MAX_OPEN_CONNECTIONS = "SERVER_MAX_OPEN_CONNECTIONS"
 	SERVER_MAX_CONN_LIFETIME    = "SERVER_MAX_CONN_LIFETIME"
+
+	ETH_CHAIN_ID = "ETH_CHAIN_ID"
+
+	ETH_DEFAULT_SENDER_ADDR = "ETH_DEFAULT_SENDER_ADDR"
+
+	ETH_RPC_GAS_CAP = "ETH_RPC_GAS_CAP"
 )
 
 // Config struct
 type Config struct {
-	DB           *postgres.DB
-	DBConfig     postgres.Config
-	WSEndpoint   string
-	HTTPEndpoint string
-	IPCEndpoint  string
+	DB            *postgres.DB
+	DBConfig      postgres.Config
+	WSEndpoint    string
+	HTTPEndpoint  string
+	IPCEndpoint   string
+	ChainConfig   *params.ChainConfig
+	DefaultSender *common.Address
+	RPCGasCap     *big.Int
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -58,6 +70,9 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("server.wsPath", SERVER_WS_PATH)
 	viper.BindEnv("server.ipcPath", SERVER_IPC_PATH)
 	viper.BindEnv("server.httpPath", SERVER_HTTP_PATH)
+	viper.BindEnv("ethereum.chainID", ETH_CHAIN_ID)
+	viper.BindEnv("ethereum.defaultSender", ETH_DEFAULT_SENDER_ADDR)
+	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
 
 	c.DBConfig.Init()
 
@@ -85,7 +100,21 @@ func NewConfig() (*Config, error) {
 	prom.RegisterDBCollector(c.DBConfig.Name, serveDB.DB)
 	c.DB = &serveDB
 
-	return c, nil
+	defaultSenderStr := viper.GetString("ethereum.defaultSender")
+	if defaultSenderStr != "" {
+		sender := common.HexToAddress(defaultSenderStr)
+		c.DefaultSender = &sender
+	}
+	rpcGasCapStr := viper.GetString("ethereum.rpcGasCap")
+	if rpcGasCapStr != "" {
+		if rpcGasCap, ok := new(big.Int).SetString(rpcGasCapStr, 10); ok {
+			c.RPCGasCap = rpcGasCap
+		}
+	}
+	chainID := viper.GetUint64("ethereum.chainID")
+	var err error
+	c.ChainConfig, err = eth.ChainConfig(chainID)
+	return c, err
 }
 
 func overrideDBConnConfig(con *postgres.Config) {
