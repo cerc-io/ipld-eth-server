@@ -24,6 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 )
 
 var (
@@ -62,6 +63,19 @@ func initFuncs(cmd *cobra.Command, args []string) {
 	if err := logLevel(); err != nil {
 		log.Fatal("Could not set log level: ", err)
 	}
+
+	if viper.GetBool("metrics") {
+		prom.Init()
+	}
+
+	if viper.GetBool("http") {
+		addr := fmt.Sprintf(
+			"%s:%s",
+			viper.GetString("http.addr"),
+			viper.GetString("http.port"),
+		)
+		prom.Serve(addr)
+	}
 }
 
 func logLevel() error {
@@ -93,6 +107,12 @@ func init() {
 	rootCmd.PersistentFlags().String("client-ipcPath", "", "location of geth.ipc file")
 	rootCmd.PersistentFlags().String("log-level", log.InfoLevel.String(), "Log level (trace, debug, info, warn, error, fatal, panic")
 
+	rootCmd.PersistentFlags().Bool("metrics", false, "enable metrics")
+
+	rootCmd.PersistentFlags().Bool("http", false, "enable http service for prometheus")
+	rootCmd.PersistentFlags().String("http-addr", "127.0.0.1", "http host for prometheus")
+	rootCmd.PersistentFlags().String("http-port", "8090", "http port for prometheus")
+
 	viper.BindPFlag("logfile", rootCmd.PersistentFlags().Lookup("logfile"))
 	viper.BindPFlag("database.name", rootCmd.PersistentFlags().Lookup("database-name"))
 	viper.BindPFlag("database.port", rootCmd.PersistentFlags().Lookup("database-port"))
@@ -100,6 +120,12 @@ func init() {
 	viper.BindPFlag("database.user", rootCmd.PersistentFlags().Lookup("database-user"))
 	viper.BindPFlag("database.password", rootCmd.PersistentFlags().Lookup("database-password"))
 	viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
+
+	viper.BindPFlag("metrics", rootCmd.PersistentFlags().Lookup("metrics"))
+
+	viper.BindPFlag("http", rootCmd.PersistentFlags().Lookup("http"))
+	viper.BindPFlag("http.addr", rootCmd.PersistentFlags().Lookup("http-addr"))
+	viper.BindPFlag("http.port", rootCmd.PersistentFlags().Lookup("http-port"))
 }
 
 func initConfig() {

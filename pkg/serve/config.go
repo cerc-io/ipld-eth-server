@@ -28,6 +28,7 @@ import (
 	"github.com/vulcanize/ipld-eth-indexer/pkg/node"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	"github.com/vulcanize/ipld-eth-indexer/utils"
+	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 )
@@ -96,6 +97,7 @@ func NewConfig() (*Config, error) {
 	c.HTTPEndpoint = httpPath
 	overrideDBConnConfig(&c.DBConfig)
 	serveDB := utils.LoadPostgres(c.DBConfig, node.Info{})
+	prom.RegisterDBCollector(c.DBConfig.Name, serveDB.DB)
 	c.DB = &serveDB
 
 	defaultSenderStr := viper.GetString("ethereum.defaultSender")
