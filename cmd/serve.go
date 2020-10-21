@@ -112,7 +112,7 @@ func init() {
 	viper.BindPFlag("server.httpPath", serveCmd.PersistentFlags().Lookup("server-http-path"))
 	viper.BindPFlag("server.ipcPath", serveCmd.PersistentFlags().Lookup("server-ipc-path"))
 
-	viper.BindPFlag("ethereum.chainID", rootCmd.PersistentFlags().Lookup("eth-chain-id"))
-	viper.BindPFlag("ethereum.defaultSender", rootCmd.PersistentFlags().Lookup("eth-default-sender"))
-	viper.BindPFlag("ethereum.rpcGasCap", rootCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
+	viper.BindPFlag("ethereum.chainID", serveCmd.PersistentFlags().Lookup("eth-chain-id"))
+	viper.BindPFlag("ethereum.defaultSender", serveCmd.PersistentFlags().Lookup("eth-default-sender"))
+	viper.BindPFlag("ethereum.rpcGasCap", serveCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
 }
