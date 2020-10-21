@@ -44,7 +44,7 @@ func Init() {
 		Namespace: namespace,
 		Subsystem: subsystemWS,
 		Name:      "count",
-		Help:      "websocket conntection count",
+		Help:      "websocket connection count",
 	})
 
 	ipcCount = promauto.NewGauge(prometheus.GaugeOpts{
