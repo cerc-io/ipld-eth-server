@@ -17,7 +17,6 @@
 package eth_test
 
 import (
-	"github.com/vulcanize/ipld-eth-server/pkg/eth/mocks"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,10 +25,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	mocks2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -53,7 +52,7 @@ var (
 			Off: true,
 		},
 		ReceiptFilter: eth.ReceiptFilter{
-			LogAddresses: []string{mocks2.Address.String()},
+			LogAddresses: []string{test_helpers.Address.String()},
 		},
 		StateFilter: eth.StateFilter{
 			Off: true,
@@ -95,7 +94,7 @@ var (
 				{"0x0000000000000000000000000000000000000000000000000000000000000004"},
 				{"0x0000000000000000000000000000000000000000000000000000000000000006"},
 			},
-			LogAddresses: []string{mocks2.Address.String()},
+			LogAddresses: []string{test_helpers.Address.String()},
 		},
 		StateFilter: eth.StateFilter{
 			Off: true,
@@ -116,9 +115,9 @@ var (
 		ReceiptFilter: eth.ReceiptFilter{
 			Topics: [][]string{
 				{"0x0000000000000000000000000000000000000000000000000000000000000004"},
-				{"0x0000000000000000000000000000000000000000000000000000000000000007"}, // This topic won't match on the mocks2.Address.String() contract receipt
+				{"0x0000000000000000000000000000000000000000000000000000000000000007"}, // This topic won't match on the mocks.Address.String() contract receipt
 			},
-			LogAddresses: []string{mocks2.Address.String()},
+			LogAddresses: []string{test_helpers.Address.String()},
 		},
 		StateFilter: eth.StateFilter{
 			Off: true,
@@ -138,7 +137,7 @@ var (
 		},
 		ReceiptFilter: eth.ReceiptFilter{
 			Topics:       [][]string{{"0x0000000000000000000000000000000000000000000000000000000000000005"}},
-			LogAddresses: []string{mocks2.Address.String(), mocks2.AnotherAddress.String()},
+			LogAddresses: []string{test_helpers.Address.String(), test_helpers.AnotherAddress.String()},
 		},
 		StateFilter: eth.StateFilter{
 			Off: true,
@@ -173,7 +172,7 @@ var (
 			Off: true,
 		},
 		TxFilter: eth.TxFilter{
-			Dst: []string{mocks2.AnotherAddress.String()}, // We only filter for one of the trxs so we will only get the one corresponding receipt
+			Dst: []string{test_helpers.AnotherAddress.String()}, // We only filter for one of the trxs so we will only get the one corresponding receipt
 		},
 		ReceiptFilter: eth.ReceiptFilter{
 			MatchTxs:     true,
@@ -200,7 +199,7 @@ var (
 			Off: true,
 		},
 		StateFilter: eth.StateFilter{
-			Addresses: []string{mocks2.AccountAddresss.Hex()},
+			Addresses: []string{test_helpers.AccountAddresss.Hex()},
 		},
 		StorageFilter: eth.StorageFilter{
 			Off: true,
@@ -227,7 +226,7 @@ var _ = Describe("Retriever", func() {
 
 	Describe("Retrieve", func() {
 		BeforeEach(func() {
-			err := repo.Publish(mocks.MockConvertedPayload)
+			err := repo.Publish(test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("Retrieves all CIDs for the given blocknumber when provided an open filter", func() {
@@ -235,34 +234,34 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids)).To(Equal(1))
-			Expect(cids[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
-			expectedHeaderCID := mocks.MockCIDWrapper.Header
+			Expect(cids[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
+			expectedHeaderCID := test_helpers.MockCIDWrapper.Header
 			expectedHeaderCID.ID = cids[0].Header.ID
 			expectedHeaderCID.NodeID = cids[0].Header.NodeID
 			Expect(cids[0].Header).To(Equal(expectedHeaderCID))
 			Expect(len(cids[0].Transactions)).To(Equal(3))
-			Expect(eth.TxModelsContainsCID(cids[0].Transactions, mocks.MockCIDWrapper.Transactions[0].CID)).To(BeTrue())
-			Expect(eth.TxModelsContainsCID(cids[0].Transactions, mocks.MockCIDWrapper.Transactions[1].CID)).To(BeTrue())
-			Expect(eth.TxModelsContainsCID(cids[0].Transactions, mocks.MockCIDWrapper.Transactions[2].CID)).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids[0].Transactions, test_helpers.MockCIDWrapper.Transactions[0].CID)).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids[0].Transactions, test_helpers.MockCIDWrapper.Transactions[1].CID)).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids[0].Transactions, test_helpers.MockCIDWrapper.Transactions[2].CID)).To(BeTrue())
 			Expect(len(cids[0].Receipts)).To(Equal(3))
-			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, mocks.MockCIDWrapper.Receipts[0].CID)).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, mocks.MockCIDWrapper.Receipts[1].CID)).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, mocks.MockCIDWrapper.Receipts[2].CID)).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, test_helpers.MockCIDWrapper.Receipts[0].CID)).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, test_helpers.MockCIDWrapper.Receipts[1].CID)).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, test_helpers.MockCIDWrapper.Receipts[2].CID)).To(BeTrue())
 			Expect(len(cids[0].StateNodes)).To(Equal(2))
 			for _, stateNode := range cids[0].StateNodes {
-				if stateNode.CID == mocks2.State1CID.String() {
-					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(mocks.ContractLeafKey).Hex()))
+				if stateNode.CID == test_helpers.State1CID.String() {
+					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(test_helpers.ContractLeafKey).Hex()))
 					Expect(stateNode.NodeType).To(Equal(2))
 					Expect(stateNode.Path).To(Equal([]byte{'\x06'}))
 				}
-				if stateNode.CID == mocks2.State2CID.String() {
-					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(mocks.AccountLeafKey).Hex()))
+				if stateNode.CID == test_helpers.State2CID.String() {
+					Expect(stateNode.StateKey).To(Equal(common.BytesToHash(test_helpers.AccountLeafKey).Hex()))
 					Expect(stateNode.NodeType).To(Equal(2))
 					Expect(stateNode.Path).To(Equal([]byte{'\x0c'}))
 				}
 			}
 			Expect(len(cids[0].StorageNodes)).To(Equal(1))
-			expectedStorageNodeCIDs := mocks.MockCIDWrapper.StorageNodes
+			expectedStorageNodeCIDs := test_helpers.MockCIDWrapper.StorageNodes
 			expectedStorageNodeCIDs[0].ID = cids[0].StorageNodes[0].ID
 			expectedStorageNodeCIDs[0].StateID = cids[0].StorageNodes[0].StateID
 			Expect(cids[0].StorageNodes).To(Equal(expectedStorageNodeCIDs))
@@ -273,13 +272,13 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids1)).To(Equal(1))
-			Expect(cids1[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
+			Expect(cids1[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
 			Expect(cids1[0].Header).To(Equal(eth2.HeaderModel{}))
 			Expect(len(cids1[0].Transactions)).To(Equal(0))
 			Expect(len(cids1[0].StateNodes)).To(Equal(0))
 			Expect(len(cids1[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids1[0].Receipts)).To(Equal(1))
-			expectedReceiptCID := mocks.MockCIDWrapper.Receipts[0]
+			expectedReceiptCID := test_helpers.MockCIDWrapper.Receipts[0]
 			expectedReceiptCID.ID = cids1[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids1[0].Receipts[0].TxID
 			Expect(cids1[0].Receipts[0]).To(Equal(expectedReceiptCID))
@@ -288,13 +287,13 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids2)).To(Equal(1))
-			Expect(cids2[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
+			Expect(cids2[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
 			Expect(cids2[0].Header).To(Equal(eth2.HeaderModel{}))
 			Expect(len(cids2[0].Transactions)).To(Equal(0))
 			Expect(len(cids2[0].StateNodes)).To(Equal(0))
 			Expect(len(cids2[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids2[0].Receipts)).To(Equal(1))
-			expectedReceiptCID = mocks.MockCIDWrapper.Receipts[0]
+			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[0]
 			expectedReceiptCID.ID = cids2[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids2[0].Receipts[0].TxID
 			Expect(cids2[0].Receipts[0]).To(Equal(expectedReceiptCID))
@@ -303,13 +302,13 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids3)).To(Equal(1))
-			Expect(cids3[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
+			Expect(cids3[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
 			Expect(cids3[0].Header).To(Equal(eth2.HeaderModel{}))
 			Expect(len(cids3[0].Transactions)).To(Equal(0))
 			Expect(len(cids3[0].StateNodes)).To(Equal(0))
 			Expect(len(cids3[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids3[0].Receipts)).To(Equal(1))
-			expectedReceiptCID = mocks.MockCIDWrapper.Receipts[0]
+			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[0]
 			expectedReceiptCID.ID = cids3[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids3[0].Receipts[0].TxID
 			Expect(cids3[0].Receipts[0]).To(Equal(expectedReceiptCID))
@@ -318,13 +317,13 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids4)).To(Equal(1))
-			Expect(cids4[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
+			Expect(cids4[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
 			Expect(cids4[0].Header).To(Equal(eth2.HeaderModel{}))
 			Expect(len(cids4[0].Transactions)).To(Equal(0))
 			Expect(len(cids4[0].StateNodes)).To(Equal(0))
 			Expect(len(cids4[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids4[0].Receipts)).To(Equal(1))
-			expectedReceiptCID = mocks.MockCIDWrapper.Receipts[1]
+			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[1]
 			expectedReceiptCID.ID = cids4[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids4[0].Receipts[0].TxID
 			Expect(cids4[0].Receipts[0]).To(Equal(expectedReceiptCID))
@@ -333,34 +332,34 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids5)).To(Equal(1))
-			Expect(cids5[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
+			Expect(cids5[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
 			Expect(cids5[0].Header).To(Equal(eth2.HeaderModel{}))
 			Expect(len(cids5[0].Transactions)).To(Equal(3))
-			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks.Trx1CID.String())).To(BeTrue())
-			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks.Trx2CID.String())).To(BeTrue())
-			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, mocks.Trx3CID.String())).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, test_helpers.Trx1CID.String())).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, test_helpers.Trx2CID.String())).To(BeTrue())
+			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, test_helpers.Trx3CID.String())).To(BeTrue())
 			Expect(len(cids5[0].StateNodes)).To(Equal(0))
 			Expect(len(cids5[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids5[0].Receipts)).To(Equal(3))
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks.Rct1CID.String())).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks.Rct2CID.String())).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, mocks.Rct3CID.String())).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, test_helpers.Rct1CID.String())).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, test_helpers.Rct2CID.String())).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, test_helpers.Rct3CID.String())).To(BeTrue())
 
 			cids6, empty, err := retriever.Retrieve(rctsForSelectCollectedTrxs, 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids6)).To(Equal(1))
-			Expect(cids6[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
+			Expect(cids6[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
 			Expect(cids6[0].Header).To(Equal(eth2.HeaderModel{}))
 			Expect(len(cids6[0].Transactions)).To(Equal(1))
-			expectedTxCID := mocks.MockCIDWrapper.Transactions[1]
+			expectedTxCID := test_helpers.MockCIDWrapper.Transactions[1]
 			expectedTxCID.ID = cids6[0].Transactions[0].ID
 			expectedTxCID.HeaderID = cids6[0].Transactions[0].HeaderID
 			Expect(cids6[0].Transactions[0]).To(Equal(expectedTxCID))
 			Expect(len(cids6[0].StateNodes)).To(Equal(0))
 			Expect(len(cids6[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids6[0].Receipts)).To(Equal(1))
-			expectedReceiptCID = mocks.MockCIDWrapper.Receipts[1]
+			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[1]
 			expectedReceiptCID.ID = cids6[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids6[0].Receipts[0].TxID
 			Expect(cids6[0].Receipts[0]).To(Equal(expectedReceiptCID))
@@ -369,7 +368,7 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids7)).To(Equal(1))
-			Expect(cids7[0].BlockNumber).To(Equal(mocks.MockCIDWrapper.BlockNumber))
+			Expect(cids7[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
 			Expect(cids7[0].Header).To(Equal(eth2.HeaderModel{}))
 			Expect(len(cids7[0].Transactions)).To(Equal(0))
 			Expect(len(cids7[0].Receipts)).To(Equal(0))
@@ -379,9 +378,9 @@ var _ = Describe("Retriever", func() {
 				ID:       cids7[0].StateNodes[0].ID,
 				HeaderID: cids7[0].StateNodes[0].HeaderID,
 				NodeType: 2,
-				StateKey: common.BytesToHash(mocks2.AccountLeafKey).Hex(),
-				CID:      mocks2.State2CID.String(),
-				MhKey:    mocks2.State2MhKey,
+				StateKey: common.BytesToHash(test_helpers.AccountLeafKey).Hex(),
+				CID:      test_helpers.State2CID.String(),
+				MhKey:    test_helpers.State2MhKey,
 				Path:     []byte{'\x0c'},
 			}))
 
@@ -397,7 +396,7 @@ var _ = Describe("Retriever", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Gets the number of the first block that has data in the database", func() {
-			err := repo.Publish(mocks2.MockConvertedPayload)
+			err := repo.Publish(test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			num, err := retriever.RetrieveFirstBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
@@ -405,7 +404,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Gets the number of the first block that has data in the database", func() {
-			payload := mocks2.MockConvertedPayload
+			payload := test_helpers.MockConvertedPayload
 			payload.Block = newMockBlock(1010101)
 			err := repo.Publish(payload)
 			Expect(err).ToNot(HaveOccurred())
@@ -415,7 +414,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Gets the number of the first block that has data in the database", func() {
-			payload1 := mocks2.MockConvertedPayload
+			payload1 := test_helpers.MockConvertedPayload
 			payload1.Block = newMockBlock(1010101)
 			payload2 := payload1
 			payload2.Block = newMockBlock(5)
@@ -435,7 +434,7 @@ var _ = Describe("Retriever", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Gets the number of the latest block that has data in the database", func() {
-			err := repo.Publish(mocks2.MockConvertedPayload)
+			err := repo.Publish(test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			num, err := retriever.RetrieveLastBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
@@ -443,7 +442,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Gets the number of the latest block that has data in the database", func() {
-			payload := mocks2.MockConvertedPayload
+			payload := test_helpers.MockConvertedPayload
 			payload.Block = newMockBlock(1010101)
 			err := repo.Publish(payload)
 			Expect(err).ToNot(HaveOccurred())
@@ -453,7 +452,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Gets the number of the latest block that has data in the database", func() {
-			payload1 := mocks2.MockConvertedPayload
+			payload1 := test_helpers.MockConvertedPayload
 			payload1.Block = newMockBlock(1010101)
 			payload2 := payload1
 			payload2.Block = newMockBlock(5)
@@ -469,7 +468,7 @@ var _ = Describe("Retriever", func() {
 })
 
 func newMockBlock(blockNumber uint64) *types.Block {
-	header := mocks2.MockHeader
+	header := test_helpers.MockHeader
 	header.Number.SetUint64(blockNumber)
-	return types.NewBlock(&mocks2.MockHeader, mocks2.MockTransactions, nil, mocks2.MockReceipts)
+	return types.NewBlock(&test_helpers.MockHeader, test_helpers.MockTransactions, nil, test_helpers.MockReceipts)
 }

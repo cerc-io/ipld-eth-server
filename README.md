@@ -66,10 +66,15 @@ The corresponding CLI flags can be found with the `./ipld-eth-server serve --hel
     ipcPath = "~/.vulcanize/vulcanize.ipc" # $SERVER_IPC_PATH
     wsPath = "127.0.0.1:8081" # $SERVER_WS_PATH
     httpPath = "127.0.0.1:8082" # $SERVER_HTTP_PATH
+
+[ethereum]
+    chainID = "1" # $ETH_CHAIN_ID
+    defaultSender = "" # $ETH_DEFAULT_SENDER_ADDR
 ```
 
 The `database` fields are for connecting to a Postgres database that has been/is being populated by [ipld-eth-indexer](https://github.com/vulcanize/ipld-eth-indexer).
 The `server` fields set the paths for exposing the ipld-eth-server endpoints
+The `ethereum` fields set the chainID and default sender address to use for EVM simulation
 
 
 ### Endpoints

@@ -25,67 +25,64 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth/mocks"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
 	expectedBlock = map[string]interface{}{
-		"number":           (*hexutil.Big)(mocks.MockBlock.Number()),
-		"hash":             mocks.MockBlock.Hash(),
-		"parentHash":       mocks.MockBlock.ParentHash(),
-		"nonce":            mocks.MockBlock.Header().Nonce,
-		"mixHash":          mocks.MockBlock.MixDigest(),
-		"sha3Uncles":       mocks.MockBlock.UncleHash(),
-		"logsBloom":        mocks.MockBlock.Bloom(),
-		"stateRoot":        mocks.MockBlock.Root(),
-		"miner":            mocks.MockBlock.Coinbase(),
-		"difficulty":       (*hexutil.Big)(mocks.MockBlock.Difficulty()),
-		"extraData":        hexutil.Bytes(mocks.MockBlock.Header().Extra),
-		"gasLimit":         hexutil.Uint64(mocks.MockBlock.GasLimit()),
-		"gasUsed":          hexutil.Uint64(mocks.MockBlock.GasUsed()),
-		"timestamp":        hexutil.Uint64(mocks.MockBlock.Time()),
-		"transactionsRoot": mocks.MockBlock.TxHash(),
-		"receiptsRoot":     mocks.MockBlock.ReceiptHash(),
-		"totalDifficulty":  (*hexutil.Big)(mocks.MockBlock.Difficulty()),
-		"size":             hexutil.Uint64(mocks.MockBlock.Size()),
+		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
+		"hash":             test_helpers.MockBlock.Hash(),
+		"parentHash":       test_helpers.MockBlock.ParentHash(),
+		"nonce":            test_helpers.MockBlock.Header().Nonce,
+		"mixHash":          test_helpers.MockBlock.MixDigest(),
+		"sha3Uncles":       test_helpers.MockBlock.UncleHash(),
+		"logsBloom":        test_helpers.MockBlock.Bloom(),
+		"stateRoot":        test_helpers.MockBlock.Root(),
+		"miner":            test_helpers.MockBlock.Coinbase(),
+		"difficulty":       (*hexutil.Big)(test_helpers.MockBlock.Difficulty()),
+		"extraData":        hexutil.Bytes(test_helpers.MockBlock.Header().Extra),
+		"gasLimit":         hexutil.Uint64(test_helpers.MockBlock.GasLimit()),
+		"gasUsed":          hexutil.Uint64(test_helpers.MockBlock.GasUsed()),
+		"timestamp":        hexutil.Uint64(test_helpers.MockBlock.Time()),
+		"transactionsRoot": test_helpers.MockBlock.TxHash(),
+		"receiptsRoot":     test_helpers.MockBlock.ReceiptHash(),
+		"totalDifficulty":  (*hexutil.Big)(test_helpers.MockBlock.Difficulty()),
+		"size":             hexutil.Uint64(test_helpers.MockBlock.Size()),
 	}
 	expectedHeader = map[string]interface{}{
-		"number":           (*hexutil.Big)(mocks.MockBlock.Header().Number),
-		"hash":             mocks.MockBlock.Header().Hash(),
-		"parentHash":       mocks.MockBlock.Header().ParentHash,
-		"nonce":            mocks.MockBlock.Header().Nonce,
-		"mixHash":          mocks.MockBlock.Header().MixDigest,
-		"sha3Uncles":       mocks.MockBlock.Header().UncleHash,
-		"logsBloom":        mocks.MockBlock.Header().Bloom,
-		"stateRoot":        mocks.MockBlock.Header().Root,
-		"miner":            mocks.MockBlock.Header().Coinbase,
-		"difficulty":       (*hexutil.Big)(mocks.MockBlock.Header().Difficulty),
-		"extraData":        hexutil.Bytes(mocks.MockBlock.Header().Extra),
-		"size":             hexutil.Uint64(mocks.MockBlock.Header().Size()),
-		"gasLimit":         hexutil.Uint64(mocks.MockBlock.Header().GasLimit),
-		"gasUsed":          hexutil.Uint64(mocks.MockBlock.Header().GasUsed),
-		"timestamp":        hexutil.Uint64(mocks.MockBlock.Header().Time),
-		"transactionsRoot": mocks.MockBlock.Header().TxHash,
-		"receiptsRoot":     mocks.MockBlock.Header().ReceiptHash,
-		"totalDifficulty":  (*hexutil.Big)(mocks.MockBlock.Header().Difficulty),
+		"number":           (*hexutil.Big)(test_helpers.MockBlock.Header().Number),
+		"hash":             test_helpers.MockBlock.Header().Hash(),
+		"parentHash":       test_helpers.MockBlock.Header().ParentHash,
+		"nonce":            test_helpers.MockBlock.Header().Nonce,
+		"mixHash":          test_helpers.MockBlock.Header().MixDigest,
+		"sha3Uncles":       test_helpers.MockBlock.Header().UncleHash,
+		"logsBloom":        test_helpers.MockBlock.Header().Bloom,
+		"stateRoot":        test_helpers.MockBlock.Header().Root,
+		"miner":            test_helpers.MockBlock.Header().Coinbase,
+		"difficulty":       (*hexutil.Big)(test_helpers.MockBlock.Header().Difficulty),
+		"extraData":        hexutil.Bytes(test_helpers.MockBlock.Header().Extra),
+		"size":             hexutil.Uint64(test_helpers.MockBlock.Header().Size()),
+		"gasLimit":         hexutil.Uint64(test_helpers.MockBlock.Header().GasLimit),
+		"gasUsed":          hexutil.Uint64(test_helpers.MockBlock.Header().GasUsed),
+		"timestamp":        hexutil.Uint64(test_helpers.MockBlock.Header().Time),
+		"transactionsRoot": test_helpers.MockBlock.Header().TxHash,
+		"receiptsRoot":     test_helpers.MockBlock.Header().ReceiptHash,
+		"totalDifficulty":  (*hexutil.Big)(test_helpers.MockBlock.Header().Difficulty),
 	}
-	expectedTransaction = eth.NewRPCTransaction(mocks.MockTransactions[0], mocks.MockBlock.Hash(), mocks.MockBlock.NumberU64(), 0)
+	expectedTransaction = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0)
 )
 
 var _ = Describe("API", func() {
 	var (
 		db                *postgres.DB
-		retriever         *eth.CIDRetriever
-		fetcher           *eth.IPLDFetcher
 		indexAndPublisher *eth2.IPLDPublisher
 		backend           *eth.Backend
 		api               *eth.PublicEthAPI
@@ -94,18 +91,13 @@ var _ = Describe("API", func() {
 		var err error
 		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		retriever = eth.NewCIDRetriever(db)
-		fetcher = eth.NewIPLDFetcher(db)
 		indexAndPublisher = eth2.NewIPLDPublisher(db)
-		backend = &eth.Backend{
-			Retriever: retriever,
-			Fetcher:   fetcher,
-			DB:        db,
-		}
-		api = eth.NewPublicEthAPI(backend)
-		err = indexAndPublisher.Publish(mocks.MockConvertedPayload)
+		backend, err = eth.NewEthBackend(db, &eth.Config{})
 		Expect(err).ToNot(HaveOccurred())
-		uncles := mocks.MockBlock.Uncles()
+		api = eth.NewPublicEthAPI(backend)
+		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
+		Expect(err).ToNot(HaveOccurred())
+		uncles := test_helpers.MockBlock.Uncles()
 		uncleHashes := make([]common.Hash, len(uncles))
 		for i, uncle := range uncles {
 			uncleHashes[i] = uncle.Hash()
@@ -120,13 +112,13 @@ var _ = Describe("API", func() {
 			bn := api.BlockNumber()
 			ubn := (uint64)(bn)
 			subn := strconv.FormatUint(ubn, 10)
-			Expect(subn).To(Equal(mocks.MockCIDPayload.HeaderCID.BlockNumber))
+			Expect(subn).To(Equal(test_helpers.BlockNumber.String()))
 		})
 	})
 
 	Describe("GetTransactionByHash", func() {
 		It("Retrieves a transaction by hash", func() {
-			hash := mocks.MockTransactions[0].Hash()
+			hash := test_helpers.MockTransactions[0].Hash()
 			tx, err := api.GetTransactionByHash(context.Background(), hash)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(tx).To(Equal(expectedTransaction))
@@ -136,12 +128,12 @@ var _ = Describe("API", func() {
 	Describe("GetBlockByNumber", func() {
 		It("Retrieves a block by number", func() {
 			// without full txs
-			number, err := strconv.ParseInt(mocks.MockCIDPayload.HeaderCID.BlockNumber, 10, 64)
+			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
 			Expect(err).ToNot(HaveOccurred())
 			block, err := api.GetBlockByNumber(context.Background(), rpc.BlockNumber(number), false)
 			Expect(err).ToNot(HaveOccurred())
-			transactionHashes := make([]interface{}, len(mocks.MockBlock.Transactions()))
-			for i, trx := range mocks.MockBlock.Transactions() {
+			transactionHashes := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
+			for i, trx := range test_helpers.MockBlock.Transactions() {
 				transactionHashes[i] = trx.Hash()
 			}
 			expectedBlock["transactions"] = transactionHashes
@@ -151,9 +143,9 @@ var _ = Describe("API", func() {
 			// with full txs
 			block, err = api.GetBlockByNumber(context.Background(), rpc.BlockNumber(number), true)
 			Expect(err).ToNot(HaveOccurred())
-			transactions := make([]interface{}, len(mocks.MockBlock.Transactions()))
-			for i, trx := range mocks.MockBlock.Transactions() {
-				transactions[i] = eth.NewRPCTransactionFromBlockHash(mocks.MockBlock, trx.Hash())
+			transactions := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
+			for i, trx := range test_helpers.MockBlock.Transactions() {
+				transactions[i] = eth.NewRPCTransactionFromBlockHash(test_helpers.MockBlock, trx.Hash())
 			}
 			expectedBlock["transactions"] = transactions
 			for key, val := range expectedBlock {
@@ -164,7 +156,7 @@ var _ = Describe("API", func() {
 
 	Describe("GetHeaderByNumber", func() {
 		It("Retrieves a header by number", func() {
-			number, err := strconv.ParseInt(mocks.MockCIDPayload.HeaderCID.BlockNumber, 10, 64)
+			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
 			Expect(err).ToNot(HaveOccurred())
 			header, err := api.GetHeaderByNumber(context.Background(), rpc.BlockNumber(number))
 			Expect(err).ToNot(HaveOccurred())
@@ -172,11 +164,11 @@ var _ = Describe("API", func() {
 		})
 
 		It("Throws an error if a header cannot be found", func() {
-			number, err := strconv.ParseInt(mocks.MockCIDPayload.HeaderCID.BlockNumber, 10, 64)
+			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
 			Expect(err).ToNot(HaveOccurred())
 			header, err := api.GetHeaderByNumber(context.Background(), rpc.BlockNumber(number+1))
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("header at block %d is not available", number+1))
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 			Expect(header).To(BeNil())
 			_, err = api.B.DB.Beginx()
 			Expect(err).ToNot(HaveOccurred())
@@ -186,10 +178,10 @@ var _ = Describe("API", func() {
 	Describe("GetBlockByHash", func() {
 		It("Retrieves a block by hash", func() {
 			// without full txs
-			block, err := api.GetBlockByHash(context.Background(), mocks.MockBlock.Hash(), false)
+			block, err := api.GetBlockByHash(context.Background(), test_helpers.MockBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
-			transactionHashes := make([]interface{}, len(mocks.MockBlock.Transactions()))
-			for i, trx := range mocks.MockBlock.Transactions() {
+			transactionHashes := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
+			for i, trx := range test_helpers.MockBlock.Transactions() {
 				transactionHashes[i] = trx.Hash()
 			}
 			expectedBlock["transactions"] = transactionHashes
@@ -197,11 +189,11 @@ var _ = Describe("API", func() {
 				Expect(val).To(Equal(block[key]))
 			}
 			// with full txs
-			block, err = api.GetBlockByHash(context.Background(), mocks.MockBlock.Hash(), true)
+			block, err = api.GetBlockByHash(context.Background(), test_helpers.MockBlock.Hash(), true)
 			Expect(err).ToNot(HaveOccurred())
-			transactions := make([]interface{}, len(mocks.MockBlock.Transactions()))
-			for i, trx := range mocks.MockBlock.Transactions() {
-				transactions[i] = eth.NewRPCTransactionFromBlockHash(mocks.MockBlock, trx.Hash())
+			transactions := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
+			for i, trx := range test_helpers.MockBlock.Transactions() {
+				transactions[i] = eth.NewRPCTransactionFromBlockHash(test_helpers.MockBlock, trx.Hash())
 			}
 			expectedBlock["transactions"] = transactions
 			for key, val := range expectedBlock {
@@ -211,20 +203,20 @@ var _ = Describe("API", func() {
 	})
 
 	Describe("GetLogs", func() {
-		It("Retrieves receipt logs that match the provided topcis within the provided range", func() {
+		It("Retrieves receipt logs that match the provided topics within the provided range", func() {
 			crit := ethereum.FilterQuery{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x04"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err := api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
 			crit = ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -233,13 +225,13 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x05"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1, mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -248,13 +240,13 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x06"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
 			crit = ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -265,8 +257,8 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x07"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
@@ -281,13 +273,13 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x06"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
 			crit = ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -298,13 +290,13 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x07"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -316,13 +308,13 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x07"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -335,13 +327,13 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x07"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1, mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -350,13 +342,13 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x07"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -365,27 +357,27 @@ var _ = Describe("API", func() {
 						common.HexToHash("0x06"),
 					},
 				},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
 			crit = ethereum.FilterQuery{
 				Topics:    [][]common.Hash{},
-				FromBlock: mocks.MockBlock.Number(),
-				ToBlock:   mocks.MockBlock.Number(),
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1, mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 		})
 
 		It("Uses the provided blockhash if one is provided", func() {
-			hash := mocks.MockBlock.Hash()
+			hash := test_helpers.MockBlock.Hash()
 			crit := ethereum.FilterQuery{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
@@ -398,7 +390,7 @@ var _ = Describe("API", func() {
 			logs, err := api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
@@ -414,7 +406,7 @@ var _ = Describe("API", func() {
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
@@ -428,7 +420,7 @@ var _ = Describe("API", func() {
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
@@ -444,7 +436,7 @@ var _ = Describe("API", func() {
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
@@ -476,7 +468,7 @@ var _ = Describe("API", func() {
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
@@ -490,7 +482,7 @@ var _ = Describe("API", func() {
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1, mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
@@ -508,7 +500,7 @@ var _ = Describe("API", func() {
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1, mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
@@ -517,15 +509,15 @@ var _ = Describe("API", func() {
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1, mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 		})
 
 		It("Filters on contract address if any are provided", func() {
-			hash := mocks.MockBlock.Hash()
+			hash := test_helpers.MockBlock.Hash()
 			crit := ethereum.FilterQuery{
 				BlockHash: &hash,
 				Addresses: []common.Address{
-					mocks.Address,
+					test_helpers.Address,
 				},
 				Topics: [][]common.Hash{
 					{
@@ -541,14 +533,14 @@ var _ = Describe("API", func() {
 			logs, err := api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
-			hash = mocks.MockBlock.Hash()
+			hash = test_helpers.MockBlock.Hash()
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
 				Addresses: []common.Address{
-					mocks.Address,
-					mocks.AnotherAddress,
+					test_helpers.Address,
+					test_helpers.AnotherAddress,
 				},
 				Topics: [][]common.Hash{
 					{
@@ -564,20 +556,20 @@ var _ = Describe("API", func() {
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1, mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
-			hash = mocks.MockBlock.Hash()
+			hash = test_helpers.MockBlock.Hash()
 			crit = ethereum.FilterQuery{
 				BlockHash: &hash,
 				Addresses: []common.Address{
-					mocks.Address,
-					mocks.AnotherAddress,
+					test_helpers.Address,
+					test_helpers.AnotherAddress,
 				},
 			}
 			logs, err = api.GetLogs(context.Background(), crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{mocks.MockLog1, mocks.MockLog2}))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 		})
 	})
 })

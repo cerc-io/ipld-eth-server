@@ -23,21 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 )
 
-func ResolveFromNodeType(nodeType statediff.NodeType) int {
-	switch nodeType {
-	case statediff.Branch:
-		return 0
-	case statediff.Extension:
-		return 1
-	case statediff.Leaf:
-		return 2
-	case statediff.Removed:
-		return 3
-	default:
-		return -1
-	}
-}
-
 func ResolveToNodeType(nodeType int) statediff.NodeType {
 	switch nodeType {
 	case 0:

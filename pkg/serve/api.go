@@ -23,8 +23,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	v "github.com/vulcanize/ipld-eth-server/version"
 )
 
@@ -87,7 +88,7 @@ func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionS
 
 // Chain returns the chain type that this watcher instance supports
 func (api *PublicServerAPI) Chain() shared.ChainType {
-	return api.w.Chain()
+	return shared.Ethereum
 }
 
 // Struct for holding watcher meta data
