@@ -14,7 +14,7 @@
 ## Background
 NOTE: WIP
 
-ipld-eth-server is used to service queries against the indexed Ethereum IPLD objects indexed by [ipld-eth-indexer](https://github.com/vulcanize/ipld-eth-indexer).
+ipld-eth-server is used to service queries against the Ethereum IPLD objects indexed by [ipld-eth-indexer](https://github.com/vulcanize/ipld-eth-indexer).
 
 It exposes standard Ethereum JSON RPC endpoints on top of the database, in some cases these endpoints can leverage the unique indexes to improve query performance.
 Additional, unique endpoints are exposed which utilize the new indexes and state diff data objects.
@@ -85,6 +85,7 @@ TODO: Port the IPLD RPC subscription endpoints after the decoupling
 ipld-eth-server currently recapitulates portions of the Ethereum JSON-RPC api standard.
 
 The currently supported standard endpoints are:  
+`eth_call`
 `eth_blockNumber`  
 `eth_getLogs`  
 `eth_getHeaderByNumber`  
@@ -92,7 +93,7 @@ The currently supported standard endpoints are:
 `eth_getBlockByHash`  
 `eth_getTransactionByHash`  
 
-TODO: Add the rest of the standard endpoints add unique endpoints (e.g. getSlice)
+TODO: Add the rest of the standard endpoints and unique endpoints (e.g. getSlice)
 
 ### Testing
 `make test` will run the unit tests  
