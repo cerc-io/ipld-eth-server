@@ -68,6 +68,7 @@ type Config struct {
 func NewConfig() (*Config, error) {
 	c := new(Config)
 
+	viper.BindEnv("ethereum.httpPath", shared.ETH_HTTP_PATH)
 	viper.BindEnv("server.wsPath", SERVER_WS_PATH)
 	viper.BindEnv("server.ipcPath", SERVER_IPC_PATH)
 	viper.BindEnv("server.httpPath", SERVER_HTTP_PATH)
