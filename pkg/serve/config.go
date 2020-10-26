@@ -17,15 +17,18 @@
 package serve
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/node"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	"github.com/vulcanize/ipld-eth-indexer/utils"
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
@@ -60,6 +63,7 @@ type Config struct {
 	ChainConfig   *params.ChainConfig
 	DefaultSender *common.Address
 	RPCGasCap     *big.Int
+	Client        *rpc.Client
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -67,6 +71,7 @@ type Config struct {
 func NewConfig() (*Config, error) {
 	c := new(Config)
 
+	viper.BindEnv("ethereum.httpPath", shared.ETH_HTTP_PATH)
 	viper.BindEnv("server.wsPath", SERVER_WS_PATH)
 	viper.BindEnv("server.ipcPath", SERVER_IPC_PATH)
 	viper.BindEnv("server.httpPath", SERVER_HTTP_PATH)
@@ -75,6 +80,13 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
 
 	c.DBConfig.Init()
+
+	ethHTTP := viper.GetString("ethereum.httpPath")
+	nodeInfo, cli, err := shared.GetEthNodeAndClient(fmt.Sprintf("http://%s", ethHTTP))
+	if err != nil {
+		return nil, err
+	}
+	c.Client = cli
 
 	wsPath := viper.GetString("server.wsPath")
 	if wsPath == "" {
@@ -96,7 +108,7 @@ func NewConfig() (*Config, error) {
 	}
 	c.HTTPEndpoint = httpPath
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB := utils.LoadPostgres(c.DBConfig, node.Info{})
+	serveDB := utils.LoadPostgres(c.DBConfig, nodeInfo)
 	prom.RegisterDBCollector(c.DBConfig.Name, serveDB.DB)
 	c.DB = &serveDB
 
@@ -112,7 +124,6 @@ func NewConfig() (*Config, error) {
 		}
 	}
 	chainID := viper.GetUint64("ethereum.chainID")
-	var err error
 	c.ChainConfig, err = eth.ChainConfig(chainID)
 	return c, err
 }
