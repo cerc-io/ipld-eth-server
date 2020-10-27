@@ -76,6 +76,8 @@ type Service struct {
 	serveWg *sync.WaitGroup
 	// config for backend
 	config *eth.Config
+	// rpc client for forwarding cache misses
+	client *rpc.Client
 }
 
 // NewServer creates a new Server using an underlying Service struct
@@ -139,7 +141,7 @@ func (sap *Service) APIs() []rpc.API {
 	return append(apis, rpc.API{
 		Namespace: eth.APIName,
 		Version:   eth.APIVersion,
-		Service:   eth.NewPublicEthAPI(backend),
+		Service:   eth.NewPublicEthAPI(backend, sap.client),
 		Public:    true,
 	})
 }

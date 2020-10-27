@@ -17,15 +17,18 @@
 package serve
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/node"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	"github.com/vulcanize/ipld-eth-indexer/utils"
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
@@ -43,11 +46,8 @@ const (
 	SERVER_MAX_OPEN_CONNECTIONS = "SERVER_MAX_OPEN_CONNECTIONS"
 	SERVER_MAX_CONN_LIFETIME    = "SERVER_MAX_CONN_LIFETIME"
 
-	ETH_CHAIN_ID = "ETH_CHAIN_ID"
-
 	ETH_DEFAULT_SENDER_ADDR = "ETH_DEFAULT_SENDER_ADDR"
-
-	ETH_RPC_GAS_CAP = "ETH_RPC_GAS_CAP"
+	ETH_RPC_GAS_CAP         = "ETH_RPC_GAS_CAP"
 )
 
 // Config struct
@@ -60,6 +60,7 @@ type Config struct {
 	ChainConfig   *params.ChainConfig
 	DefaultSender *common.Address
 	RPCGasCap     *big.Int
+	Client        *rpc.Client
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -70,11 +71,18 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("server.wsPath", SERVER_WS_PATH)
 	viper.BindEnv("server.ipcPath", SERVER_IPC_PATH)
 	viper.BindEnv("server.httpPath", SERVER_HTTP_PATH)
-	viper.BindEnv("ethereum.chainID", ETH_CHAIN_ID)
+	viper.BindEnv("ethereum.httpPath", shared.ETH_HTTP_PATH)
 	viper.BindEnv("ethereum.defaultSender", ETH_DEFAULT_SENDER_ADDR)
 	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
 
 	c.DBConfig.Init()
+
+	ethHTTP := viper.GetString("ethereum.httpPath")
+	nodeInfo, cli, err := shared.GetEthNodeAndClient(fmt.Sprintf("http://%s", ethHTTP))
+	if err != nil {
+		return nil, err
+	}
+	c.Client = cli
 
 	wsPath := viper.GetString("server.wsPath")
 	if wsPath == "" {
@@ -96,7 +104,7 @@ func NewConfig() (*Config, error) {
 	}
 	c.HTTPEndpoint = httpPath
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB := utils.LoadPostgres(c.DBConfig, node.Info{})
+	serveDB := utils.LoadPostgres(c.DBConfig, nodeInfo)
 	prom.RegisterDBCollector(c.DBConfig.Name, serveDB.DB)
 	c.DB = &serveDB
 
@@ -111,9 +119,7 @@ func NewConfig() (*Config, error) {
 			c.RPCGasCap = rpcGasCap
 		}
 	}
-	chainID := viper.GetUint64("ethereum.chainID")
-	var err error
-	c.ChainConfig, err = eth.ChainConfig(chainID)
+	c.ChainConfig, err = eth.ChainConfig(nodeInfo.ChainID)
 	return c, err
 }
 
