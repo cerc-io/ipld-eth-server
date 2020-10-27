@@ -12,6 +12,8 @@
     ipcPath = "~/.vulcanize/vulcanize.ipc" # $SERVER_IPC_PATH
     wsPath = "127.0.0.1:8081" # $SERVER_WS_PATH
     httpPath = "127.0.0.1:8082" # $SERVER_HTTP_PATH
+    graphql = true # $SERVER_GRAPHQL
+    graphqlEndpoint = "127.0.0.1:8083" # $SERVER_GRAPHQL_ENDPOINT
 
 [ethereum]
     chainID = "1" # $ETH_CHAIN_ID
