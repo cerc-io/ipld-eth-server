@@ -17,15 +17,19 @@
 package graphql_test
 
 import (
+	"io/ioutil"
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
+	"github.com/sirupsen/logrus"
 )
 
-var _ = Describe("GraphQL", func() {
-	It("Builds the schema and creates a new handler", func() {
-		_, err := graphql.NewHandler(nil)
-		Expect(err).ToNot(HaveOccurred())
-	})
+func TestGraphQL(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "graphql test suite")
+}
+
+var _ = BeforeSuite(func() {
+	logrus.SetOutput(ioutil.Discard)
 })

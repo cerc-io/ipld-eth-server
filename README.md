@@ -66,15 +66,23 @@ The corresponding CLI flags can be found with the `./ipld-eth-server serve --hel
     ipcPath = "~/.vulcanize/vulcanize.ipc" # $SERVER_IPC_PATH
     wsPath = "127.0.0.1:8081" # $SERVER_WS_PATH
     httpPath = "127.0.0.1:8082" # $SERVER_HTTP_PATH
+    graphql = true # $SERVER_GRAPHQL
+    graphqlEndpoint = "" # $SERVER_GRAPHQL_ENDPOINT
 
 [ethereum]
     chainID = "1" # $ETH_CHAIN_ID
     defaultSender = "" # $ETH_DEFAULT_SENDER_ADDR
+    rpcGasCap = "1000000000000" # $ETH_RPC_GAS_CAP
+    httpPath = "127.0.0.1:8545" # $ETH_HTTP_PATH
+    nodeID = "arch1" # $ETH_NODE_ID
+    clientName = "Geth" # $ETH_CLIENT_NAME
+    genesisBlock = "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3" # $ETH_GENESIS_BLOCK
+    networkID = "1" # $ETH_NETWORK_ID
 ```
 
-The `database` fields are for connecting to a Postgres database that has been/is being populated by [ipld-eth-indexer](https://github.com/vulcanize/ipld-eth-indexer).
-The `server` fields set the paths for exposing the ipld-eth-server endpoints
-The `ethereum` fields set the chainID and default sender address to use for EVM simulation
+The `database` fields are for connecting to a Postgres database that has been/is being populated by [ipld-eth-indexer](https://github.com/vulcanize/ipld-eth-indexer)  
+The `server` fields set the paths for exposing the ipld-eth-server endpoints  
+The `ethereum` fields set the chainID and default sender address to use for EVM simulation, and can optionally be used to configure a remote eth node to forward cache misses to  
 
 
 ### Endpoints

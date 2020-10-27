@@ -1,18 +1,18 @@
-// Copyright 2019 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
+// VulcanizeDB
+// Copyright © 2020 Vulcanize
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
+
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package graphql
 
@@ -21,11 +21,11 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
+	"github.com/sirupsen/logrus"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 )
@@ -62,7 +62,7 @@ func (s *Service) APIs() []rpc.API { return nil }
 // layer was also initialized to spawn any goroutines required by the service.
 func (s *Service) Start(server *p2p.Server) error {
 	var err error
-	s.handler, err = newHandler(s.backend)
+	s.handler, err = NewHandler(s.backend)
 	if err != nil {
 		return err
 	}
@@ -70,13 +70,13 @@ func (s *Service) Start(server *p2p.Server) error {
 		return err
 	}
 	go rpc.NewHTTPServer(s.cors, s.vhosts, s.timeouts, s.handler).Serve(s.listener)
-	log.Info("GraphQL endpoint opened", "url", fmt.Sprintf("http://%s", s.endpoint))
+	logrus.Debugf("graphQL endpoint opened for url %s", fmt.Sprintf("http://%s", s.endpoint))
 	return nil
 }
 
 // newHandler returns a new `http.Handler` that will answer GraphQL queries.
 // It additionally exports an interactive query browser on the / endpoint.
-func newHandler(backend *eth.Backend) (http.Handler, error) {
+func NewHandler(backend *eth.Backend) (http.Handler, error) {
 	q := Resolver{backend}
 
 	s, err := graphql.ParseSchema(schema, &q)
@@ -98,7 +98,7 @@ func (s *Service) Stop() error {
 	if s.listener != nil {
 		s.listener.Close()
 		s.listener = nil
-		log.Info("GraphQL endpoint closed", "url", fmt.Sprintf("http://%s", s.endpoint))
+		logrus.Debugf("graphQL endpoint closed for url %s", fmt.Sprintf("http://%s", s.endpoint))
 	}
 	return nil
 }

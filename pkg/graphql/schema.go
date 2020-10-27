@@ -1,18 +1,18 @@
-// Copyright 2019 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
+// VulcanizeDB
+// Copyright © 2020 Vulcanize
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
+
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package graphql
 
@@ -33,7 +33,6 @@ const schema string = `
 
     schema {
         query: Query
-        mutation: Mutation
     }
 
     # Account is an Ethereum account at a particular block.
@@ -206,9 +205,6 @@ const schema string = `
         account(address: Address!): Account!
         # Call executes a local call operation at the current block's state.
         call(data: CallData!): CallResult
-        # EstimateGas estimates the amount of gas that will be required for
-        # successful execution of a transaction at the current block's state.
-        estimateGas(data: CallData!): Long!
     }
 
     # CallData represents the data associated with a local contract call.
@@ -270,23 +266,9 @@ const schema string = `
         # Blocks returns all the blocks between two numbers, inclusive. If
         # to is not supplied, it defaults to the most recent known block.
         blocks(from: Long!, to: Long): [Block!]!
-        # Pending returns the current pending state.
-        pending: Pending!
         # Transaction returns a transaction specified by its hash.
         transaction(hash: Bytes32!): Transaction
         # Logs returns log entries matching the provided filter.
         logs(filter: FilterCriteria!): [Log!]!
-        # GasPrice returns the node's estimate of a gas price sufficient to
-        # ensure a transaction is mined in a timely fashion.
-        gasPrice: BigInt!
-        # ProtocolVersion returns the current wire protocol version number.
-        protocolVersion: Int!
-        # Syncing returns information on the current synchronisation state.
-        syncing: SyncState
-    }
-
-    type Mutation {
-        # SendRawTransaction sends an RLP-encoded transaction to the network.
-        sendRawTransaction(data: Bytes!): Bytes32!
     }
 `

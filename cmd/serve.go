@@ -71,10 +71,17 @@ func serve() {
 	if err := startServers(server, serverConfig); err != nil {
 		logWithCommand.Fatal(err)
 	}
+	graphQL, err := startGraphQL(server)
+	if err != nil {
+		logWithCommand.Fatal(err)
+	}
 
 	shutdown := make(chan os.Signal)
 	signal.Notify(shutdown, os.Interrupt)
 	<-shutdown
+	if graphQL != nil {
+		graphQL.Stop()
+	}
 	server.Stop()
 	wg.Wait()
 }
@@ -92,29 +99,24 @@ func startServers(server s.Server, settings *s.Config) error {
 	}
 	logWithCommand.Info("starting up HTTP server")
 	_, _, err = srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
-	if err != nil {
-		return err
-	}
-	return startGraphQL(server)
+	return err
 }
 
-func startGraphQL(server s.Server) error {
+func startGraphQL(server s.Server) (graphQLServer *graphql.Service, err error) {
 	viper.BindEnv("server.graphql", "SERVER_GRAPHQL")
 	if viper.GetBool("server.graphql") {
 		logWithCommand.Info("starting up GraphQL server")
 		viper.BindEnv("server.graphqlEndpoint", "SERVER_GRAPHQL_ENDPOINT")
 		endPoint := viper.GetString("server.graphqlEndpoint")
 		if endPoint != "" {
-			graphQLServer, err := graphql.New(server.Backend(), endPoint, nil, []string{"*"}, rpc.HTTPTimeouts{})
+			graphQLServer, err = graphql.New(server.Backend(), endPoint, nil, []string{"*"}, rpc.HTTPTimeouts{})
 			if err != nil {
-				return err
+				return
 			}
-			if err := graphQLServer.Start(nil); err != nil {
-				return err
-			}
+			err = graphQLServer.Start(nil)
 		}
 	}
-	return nil
+	return
 }
 
 func init() {
