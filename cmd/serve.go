@@ -103,6 +103,11 @@ func init() {
 	serveCmd.PersistentFlags().String("server-http-path", "", "vdb server http path")
 	serveCmd.PersistentFlags().String("server-ipc-path", "", "vdb server ipc path")
 
+	serveCmd.PersistentFlags().String("eth-http-path", "", "http url for ethereum node")
+	serveCmd.PersistentFlags().String("eth-node-id", "", "eth node id")
+	serveCmd.PersistentFlags().String("eth-client-name", "Geth", "eth client name")
+	serveCmd.PersistentFlags().String("eth-genesis-block", "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3", "eth genesis block hash")
+	serveCmd.PersistentFlags().String("eth-network-id", "1", "eth network id")
 	serveCmd.PersistentFlags().String("eth-chain-id", "1", "eth chain id")
 	serveCmd.PersistentFlags().String("eth-default-sender", "", "default sender address")
 	serveCmd.PersistentFlags().String("eth-rpc-gas-cap", "", "rpc gas cap (for eth_Call execution)")
@@ -112,6 +117,11 @@ func init() {
 	viper.BindPFlag("server.httpPath", serveCmd.PersistentFlags().Lookup("server-http-path"))
 	viper.BindPFlag("server.ipcPath", serveCmd.PersistentFlags().Lookup("server-ipc-path"))
 
+	viper.BindPFlag("ethereum.httpPath", serveCmd.PersistentFlags().Lookup("eth-http-path"))
+	viper.BindPFlag("ethereum.nodeID", serveCmd.PersistentFlags().Lookup("eth-node-id"))
+	viper.BindPFlag("ethereum.clientName", serveCmd.PersistentFlags().Lookup("eth-client-name"))
+	viper.BindPFlag("ethereum.genesisBlock", serveCmd.PersistentFlags().Lookup("eth-genesis-block"))
+	viper.BindPFlag("ethereum.networkID", serveCmd.PersistentFlags().Lookup("eth-network-id"))
 	viper.BindPFlag("ethereum.chainID", serveCmd.PersistentFlags().Lookup("eth-chain-id"))
 	viper.BindPFlag("ethereum.defaultSender", serveCmd.PersistentFlags().Lookup("eth-default-sender"))
 	viper.BindPFlag("ethereum.rpcGasCap", serveCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
