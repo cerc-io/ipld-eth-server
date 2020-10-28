@@ -86,7 +86,7 @@ var _ = Describe("eth_call", func() {
 			RPCGasCap:   big.NewInt(10000000000),
 		})
 		Expect(err).ToNot(HaveOccurred())
-		api = eth.NewPublicEthAPI(backend)
+		api = eth.NewPublicEthAPI(backend, nil)
 
 		// make the test blockchain (and state)
 		blocks, receipts, chain = test_helpers.MakeChain(4, test_helpers.Genesis, test_helpers.TestChainGen)

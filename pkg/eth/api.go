@@ -55,10 +55,14 @@ type PublicEthAPI struct {
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
 func NewPublicEthAPI(b *Backend, client *rpc.Client) *PublicEthAPI {
+	var ethClient *ethclient.Client
+	if client != nil {
+		ethClient = ethclient.NewClient(client)
+	}
 	return &PublicEthAPI{
 		B:         b,
 		rpc:       client,
-		ethClient: ethclient.NewClient(client),
+		ethClient: ethClient,
 	}
 }
 
