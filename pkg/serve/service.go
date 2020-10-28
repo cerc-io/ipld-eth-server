@@ -52,6 +52,8 @@ type Server interface {
 	Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings)
 	// Method to unsubscribe from the service
 	Unsubscribe(id rpc.ID)
+	// Backend exposes the server's backend
+	Backend() *eth.Backend
 }
 
 // Service is the underlying struct for the watcher
@@ -74,29 +76,30 @@ type Service struct {
 	db *postgres.DB
 	// wg for syncing serve processes
 	serveWg *sync.WaitGroup
-	// config for backend
-	config *eth.Config
 	// rpc client for forwarding cache misses
 	client *rpc.Client
+	// backend for the server
+	backend *eth.Backend
 }
 
 // NewServer creates a new Server using an underlying Service struct
 func NewServer(settings *Config) (Server, error) {
-	sn := new(Service)
-	sn.Retriever = eth.NewCIDRetriever(settings.DB)
-	sn.IPLDFetcher = eth.NewIPLDFetcher(settings.DB)
-	sn.Filterer = eth.NewResponseFilterer()
-	sn.db = settings.DB
-	sn.QuitChan = make(chan bool)
-	sn.Subscriptions = make(map[common.Hash]map[rpc.ID]Subscription)
-	sn.SubscriptionTypes = make(map[common.Hash]eth.SubscriptionSettings)
-	sn.config = &eth.Config{
+	sap := new(Service)
+	sap.Retriever = eth.NewCIDRetriever(settings.DB)
+	sap.IPLDFetcher = eth.NewIPLDFetcher(settings.DB)
+	sap.Filterer = eth.NewResponseFilterer()
+	sap.db = settings.DB
+	sap.QuitChan = make(chan bool)
+	sap.Subscriptions = make(map[common.Hash]map[rpc.ID]Subscription)
+	sap.SubscriptionTypes = make(map[common.Hash]eth.SubscriptionSettings)
+	var err error
+	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:   settings.ChainConfig,
 		VmConfig:      vm.Config{},
 		DefaultSender: settings.DefaultSender,
 		RPCGasCap:     settings.RPCGasCap,
-	}
-	return sn, nil
+	})
+	return sap, err
 }
 
 // Protocols exports the services p2p protocols, this service has none
@@ -133,15 +136,10 @@ func (sap *Service) APIs() []rpc.API {
 			Public:    true,
 		},
 	}
-	backend, err := eth.NewEthBackend(sap.db, sap.config)
-	if err != nil {
-		log.Error(err)
-		return nil
-	}
 	return append(apis, rpc.API{
 		Namespace: eth.APIName,
 		Version:   eth.APIVersion,
-		Service:   eth.NewPublicEthAPI(backend, sap.client),
+		Service:   eth.NewPublicEthAPI(sap.backend, sap.client),
 		Public:    true,
 	})
 }
@@ -356,6 +354,11 @@ func (sap *Service) Stop() error {
 	sap.close()
 	sap.Unlock()
 	return nil
+}
+
+// Backend exposes the server's backend
+func (sap *Service) Backend() *eth.Backend {
+	return sap.backend
 }
 
 // close is used to close all listening subscriptions

@@ -20,10 +20,29 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 )
+
+// RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
+type RPCTransaction struct {
+	BlockHash        *common.Hash    `json:"blockHash"`
+	BlockNumber      *hexutil.Big    `json:"blockNumber"`
+	From             common.Address  `json:"from"`
+	Gas              hexutil.Uint64  `json:"gas"`
+	GasPrice         *hexutil.Big    `json:"gasPrice"`
+	Hash             common.Hash     `json:"hash"`
+	Input            hexutil.Bytes   `json:"input"`
+	Nonce            hexutil.Uint64  `json:"nonce"`
+	To               *common.Address `json:"to"`
+	TransactionIndex *hexutil.Uint64 `json:"transactionIndex"`
+	Value            *hexutil.Big    `json:"value"`
+	V                *hexutil.Big    `json:"v"`
+	R                *hexutil.Big    `json:"r"`
+	S                *hexutil.Big    `json:"s"`
+}
 
 // IPLDs is used to package raw IPLD block data fetched from IPFS and returned by the server
 // Returned by IPLDFetcher and ResponseFilterer

@@ -96,8 +96,8 @@ const (
 )
 
 type ipldResult struct {
-	cid  string `db:"cid"`
-	data []byte `db:"data"`
+	CID  string `db:"cid"`
+	Data []byte `db:"data"`
 }
 type IPLDRetriever struct {
 	db *postgres.DB
@@ -122,8 +122,8 @@ func (r *IPLDRetriever) RetrieveHeadersByHashes(hashes []common.Hash) ([]string,
 	cids := make([]string, len(headerResults))
 	headers := make([][]byte, len(headerResults))
 	for i, res := range headerResults {
-		cids[i] = res.cid
-		headers[i] = res.data
+		cids[i] = res.CID
+		headers[i] = res.Data
 	}
 	return cids, headers, nil
 }
@@ -138,8 +138,8 @@ func (r *IPLDRetriever) RetrieveHeadersByBlockNumber(number uint64) ([]string, [
 	cids := make([]string, len(headerResults))
 	headers := make([][]byte, len(headerResults))
 	for i, res := range headerResults {
-		cids[i] = res.cid
-		headers[i] = res.data
+		cids[i] = res.CID
+		headers[i] = res.Data
 	}
 	return cids, headers, nil
 }
@@ -147,7 +147,7 @@ func (r *IPLDRetriever) RetrieveHeadersByBlockNumber(number uint64) ([]string, [
 // RetrieveHeaderByHash returns the cid and rlp bytes for the header corresponding to the provided block hash
 func (r *IPLDRetriever) RetrieveHeaderByHash(hash common.Hash) (string, []byte, error) {
 	headerResult := new(ipldResult)
-	return headerResult.cid, headerResult.data, r.db.Get(headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
+	return headerResult.CID, headerResult.Data, r.db.Get(headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
 }
 
 // RetrieveUnclesByHashes returns the cids and rlp bytes for the uncles corresponding to the provided uncle hashes
@@ -163,8 +163,8 @@ func (r *IPLDRetriever) RetrieveUnclesByHashes(hashes []common.Hash) ([]string, 
 	cids := make([]string, len(uncleResults))
 	uncles := make([][]byte, len(uncleResults))
 	for i, res := range uncleResults {
-		cids[i] = res.cid
-		uncles[i] = res.data
+		cids[i] = res.CID
+		uncles[i] = res.Data
 	}
 	return cids, uncles, nil
 }
@@ -178,8 +178,8 @@ func (r *IPLDRetriever) RetrieveUnclesByBlockHash(hash common.Hash) ([]string, [
 	cids := make([]string, len(uncleResults))
 	uncles := make([][]byte, len(uncleResults))
 	for i, res := range uncleResults {
-		cids[i] = res.cid
-		uncles[i] = res.data
+		cids[i] = res.CID
+		uncles[i] = res.Data
 	}
 	return cids, uncles, nil
 }
@@ -193,8 +193,8 @@ func (r *IPLDRetriever) RetrieveUnclesByBlockNumber(number uint64) ([]string, []
 	cids := make([]string, len(uncleResults))
 	uncles := make([][]byte, len(uncleResults))
 	for i, res := range uncleResults {
-		cids[i] = res.cid
-		uncles[i] = res.data
+		cids[i] = res.CID
+		uncles[i] = res.Data
 	}
 	return cids, uncles, nil
 }
@@ -202,7 +202,7 @@ func (r *IPLDRetriever) RetrieveUnclesByBlockNumber(number uint64) ([]string, []
 // RetrieveUncleByHash returns the cid and rlp bytes for the uncle corresponding to the provided uncle hash
 func (r *IPLDRetriever) RetrieveUncleByHash(hash common.Hash) (string, []byte, error) {
 	uncleResult := new(ipldResult)
-	return uncleResult.cid, uncleResult.data, r.db.Get(uncleResult, RetrieveUncleByHashPgStr, hash.Hex())
+	return uncleResult.CID, uncleResult.Data, r.db.Get(uncleResult, RetrieveUncleByHashPgStr, hash.Hex())
 }
 
 // RetrieveTransactionsByHashes returns the cids and rlp bytes for the transactions corresponding to the provided tx hashes
@@ -218,8 +218,8 @@ func (r *IPLDRetriever) RetrieveTransactionsByHashes(hashes []common.Hash) ([]st
 	cids := make([]string, len(txResults))
 	txs := make([][]byte, len(txResults))
 	for i, res := range txResults {
-		cids[i] = res.cid
-		txs[i] = res.data
+		cids[i] = res.CID
+		txs[i] = res.Data
 	}
 	return cids, txs, nil
 }
@@ -233,8 +233,8 @@ func (r *IPLDRetriever) RetrieveTransactionsByBlockHash(hash common.Hash) ([]str
 	cids := make([]string, len(txResults))
 	txs := make([][]byte, len(txResults))
 	for i, res := range txResults {
-		cids[i] = res.cid
-		txs[i] = res.data
+		cids[i] = res.CID
+		txs[i] = res.Data
 	}
 	return cids, txs, nil
 }
@@ -248,8 +248,8 @@ func (r *IPLDRetriever) RetrieveTransactionsByBlockNumber(number uint64) ([]stri
 	cids := make([]string, len(txResults))
 	txs := make([][]byte, len(txResults))
 	for i, res := range txResults {
-		cids[i] = res.cid
-		txs[i] = res.data
+		cids[i] = res.CID
+		txs[i] = res.Data
 	}
 	return cids, txs, nil
 }
@@ -257,7 +257,7 @@ func (r *IPLDRetriever) RetrieveTransactionsByBlockNumber(number uint64) ([]stri
 // RetrieveTransactionByTxHash returns the cid and rlp bytes for the transaction corresponding to the provided tx hash
 func (r *IPLDRetriever) RetrieveTransactionByTxHash(hash common.Hash) (string, []byte, error) {
 	txResult := new(ipldResult)
-	return txResult.cid, txResult.data, r.db.Get(txResult, RetrieveTransactionByHashPgStr, hash.Hex())
+	return txResult.CID, txResult.Data, r.db.Get(txResult, RetrieveTransactionByHashPgStr, hash.Hex())
 }
 
 // RetrieveReceiptsByTxHashes returns the cids and rlp bytes for the receipts corresponding to the provided tx hashes
@@ -273,8 +273,8 @@ func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]stri
 	cids := make([]string, len(rctResults))
 	rcts := make([][]byte, len(rctResults))
 	for i, res := range rctResults {
-		cids[i] = res.cid
-		rcts[i] = res.data
+		cids[i] = res.CID
+		rcts[i] = res.Data
 	}
 	return cids, rcts, nil
 }
@@ -288,8 +288,8 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string,
 	cids := make([]string, len(rctResults))
 	rcts := make([][]byte, len(rctResults))
 	for i, res := range rctResults {
-		cids[i] = res.cid
-		rcts[i] = res.data
+		cids[i] = res.CID
+		rcts[i] = res.Data
 	}
 	return cids, rcts, nil
 }
@@ -303,8 +303,8 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockNumber(number uint64) ([]string, 
 	cids := make([]string, len(rctResults))
 	rcts := make([][]byte, len(rctResults))
 	for i, res := range rctResults {
-		cids[i] = res.cid
-		rcts[i] = res.data
+		cids[i] = res.CID
+		rcts[i] = res.Data
 	}
 	return cids, rcts, nil
 }
@@ -312,7 +312,7 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockNumber(number uint64) ([]string, 
 // RetrieveReceiptByHash returns the cid and rlp bytes for the receipt corresponding to the provided tx hash
 func (r *IPLDRetriever) RetrieveReceiptByHash(hash common.Hash) (string, []byte, error) {
 	rctResult := new(ipldResult)
-	return rctResult.cid, rctResult.data, r.db.Get(rctResult, RetrieveReceiptByTxHashPgStr, hash.Hex())
+	return rctResult.CID, rctResult.Data, r.db.Get(rctResult, RetrieveReceiptByTxHashPgStr, hash.Hex())
 }
 
 // RetrieveAccountByAddressAndBlockHash returns the cid and rlp bytes for the account corresponding to the provided address and block hash
@@ -323,13 +323,13 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 		return "", nil, err
 	}
 	var i []interface{}
-	if err := rlp.DecodeBytes(accountResult.data, &i); err != nil {
+	if err := rlp.DecodeBytes(accountResult.Data, &i); err != nil {
 		return "", nil, fmt.Errorf("error decoding state leaf node rlp: %s", err.Error())
 	}
 	if len(i) != 2 {
 		return "", nil, fmt.Errorf("eth IPLDRetriever expected state leaf node rlp to decode into two elements")
 	}
-	return accountResult.cid, i[1].([]byte), nil
+	return accountResult.CID, i[1].([]byte), nil
 }
 
 // RetrieveAccountByAddressAndBlockNumber returns the cid and rlp bytes for the account corresponding to the provided address and block number
@@ -343,9 +343,9 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 	cids := make([]string, len(accountResults))
 	accounts := make([][]byte, len(accountResults))
 	for i, res := range accountResults {
-		cids[i] = res.cid
+		cids[i] = res.CID
 		var iface []interface{}
-		if err := rlp.DecodeBytes(res.data, &iface); err != nil {
+		if err := rlp.DecodeBytes(res.Data, &iface); err != nil {
 			return nil, nil, fmt.Errorf("error decoding state leaf node rlp: %s", err.Error())
 		}
 		if len(iface) != 2 {

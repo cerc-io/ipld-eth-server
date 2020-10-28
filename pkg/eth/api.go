@@ -145,11 +145,7 @@ func (pea *PublicEthAPI) getLogs(ctx context.Context, crit ethereum.FilterQuery)
 	startingBlock := crit.FromBlock
 	endingBlock := crit.ToBlock
 	if startingBlock == nil {
-		startingBlockInt, err := pea.B.Retriever.RetrieveFirstBlockNumber()
-		if err != nil {
-			return nil, err
-		}
-		startingBlock = big.NewInt(startingBlockInt)
+		startingBlock = common.Big0
 	}
 	if endingBlock == nil {
 		endingBlockInt, err := pea.B.Retriever.RetrieveLastBlockNumber()

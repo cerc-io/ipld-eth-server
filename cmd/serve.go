@@ -20,6 +20,8 @@ import (
 	"os/signal"
 	"sync"
 
+	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
+
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -28,7 +30,6 @@ import (
 	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 
 	srpc "github.com/vulcanize/ipld-eth-server/pkg/rpc"
-
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
 	v "github.com/vulcanize/ipld-eth-server/version"
 )
@@ -70,10 +71,17 @@ func serve() {
 	if err := startServers(server, serverConfig); err != nil {
 		logWithCommand.Fatal(err)
 	}
+	graphQL, err := startGraphQL(server)
+	if err != nil {
+		logWithCommand.Fatal(err)
+	}
 
 	shutdown := make(chan os.Signal)
 	signal.Notify(shutdown, os.Interrupt)
 	<-shutdown
+	if graphQL != nil {
+		graphQL.Stop()
+	}
 	server.Stop()
 	wg.Wait()
 }
@@ -91,14 +99,32 @@ func startServers(server s.Server, settings *s.Config) error {
 	}
 	logWithCommand.Info("starting up HTTP server")
 	_, _, err = srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
-
 	return err
+}
+
+func startGraphQL(server s.Server) (graphQLServer *graphql.Service, err error) {
+	viper.BindEnv("server.graphql", "SERVER_GRAPHQL")
+	if viper.GetBool("server.graphql") {
+		logWithCommand.Info("starting up GraphQL server")
+		viper.BindEnv("server.graphqlEndpoint", "SERVER_GRAPHQL_ENDPOINT")
+		endPoint := viper.GetString("server.graphqlEndpoint")
+		if endPoint != "" {
+			graphQLServer, err = graphql.New(server.Backend(), endPoint, nil, []string{"*"}, rpc.HTTPTimeouts{})
+			if err != nil {
+				return
+			}
+			err = graphQLServer.Start(nil)
+		}
+	}
+	return
 }
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
 	// flags for all config variables
+	serveCmd.PersistentFlags().Bool("server-graphql", false, "turn on the graphql server")
+	serveCmd.PersistentFlags().String("server-graphql-endpoint", "", "endpoint url for graphql server")
 	serveCmd.PersistentFlags().String("server-ws-path", "", "vdb server ws path")
 	serveCmd.PersistentFlags().String("server-http-path", "", "vdb server http path")
 	serveCmd.PersistentFlags().String("server-ipc-path", "", "vdb server ipc path")
@@ -113,6 +139,8 @@ func init() {
 	serveCmd.PersistentFlags().String("eth-rpc-gas-cap", "", "rpc gas cap (for eth_Call execution)")
 
 	// and their bindings
+	viper.BindPFlag("server.graphql", serveCmd.PersistentFlags().Lookup("server-graphql"))
+	viper.BindPFlag("server.graphqlEndpoint", serveCmd.PersistentFlags().Lookup("server-graphql-endpoint"))
 	viper.BindPFlag("server.wsPath", serveCmd.PersistentFlags().Lookup("server-ws-path"))
 	viper.BindPFlag("server.httpPath", serveCmd.PersistentFlags().Lookup("server-http-path"))
 	viper.BindPFlag("server.ipcPath", serveCmd.PersistentFlags().Lookup("server-ipc-path"))
