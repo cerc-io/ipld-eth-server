@@ -28,7 +28,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -159,17 +158,11 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 	return nil, err
 }
 
-/*
-
-Uncles
-
-*/
-
 // GetUncleByBlockNumberAndIndex returns the uncle block for the given block hash and index. When fullTx is true
 // all transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
 func (pea *PublicEthAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) (map[string]interface{}, error) {
 	block, err := pea.B.BlockByNumber(ctx, blockNr)
-	if block != nil {
+	if block != nil && err == nil {
 		uncles := block.Uncles()
 		if index >= hexutil.Uint(len(uncles)) {
 			logrus.Debugf("uncle with index %s request at block number %d was not found", index.String(), blockNr.Int64())
@@ -177,6 +170,11 @@ func (pea *PublicEthAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, bloc
 		}
 		block = types.NewBlockWithHeader(uncles[index])
 		return pea.rpcMarshalBlock(block, false, false)
+	}
+	if pea.rpc != nil {
+		if uncle, uncleHashes, err := getBlockAndUncleHashes(pea.rpc, ctx, "eth_getUncleByBlockNumberAndIndex", blockNr, index); uncle != nil && err == nil {
+			return pea.rpcMarshalBlockWithUncleHashes(uncle, uncleHashes, false, false)
+		}
 	}
 	return nil, err
 }
@@ -194,23 +192,40 @@ func (pea *PublicEthAPI) GetUncleByBlockHashAndIndex(ctx context.Context, blockH
 		block = types.NewBlockWithHeader(uncles[index])
 		return pea.rpcMarshalBlock(block, false, false)
 	}
+	if pea.rpc != nil {
+		if uncle, uncleHashes, err := getBlockAndUncleHashes(pea.rpc, ctx, "eth_getUncleByBlockHashAndIndex", blockHash, index); uncle != nil && err == nil {
+			return pea.rpcMarshalBlockWithUncleHashes(uncle, uncleHashes, false, false)
+		}
+	}
 	return nil, err
 }
 
 // GetUncleCountByBlockNumber returns number of uncles in the block for the given block number
 func (pea *PublicEthAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) *hexutil.Uint {
-	if block, _ := pea.B.BlockByNumber(ctx, blockNr); block != nil {
+	if block, err := pea.B.BlockByNumber(ctx, blockNr); block != nil && err == nil {
 		n := hexutil.Uint(len(block.Uncles()))
 		return &n
+	}
+	if pea.rpc != nil {
+		var num *hexutil.Uint
+		if err := pea.rpc.CallContext(ctx, &num, "eth_getUncleCountByBlockNumber", blockNr); num != nil && err == nil {
+			return num
+		}
 	}
 	return nil
 }
 
 // GetUncleCountByBlockHash returns number of uncles in the block for the given block hash
 func (pea *PublicEthAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash common.Hash) *hexutil.Uint {
-	if block, _ := pea.B.BlockByHash(ctx, blockHash); block != nil {
+	if block, err := pea.B.BlockByHash(ctx, blockHash); block != nil && err == nil {
 		n := hexutil.Uint(len(block.Uncles()))
 		return &n
+	}
+	if pea.rpc != nil {
+		var num *hexutil.Uint
+		if err := pea.rpc.CallContext(ctx, &num, "eth_getUncleCountByBlockHash", blockHash); num != nil && err == nil {
+			return num
+		}
 	}
 	return nil
 }
@@ -225,11 +240,20 @@ Transactions
 func (pea *PublicEthAPI) GetTransactionCount(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Uint64, error) {
 	// Resolve block number and use its state to ask for the nonce
 	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state == nil || err != nil {
-		return nil, err
+	if state != nil && err == nil {
+		nonce := state.GetNonce(address)
+		err = state.Error()
+		if err == nil {
+			return (*hexutil.Uint64)(&nonce), nil
+		}
 	}
-	nonce := state.GetNonce(address)
-	return (*hexutil.Uint64)(&nonce), state.Error()
+	if pea.rpc != nil {
+		var num *hexutil.Uint64
+		if err := pea.rpc.CallContext(ctx, &num, "eth_getTransactionCount", address, blockNrOrHash); num != nil && err == nil {
+			return num, nil
+		}
+	}
+	return nil, err
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -237,6 +261,12 @@ func (pea *PublicEthAPI) GetBlockTransactionCountByNumber(ctx context.Context, b
 	if block, _ := pea.B.BlockByNumber(ctx, blockNr); block != nil {
 		n := hexutil.Uint(len(block.Transactions()))
 		return &n
+	}
+	if pea.rpc != nil {
+		var num *hexutil.Uint
+		if err := pea.rpc.CallContext(ctx, &num, "eth_getBlockTransactionCountByNumber", blockNr); num != nil && err == nil {
+			return num
+		}
 	}
 	return nil
 }
@@ -247,6 +277,12 @@ func (pea *PublicEthAPI) GetBlockTransactionCountByHash(ctx context.Context, blo
 		n := hexutil.Uint(len(block.Transactions()))
 		return &n
 	}
+	if pea.rpc != nil {
+		var num *hexutil.Uint
+		if err := pea.rpc.CallContext(ctx, &num, "eth_getBlockTransactionCountByHash", blockHash); num != nil && err == nil {
+			return num
+		}
+	}
 	return nil
 }
 
@@ -254,6 +290,12 @@ func (pea *PublicEthAPI) GetBlockTransactionCountByHash(ctx context.Context, blo
 func (pea *PublicEthAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) *RPCTransaction {
 	if block, _ := pea.B.BlockByNumber(ctx, blockNr); block != nil {
 		return newRPCTransactionFromBlockIndex(block, uint64(index))
+	}
+	if pea.rpc != nil {
+		var tx *RPCTransaction
+		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByBlockNumberAndIndex", blockNr, index); tx != nil && err == nil {
+			return tx
+		}
 	}
 	return nil
 }
@@ -263,6 +305,12 @@ func (pea *PublicEthAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, 
 	if block, _ := pea.B.BlockByHash(ctx, blockHash); block != nil {
 		return newRPCTransactionFromBlockIndex(block, uint64(index))
 	}
+	if pea.rpc != nil {
+		var tx *RPCTransaction
+		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByBlockHashAndIndex", blockHash, index); tx != nil && err == nil {
+			return tx
+		}
+	}
 	return nil
 }
 
@@ -271,6 +319,12 @@ func (pea *PublicEthAPI) GetRawTransactionByBlockNumberAndIndex(ctx context.Cont
 	if block, _ := pea.B.BlockByNumber(ctx, blockNr); block != nil {
 		return newRPCRawTransactionFromBlockIndex(block, uint64(index))
 	}
+	if pea.rpc != nil {
+		var tx hexutil.Bytes
+		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByBlockNumberAndIndex", blockNr, index); tx != nil && err == nil {
+			return tx
+		}
+	}
 	return nil
 }
 
@@ -278,6 +332,12 @@ func (pea *PublicEthAPI) GetRawTransactionByBlockNumberAndIndex(ctx context.Cont
 func (pea *PublicEthAPI) GetRawTransactionByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint) hexutil.Bytes {
 	if block, _ := pea.B.BlockByHash(ctx, blockHash); block != nil {
 		return newRPCRawTransactionFromBlockIndex(block, uint64(index))
+	}
+	if pea.rpc != nil {
+		var tx hexutil.Bytes
+		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByBlockHashAndIndex", blockHash, index); tx != nil && err == nil {
+			return tx
+		}
 	}
 	return nil
 }
@@ -290,19 +350,12 @@ func (pea *PublicEthAPI) GetTransactionByHash(ctx context.Context, hash common.H
 		return NewRPCTransaction(tx, blockHash, blockNumber, index), nil
 	}
 	if pea.rpc != nil {
-		if tx, err := pea.remoteGetTransactionByHash(ctx, hash); tx != nil && err == nil {
+		var tx *RPCTransaction
+		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByHash", hash); tx != nil && err == nil {
 			return tx, nil
 		}
 	}
 	return nil, err
-}
-
-func (pea *PublicEthAPI) remoteGetTransactionByHash(ctx context.Context, hash common.Hash) (*RPCTransaction, error) {
-	var tx *RPCTransaction
-	if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByHash", hash); err != nil {
-		return nil, err
-	}
-	return tx, nil
 }
 
 // GetRawTransactionByHash returns the bytes of the transaction for the given hash.
@@ -313,19 +366,12 @@ func (pea *PublicEthAPI) GetRawTransactionByHash(ctx context.Context, hash commo
 		return rlp.EncodeToBytes(tx)
 	}
 	if pea.rpc != nil {
-		if tx, err := pea.remoteGetRawTransactionByHash(ctx, hash); tx != nil && err == nil {
+		var tx hexutil.Bytes
+		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByHash", hash); tx != nil && err == nil {
 			return tx, nil
 		}
 	}
 	return nil, err
-}
-
-func (pea *PublicEthAPI) remoteGetRawTransactionByHash(ctx context.Context, hash common.Hash) (hexutil.Bytes, error) {
-	var tx hexutil.Bytes
-	if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByHash", hash); err != nil {
-		return nil, err
-	}
-	return tx, nil
 }
 
 /*
@@ -336,12 +382,21 @@ Receipts and Logs
 
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
 func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
-	tx, blockHash, blockNumber, index := rawdb.ReadTransaction(pea.B.ChainDb(), hash)
+	tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
+	if err != nil {
+		if rct := pea.remoteGetTransactionReceipt(ctx, hash); rct != nil {
+			return rct, nil
+		}
+		return nil, err
+	}
 	if tx == nil {
 		return nil, nil
 	}
 	receipts, err := pea.B.GetReceipts(ctx, blockHash)
 	if err != nil {
+		if rct := pea.remoteGetTransactionReceipt(ctx, hash); rct != nil {
+			return rct, nil
+		}
 		return nil, err
 	}
 	if len(receipts) <= int(index) {
@@ -385,23 +440,47 @@ func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.
 	return fields, nil
 }
 
+func (pea *PublicEthAPI) remoteGetTransactionReceipt(ctx context.Context, hash common.Hash) map[string]interface{} {
+	if pea.rpc != nil {
+		var rct *RPCReceipt
+		if err := pea.rpc.CallContext(ctx, &rct, "eth_getTransactionReceipt", hash); rct != nil && err == nil {
+			return map[string]interface{}{
+				"blockHash":         rct.BlockHash,
+				"blockNumber":       rct.BlockNumber,
+				"transactionHash":   rct.TransactionHash,
+				"transactionIndex":  rct.TransactionIndex,
+				"from":              rct.From,
+				"to":                rct.To,
+				"gasUsed":           rct.GasUsed,
+				"cumulativeGasUsed": rct.CumulativeGsUsed,
+				"contractAddress":   rct.ContractAddress,
+				"logs":              rct.Logs,
+				"logsBloom":         rct.Bloom,
+				"root":              rct.Root,
+				"status":            rct.Status,
+			}
+		}
+	}
+	return nil
+}
+
 // GetLogs returns logs matching the given argument that are stored within the state.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getlogs
 func (pea *PublicEthAPI) GetLogs(ctx context.Context, crit ethereum.FilterQuery) ([]*types.Log, error) {
-	logs, err := pea.getLogs(ctx, crit)
+	logs, err := pea.localGetLogs(ctx, crit)
 	if err != nil && pea.rpc != nil {
 		if arg, err := toFilterArg(crit); err == nil {
-			var result []*types.Log
-			if err := pea.rpc.CallContext(ctx, &result, "eth_getLogs", arg); err == nil {
-				return result, nil
+			var res []*types.Log
+			if err := pea.rpc.CallContext(ctx, &res, "eth_getLogs", arg); err == nil {
+				return res, nil
 			}
 		}
 	}
 	return logs, err
 }
 
-func (pea *PublicEthAPI) getLogs(ctx context.Context, crit ethereum.FilterQuery) ([]*types.Log, error) {
+func (pea *PublicEthAPI) localGetLogs(ctx context.Context, crit ethereum.FilterQuery) ([]*types.Log, error) {
 	// Convert FilterQuery into ReceiptFilter
 	addrStrs := make([]string, len(crit.Addresses))
 	for i, addr := range crit.Addresses {
@@ -499,10 +578,20 @@ State and Storage
 // block numbers are also allowed.
 func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Big, error) {
 	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state == nil || err != nil {
-		return nil, err
+	if state != nil && err == nil {
+		balance := state.GetBalance(address)
+		err = state.Error()
+		if err == nil {
+			return (*hexutil.Big)(balance), nil
+		}
 	}
-	return (*hexutil.Big)(state.GetBalance(address)), state.Error()
+	if pea.rpc != nil {
+		var res *hexutil.Big
+		if err := pea.rpc.CallContext(ctx, &res, "eth_getBalance", address, blockNrOrHash); res != nil && err == nil {
+			return res, nil
+		}
+	}
+	return nil, err
 }
 
 // GetStorageAt returns the storage from the state at the given address, key and
@@ -510,41 +599,57 @@ func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address,
 // numbers are also allowed.
 func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Address, key string, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
 	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state == nil || err != nil {
-		return nil, err
+	if state != nil && err == nil {
+		res := state.GetState(address, common.HexToHash(key))
+		err = state.Error()
+		if err == nil {
+			return res[:], nil
+		}
 	}
-	res := state.GetState(address, common.HexToHash(key))
-	return res[:], state.Error()
+	if pea.rpc != nil {
+		var res hexutil.Bytes
+		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
+			return res, nil
+		}
+	}
+	return nil, err
 }
 
 // GetCode returns the code stored at the given address in the state for the given block number.
 func (pea *PublicEthAPI) GetCode(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
 	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state == nil || err != nil {
-		return nil, err
+	if state != nil && err == nil {
+		code := state.GetCode(address)
+		err = state.Error()
+		if err == nil {
+			return code, nil
+		}
 	}
-	code := state.GetCode(address)
-	return code, state.Error()
-}
-
-// Result structs for GetProof
-type AccountResult struct {
-	Address      common.Address  `json:"address"`
-	AccountProof []string        `json:"accountProof"`
-	Balance      *hexutil.Big    `json:"balance"`
-	CodeHash     common.Hash     `json:"codeHash"`
-	Nonce        hexutil.Uint64  `json:"nonce"`
-	StorageHash  common.Hash     `json:"storageHash"`
-	StorageProof []StorageResult `json:"storageProof"`
-}
-type StorageResult struct {
-	Key   string       `json:"key"`
-	Value *hexutil.Big `json:"value"`
-	Proof []string     `json:"proof"`
+	if pea.rpc != nil {
+		var res hexutil.Bytes
+		if err := pea.rpc.CallContext(ctx, &res, "eth_getCode", address, blockNrOrHash); res != nil && err == nil {
+			return res, nil
+		}
+	}
+	return nil, err
 }
 
 // GetProof returns the Merkle-proof for a given account and optionally some storage keys.
 func (pea *PublicEthAPI) GetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (*AccountResult, error) {
+	proof, err := pea.localGetProof(ctx, address, storageKeys, blockNrOrHash)
+	if proof != nil && err == nil {
+		return proof, nil
+	}
+	if pea.rpc != nil {
+		var res *AccountResult
+		if err := pea.rpc.CallContext(ctx, &res, "eth_getProof", address, storageKeys, blockNrOrHash); res != nil && err == nil {
+			return res, nil
+		}
+	}
+	return nil, err
+}
+
+func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (*AccountResult, error) {
 	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if state == nil || err != nil {
 		return nil, err
@@ -604,48 +709,17 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 	if overrides != nil {
 		accounts = *overrides
 	}
-	result, _, failed, err := DoCall(ctx, pea.B, args, blockNrOrHash, accounts, 5*time.Second, pea.B.Config.RPCGasCap)
+	res, _, failed, err := DoCall(ctx, pea.B, args, blockNrOrHash, accounts, 5*time.Second, pea.B.Config.RPCGasCap)
 	if (failed || err != nil) && pea.rpc != nil {
-		if res, err := pea.remoteCall(ctx, args, blockNrOrHash, overrides); res != nil && err == nil {
-			return res, nil
+		var hex hexutil.Bytes
+		if err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
+			return hex, nil
 		}
 	}
 	if failed && err == nil {
 		return nil, errors.New("eth_call failed without error")
 	}
-	return (hexutil.Bytes)(result), err
-}
-
-func (pea *PublicEthAPI) remoteCall(ctx context.Context, msg CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *map[common.Address]account) (hexutil.Bytes, error) {
-	var hex hexutil.Bytes
-	if err := pea.rpc.CallContext(ctx, &hex, "eth_call", msg, blockNrOrHash, overrides); err != nil {
-		return nil, err
-	}
-	return hex, nil
-}
-
-// CallArgs represents the arguments for a call.
-type CallArgs struct {
-	From     *common.Address `json:"from"`
-	To       *common.Address `json:"to"`
-	Gas      *hexutil.Uint64 `json:"gas"`
-	GasPrice *hexutil.Big    `json:"gasPrice"`
-	Value    *hexutil.Big    `json:"value"`
-	Data     *hexutil.Bytes  `json:"data"`
-}
-
-// account indicates the overriding fields of account during the execution of
-// a message call.
-// Note, state and stateDiff can't be specified at the same time. If state is
-// set, message execution will only use the data in the given state. Otherwise
-// if statDiff is set, all diff will be applied first and then execute the call
-// message.
-type account struct {
-	Nonce     *hexutil.Uint64              `json:"nonce"`
-	Code      *hexutil.Bytes               `json:"code"`
-	Balance   **hexutil.Big                `json:"balance"`
-	State     *map[common.Hash]common.Hash `json:"state"`
-	StateDiff *map[common.Hash]common.Hash `json:"stateDiff"`
+	return (hexutil.Bytes)(res), err
 }
 
 func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides map[common.Address]account, timeout time.Duration, globalGasCap *big.Int) ([]byte, uint64, bool, error) {
@@ -755,30 +829,30 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 	return res, gas, failed, err
 }
 
-func toFilterArg(q ethereum.FilterQuery) (interface{}, error) {
-	arg := map[string]interface{}{
-		"address": q.Addresses,
-		"topics":  q.Topics,
+// rpcMarshalBlock uses the generalized output filler, then adds the total difficulty field
+func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
+	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
+	if err != nil {
+		return nil, err
 	}
-	if q.BlockHash != nil {
-		arg["blockHash"] = *q.BlockHash
-		if q.FromBlock != nil || q.ToBlock != nil {
-			return nil, fmt.Errorf("cannot specify both BlockHash and FromBlock/ToBlock")
-		}
-	} else {
-		if q.FromBlock == nil {
-			arg["fromBlock"] = "0x0"
-		} else {
-			arg["fromBlock"] = toBlockNumArg(q.FromBlock)
-		}
-		arg["toBlock"] = toBlockNumArg(q.ToBlock)
+	td, err := pea.B.GetTd(b.Hash())
+	if err != nil {
+		return nil, err
 	}
-	return arg, nil
+	fields["totalDifficulty"] = (*hexutil.Big)(td)
+	return fields, err
 }
 
-func toBlockNumArg(number *big.Int) string {
-	if number == nil {
-		return "latest"
+// rpcMarshalBlockWithUncleHashes uses the generalized output filler, then adds the total difficulty field
+func (pea *PublicEthAPI) rpcMarshalBlockWithUncleHashes(b *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool) (map[string]interface{}, error) {
+	fields, err := RPCMarshalBlockWithUncleHashes(b, uncleHashes, inclTx, fullTx)
+	if err != nil {
+		return nil, err
 	}
-	return hexutil.EncodeBig(number)
+	td, err := pea.B.GetTd(b.Hash())
+	if err != nil {
+		return nil, err
+	}
+	fields["totalDifficulty"] = (*hexutil.Big)(td)
+	return fields, err
 }

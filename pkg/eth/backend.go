@@ -22,7 +22,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
@@ -444,21 +443,6 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log
 		logs[i] = rct.Logs
 	}
 	return logs, nil
-}
-
-// rpcMarshalBlock uses the generalized output filler, then adds the total difficulty field, which requires
-// a `PublicBlockchainAPI`.
-func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
-	if err != nil {
-		return nil, err
-	}
-	td, err := pea.B.GetTd(b.Hash())
-	if err != nil {
-		return nil, err
-	}
-	fields["totalDifficulty"] = (*hexutil.Big)(td)
-	return fields, err
 }
 
 // StateAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
