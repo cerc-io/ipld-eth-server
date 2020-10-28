@@ -21,19 +21,18 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/event"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/bloombits"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -165,18 +164,6 @@ func (b *Backend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Bl
 		return header, nil
 	}
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
-}
-
-// rpcMarshalHeader uses the generalized output filler, then adds the total difficulty field, which requires
-// a `PublicEthAPI`.
-func (pea *PublicEthAPI) rpcMarshalHeader(header *types.Header) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(header)
-	td, err := pea.B.GetTd(header.Hash())
-	if err != nil {
-		return nil, err
-	}
-	fields["totalDifficulty"] = (*hexutil.Big)(td)
-	return fields, nil
 }
 
 // GetTd gets the total difficulty at the given block hash

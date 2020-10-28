@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+
 	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 )
 
@@ -125,6 +126,16 @@ func NewRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
 	return result
+}
+
+// newRPCRawTransactionFromBlockIndex returns the bytes of a transaction given a block and a transaction index.
+func newRPCRawTransactionFromBlockIndex(b *types.Block, index uint64) hexutil.Bytes {
+	txs := b.Transactions()
+	if index >= uint64(len(txs)) {
+		return nil
+	}
+	blob, _ := rlp.EncodeToBytes(txs[index])
+	return blob
 }
 
 // newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
