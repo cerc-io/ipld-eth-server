@@ -57,19 +57,39 @@ var (
 		Extra:       []byte{},
 	}
 	MockTransactions, MockReceipts, SenderAddr = createTransactionsAndReceipts()
-	ReceiptsRlp, _                             = rlp.EncodeToBytes(MockReceipts)
-	MockBlock                                  = types.NewBlock(&MockHeader, MockTransactions, nil, MockReceipts)
-	MockHeaderRlp, _                           = rlp.EncodeToBytes(MockBlock.Header())
-	Address                                    = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476592")
-	AnotherAddress                             = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476593")
-	ContractAddress                            = crypto.CreateAddress(SenderAddr, MockTransactions[2].Nonce())
-	ContractHash                               = crypto.Keccak256Hash(ContractAddress.Bytes()).String()
-	MockContractByteCode                       = []byte{0, 1, 2, 3, 4, 5}
-	mockTopic11                                = common.HexToHash("0x04")
-	mockTopic12                                = common.HexToHash("0x06")
-	mockTopic21                                = common.HexToHash("0x05")
-	mockTopic22                                = common.HexToHash("0x07")
-	MockLog1                                   = &types.Log{
+	MockUncles                                 = []*types.Header{
+		{
+			Time:        1,
+			Number:      new(big.Int).Add(BlockNumber, big.NewInt(1)),
+			Root:        common.HexToHash("0x1"),
+			TxHash:      common.HexToHash("0x1"),
+			ReceiptHash: common.HexToHash("0x1"),
+			Difficulty:  big.NewInt(500001),
+			Extra:       []byte{},
+		},
+		{
+			Time:        2,
+			Number:      new(big.Int).Add(BlockNumber, big.NewInt(2)),
+			Root:        common.HexToHash("0x2"),
+			TxHash:      common.HexToHash("0x2"),
+			ReceiptHash: common.HexToHash("0x2"),
+			Difficulty:  big.NewInt(500002),
+			Extra:       []byte{},
+		},
+	}
+	ReceiptsRlp, _       = rlp.EncodeToBytes(MockReceipts)
+	MockBlock            = types.NewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts)
+	MockHeaderRlp, _     = rlp.EncodeToBytes(MockBlock.Header())
+	Address              = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476592")
+	AnotherAddress       = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476593")
+	ContractAddress      = crypto.CreateAddress(SenderAddr, MockTransactions[2].Nonce())
+	ContractHash         = crypto.Keccak256Hash(ContractAddress.Bytes()).String()
+	MockContractByteCode = []byte{0, 1, 2, 3, 4, 5}
+	mockTopic11          = common.HexToHash("0x04")
+	mockTopic12          = common.HexToHash("0x06")
+	mockTopic21          = common.HexToHash("0x05")
+	mockTopic22          = common.HexToHash("0x07")
+	MockLog1             = &types.Log{
 		Address: Address,
 		Topics:  []common.Hash{mockTopic11, mockTopic12},
 		Data:    []byte{},
@@ -266,7 +286,6 @@ var (
 	nonce0          = uint64(0)
 	AccountRoot     = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
 	AccountCodeHash = common.HexToHash("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
-	accountPath     = common.Bytes2Hex([]byte{'\x0c'})
 	AccountAddresss = common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e")
 	AccountLeafKey  = testhelpers.Account2LeafKey
 	Account, _      = rlp.EncodeToBytes(state.Account{
@@ -341,7 +360,7 @@ var (
 			CID:             HeaderCID.String(),
 			MhKey:           HeaderMhKey,
 			TotalDifficulty: MockBlock.Difficulty().String(),
-			Reward:          "5000000000000000000",
+			Reward:          "5312500000000000000",
 			StateRoot:       MockBlock.Root().String(),
 			RctRoot:         MockBlock.ReceiptHash().String(),
 			TxRoot:          MockBlock.TxHash().String(),

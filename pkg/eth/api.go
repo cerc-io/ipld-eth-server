@@ -94,7 +94,7 @@ func (pea *PublicEthAPI) GetHeaderByNumber(ctx context.Context, number rpc.Block
 func (pea *PublicEthAPI) GetHeaderByHash(ctx context.Context, hash common.Hash) map[string]interface{} {
 	header, err := pea.B.HeaderByHash(ctx, hash)
 	if header != nil && err == nil {
-		if res, err := pea.rpcMarshalHeader(header); err != nil {
+		if res, err := pea.rpcMarshalHeader(header); err == nil {
 			return res
 		}
 	}
@@ -157,6 +157,12 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 	}
 	return nil, err
 }
+
+/*
+
+Uncles
+
+*/
 
 // GetUncleByBlockNumberAndIndex returns the uncle block for the given block hash and index. When fullTx is true
 // all transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
@@ -382,11 +388,21 @@ Receipts and Logs
 
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
 func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
+	receipt, err := pea.localGetTransactionReceipt(ctx, hash)
+	if receipt != nil && err == nil {
+		return receipt, nil
+	}
+	if pea.rpc != nil {
+		if receipt := pea.remoteGetTransactionReceipt(ctx, hash); receipt != nil {
+			return receipt, nil
+		}
+	}
+	return nil, err
+}
+
+func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
 	tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
 	if err != nil {
-		if rct := pea.remoteGetTransactionReceipt(ctx, hash); rct != nil {
-			return rct, nil
-		}
 		return nil, err
 	}
 	if tx == nil {
@@ -394,9 +410,6 @@ func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.
 	}
 	receipts, err := pea.B.GetReceipts(ctx, blockHash)
 	if err != nil {
-		if rct := pea.remoteGetTransactionReceipt(ctx, hash); rct != nil {
-			return rct, nil
-		}
 		return nil, err
 	}
 	if len(receipts) <= int(index) {
@@ -441,24 +454,22 @@ func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.
 }
 
 func (pea *PublicEthAPI) remoteGetTransactionReceipt(ctx context.Context, hash common.Hash) map[string]interface{} {
-	if pea.rpc != nil {
-		var rct *RPCReceipt
-		if err := pea.rpc.CallContext(ctx, &rct, "eth_getTransactionReceipt", hash); rct != nil && err == nil {
-			return map[string]interface{}{
-				"blockHash":         rct.BlockHash,
-				"blockNumber":       rct.BlockNumber,
-				"transactionHash":   rct.TransactionHash,
-				"transactionIndex":  rct.TransactionIndex,
-				"from":              rct.From,
-				"to":                rct.To,
-				"gasUsed":           rct.GasUsed,
-				"cumulativeGasUsed": rct.CumulativeGsUsed,
-				"contractAddress":   rct.ContractAddress,
-				"logs":              rct.Logs,
-				"logsBloom":         rct.Bloom,
-				"root":              rct.Root,
-				"status":            rct.Status,
-			}
+	var rct *RPCReceipt
+	if err := pea.rpc.CallContext(ctx, &rct, "eth_getTransactionReceipt", hash); rct != nil && err == nil {
+		return map[string]interface{}{
+			"blockHash":         rct.BlockHash,
+			"blockNumber":       rct.BlockNumber,
+			"transactionHash":   rct.TransactionHash,
+			"transactionIndex":  rct.TransactionIndex,
+			"from":              rct.From,
+			"to":                rct.To,
+			"gasUsed":           rct.GasUsed,
+			"cumulativeGasUsed": rct.CumulativeGsUsed,
+			"contractAddress":   rct.ContractAddress,
+			"logs":              rct.Logs,
+			"logsBloom":         rct.Bloom,
+			"root":              rct.Root,
+			"status":            rct.Status,
 		}
 	}
 	return nil
@@ -835,11 +846,13 @@ func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx boo
 	if err != nil {
 		return nil, err
 	}
-	td, err := pea.B.GetTd(b.Hash())
-	if err != nil {
-		return nil, err
+	if inclTx {
+		td, err := pea.B.GetTd(b.Hash())
+		if err != nil {
+			return nil, err
+		}
+		fields["totalDifficulty"] = (*hexutil.Big)(td)
 	}
-	fields["totalDifficulty"] = (*hexutil.Big)(td)
 	return fields, err
 }
 

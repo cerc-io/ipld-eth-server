@@ -77,6 +77,46 @@ var (
 		"receiptsRoot":     test_helpers.MockBlock.Header().ReceiptHash,
 		"totalDifficulty":  (*hexutil.Big)(test_helpers.MockBlock.Header().Difficulty),
 	}
+	expectedUncle1 = map[string]interface{}{
+		"number":           (*hexutil.Big)(test_helpers.MockUncles[0].Number),
+		"hash":             test_helpers.MockUncles[0].Hash(),
+		"parentHash":       test_helpers.MockUncles[0].ParentHash,
+		"nonce":            test_helpers.MockUncles[0].Nonce,
+		"mixHash":          test_helpers.MockUncles[0].MixDigest,
+		"sha3Uncles":       test_helpers.MockUncles[0].UncleHash,
+		"logsBloom":        test_helpers.MockUncles[0].Bloom,
+		"stateRoot":        test_helpers.MockUncles[0].Root,
+		"miner":            test_helpers.MockUncles[0].Coinbase,
+		"difficulty":       (*hexutil.Big)(test_helpers.MockUncles[0].Difficulty),
+		"extraData":        hexutil.Bytes(test_helpers.MockUncles[0].Extra),
+		"size":             hexutil.Uint64(types.NewBlockWithHeader(test_helpers.MockUncles[0]).Size()),
+		"gasLimit":         hexutil.Uint64(test_helpers.MockUncles[0].GasLimit),
+		"gasUsed":          hexutil.Uint64(test_helpers.MockUncles[0].GasUsed),
+		"timestamp":        hexutil.Uint64(test_helpers.MockUncles[0].Time),
+		"transactionsRoot": test_helpers.MockUncles[0].TxHash,
+		"receiptsRoot":     test_helpers.MockUncles[0].ReceiptHash,
+		"uncles":           []common.Hash{},
+	}
+	expectedUncle2 = map[string]interface{}{
+		"number":           (*hexutil.Big)(test_helpers.MockUncles[1].Number),
+		"hash":             test_helpers.MockUncles[1].Hash(),
+		"parentHash":       test_helpers.MockUncles[1].ParentHash,
+		"nonce":            test_helpers.MockUncles[1].Nonce,
+		"mixHash":          test_helpers.MockUncles[1].MixDigest,
+		"sha3Uncles":       test_helpers.MockUncles[1].UncleHash,
+		"logsBloom":        test_helpers.MockUncles[1].Bloom,
+		"stateRoot":        test_helpers.MockUncles[1].Root,
+		"miner":            test_helpers.MockUncles[1].Coinbase,
+		"difficulty":       (*hexutil.Big)(test_helpers.MockUncles[1].Difficulty),
+		"extraData":        hexutil.Bytes(test_helpers.MockUncles[1].Extra),
+		"size":             hexutil.Uint64(types.NewBlockWithHeader(test_helpers.MockUncles[1]).Size()),
+		"gasLimit":         hexutil.Uint64(test_helpers.MockUncles[1].GasLimit),
+		"gasUsed":          hexutil.Uint64(test_helpers.MockUncles[1].GasUsed),
+		"timestamp":        hexutil.Uint64(test_helpers.MockUncles[1].Time),
+		"transactionsRoot": test_helpers.MockUncles[1].TxHash,
+		"receiptsRoot":     test_helpers.MockUncles[1].ReceiptHash,
+		"uncles":           []common.Hash{},
+	}
 	expectedTransaction = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0)
 )
 
@@ -107,21 +147,46 @@ var _ = Describe("API", func() {
 	AfterEach(func() {
 		eth.TearDownDB(db)
 	})
+	/*
+
+	   Headers and blocks
+
+	*/
+	Describe("GetHeaderByHash", func() {
+		It("Retrieves a header by hash", func() {
+			hash := test_helpers.MockBlock.Header().Hash()
+			header := api.GetHeaderByHash(context.Background(), hash)
+			Expect(header).To(Equal(expectedHeader))
+		})
+	})
+
+	Describe("GetHeaderByNumber", func() {
+		It("Retrieves a header by number", func() {
+			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
+			Expect(err).ToNot(HaveOccurred())
+			header, err := api.GetHeaderByNumber(context.Background(), rpc.BlockNumber(number))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(header).To(Equal(expectedHeader))
+		})
+
+		It("Throws an error if a header cannot be found", func() {
+			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
+			Expect(err).ToNot(HaveOccurred())
+			header, err := api.GetHeaderByNumber(context.Background(), rpc.BlockNumber(number+1))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			Expect(header).To(BeNil())
+			_, err = api.B.DB.Beginx()
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
 	Describe("BlockNumber", func() {
 		It("Retrieves the head block number", func() {
 			bn := api.BlockNumber()
 			ubn := (uint64)(bn)
 			subn := strconv.FormatUint(ubn, 10)
 			Expect(subn).To(Equal(test_helpers.BlockNumber.String()))
-		})
-	})
-
-	Describe("GetTransactionByHash", func() {
-		It("Retrieves a transaction by hash", func() {
-			hash := test_helpers.MockTransactions[0].Hash()
-			tx, err := api.GetTransactionByHash(context.Background(), hash)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(tx).To(Equal(expectedTransaction))
 		})
 	})
 
@@ -154,27 +219,6 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetHeaderByNumber", func() {
-		It("Retrieves a header by number", func() {
-			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			header, err := api.GetHeaderByNumber(context.Background(), rpc.BlockNumber(number))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(header).To(Equal(expectedHeader))
-		})
-
-		It("Throws an error if a header cannot be found", func() {
-			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			header, err := api.GetHeaderByNumber(context.Background(), rpc.BlockNumber(number+1))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
-			Expect(header).To(BeNil())
-			_, err = api.B.DB.Beginx()
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-
 	Describe("GetBlockByHash", func() {
 		It("Retrieves a block by hash", func() {
 			// without full txs
@@ -199,6 +243,129 @@ var _ = Describe("API", func() {
 			for key, val := range expectedBlock {
 				Expect(val).To(Equal(block[key]))
 			}
+		})
+	})
+
+	/*
+
+	   Uncles
+
+	*/
+
+	Describe("GetUncleByBlockNumberAndIndex", func() {
+		It("Retrieves the uncle at the provided index in the canoncial block with the provided hash", func() {
+			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
+			Expect(err).ToNot(HaveOccurred())
+			uncle1, err := api.GetUncleByBlockNumberAndIndex(context.Background(), rpc.BlockNumber(number), 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uncle1).To(Equal(expectedUncle1))
+			uncle2, err := api.GetUncleByBlockNumberAndIndex(context.Background(), rpc.BlockNumber(number), 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uncle2).To(Equal(expectedUncle2))
+		})
+	})
+
+	Describe("GetUncleByBlockHashAndIndex", func() {
+		It("Retrieves the uncle at the provided index in the block with the provided hash", func() {
+			hash := test_helpers.MockBlock.Header().Hash()
+			uncle1, err := api.GetUncleByBlockHashAndIndex(context.Background(), hash, 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uncle1).To(Equal(expectedUncle1))
+			uncle2, err := api.GetUncleByBlockHashAndIndex(context.Background(), hash, 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uncle2).To(Equal(expectedUncle2))
+		})
+	})
+
+	Describe("GetUncleCountByBlockNumber", func() {
+		It("Retrieves the number of uncles for the canonical block with the provided number", func() {
+			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
+			Expect(err).ToNot(HaveOccurred())
+			count := api.GetUncleCountByBlockNumber(context.Background(), rpc.BlockNumber(number))
+			Expect(uint64(*count)).To(Equal(uint64(2)))
+		})
+	})
+
+	Describe("GetUncleCountByBlockHash", func() {
+		It("Retrieves the number of uncles for the block with the provided hash", func() {
+			hash := test_helpers.MockBlock.Header().Hash()
+			count := api.GetUncleCountByBlockHash(context.Background(), hash)
+			Expect(uint64(*count)).To(Equal(uint64(2)))
+		})
+	})
+
+	/*
+
+	   Transactions
+
+	*/
+
+	Describe("GetTransactionCount", func() {
+		It("Retrieves the number of transactions the given address has sent for the given block number or block hash", func() {
+
+		})
+	})
+
+	Describe("GetBlockTransactionCountByNumber", func() {
+		It("Retrieves the number of transactions in the canonical block with the provided number", func() {
+
+		})
+	})
+
+	Describe("GetBlockTransactionCountByHash", func() {
+		It("Retrieves the number of transactions in the block with the provided hash ", func() {
+
+		})
+	})
+
+	Describe("GetTransactionByBlockNumberAndIndex", func() {
+		It("Retrieves the tx with the provided index in the canonical block with the provided block number", func() {
+
+		})
+	})
+
+	Describe("GetTransactionByBlockHashAndIndex", func() {
+		It("Retrieves the tx with the provided index in the block with the provided hash", func() {
+
+		})
+	})
+
+	Describe("GetRawTransactionByBlockNumberAndIndex", func() {
+		It("Retrieves the raw tx with the provided index in the canonical block with the provided block number", func() {
+
+		})
+	})
+
+	Describe("GetRawTransactionByBlockHashAndIndex", func() {
+		It("Retrieves the raw tx with the provided index in the block with the provided hash", func() {
+
+		})
+	})
+
+	Describe("GetTransactionByHash", func() {
+		It("Retrieves a transaction by hash", func() {
+			hash := test_helpers.MockTransactions[0].Hash()
+			tx, err := api.GetTransactionByHash(context.Background(), hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx).To(Equal(expectedTransaction))
+		})
+	})
+
+	Describe("GetRawTransactionByHash", func() {
+		It("Retrieves a raw transaction by hash", func() {
+
+		})
+	})
+
+	/*
+
+	   Receipts and logs
+
+	*/
+
+	Describe("GetTransactionReceipt", func() {
+		It("Retrieves a receipt by tx hash", func() {
+
 		})
 	})
 
@@ -572,4 +739,35 @@ var _ = Describe("API", func() {
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 		})
 	})
+
+	/*
+
+	   State and storage
+
+	*/
+
+	Describe("GetBalance", func() {
+		It("Retrieves the eth balance for the provided account address at the block with the provided hash or number", func() {
+
+		})
+	})
+
+	Describe("GetStorageAt", func() {
+		It("Retrieves the storage value at the provided contract address and storage leaf key at the block with the provided hash or number", func() {
+
+		})
+	})
+
+	Describe("GetCode", func() {
+		It("Retrieves the code for the provided contract address at the block with the provied hash or number", func() {
+
+		})
+	})
+
+	Describe("GetProof", func() {
+		It("Retrieves the Merkle-proof for a given account and optionally some storage keys at the block with the provided hash or number", func() {
+
+		})
+	})
+
 })
