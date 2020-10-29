@@ -20,6 +20,8 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/rlp"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -37,6 +39,9 @@ import (
 )
 
 var (
+	number        = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
+	blockHash     = test_helpers.MockBlock.Header().Hash()
+	ctx           = context.Background()
 	expectedBlock = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
 		"hash":             test_helpers.MockBlock.Hash(),
@@ -59,7 +64,7 @@ var (
 	}
 	expectedHeader = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Header().Number),
-		"hash":             test_helpers.MockBlock.Header().Hash(),
+		"hash":             blockHash,
 		"parentHash":       test_helpers.MockBlock.Header().ParentHash,
 		"nonce":            test_helpers.MockBlock.Header().Nonce,
 		"mixHash":          test_helpers.MockBlock.Header().MixDigest,
@@ -117,7 +122,12 @@ var (
 		"receiptsRoot":     test_helpers.MockUncles[1].ReceiptHash,
 		"uncles":           []common.Hash{},
 	}
-	expectedTransaction = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0)
+	expectedTransaction  = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0)
+	expectedTransaction2 = eth.NewRPCTransaction(test_helpers.MockTransactions[1], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 1)
+	expectedTransaction3 = eth.NewRPCTransaction(test_helpers.MockTransactions[2], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 2)
+	expectRawTx, _       = rlp.EncodeToBytes(test_helpers.MockTransactions[0])
+	expectRawTx2, _      = rlp.EncodeToBytes(test_helpers.MockTransactions[1])
+	expectRawTx3, _      = rlp.EncodeToBytes(test_helpers.MockTransactions[2])
 )
 
 var _ = Describe("API", func() {
@@ -154,25 +164,20 @@ var _ = Describe("API", func() {
 	*/
 	Describe("GetHeaderByHash", func() {
 		It("Retrieves a header by hash", func() {
-			hash := test_helpers.MockBlock.Header().Hash()
-			header := api.GetHeaderByHash(context.Background(), hash)
+			header := api.GetHeaderByHash(ctx, blockHash)
 			Expect(header).To(Equal(expectedHeader))
 		})
 	})
 
 	Describe("GetHeaderByNumber", func() {
 		It("Retrieves a header by number", func() {
-			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			header, err := api.GetHeaderByNumber(context.Background(), rpc.BlockNumber(number))
+			header, err := api.GetHeaderByNumber(ctx, number)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(header).To(Equal(expectedHeader))
 		})
 
 		It("Throws an error if a header cannot be found", func() {
-			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			header, err := api.GetHeaderByNumber(context.Background(), rpc.BlockNumber(number+1))
+			header, err := api.GetHeaderByNumber(ctx, rpc.BlockNumber(number+1))
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 			Expect(header).To(BeNil())
@@ -193,9 +198,7 @@ var _ = Describe("API", func() {
 	Describe("GetBlockByNumber", func() {
 		It("Retrieves a block by number", func() {
 			// without full txs
-			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			block, err := api.GetBlockByNumber(context.Background(), rpc.BlockNumber(number), false)
+			block, err := api.GetBlockByNumber(ctx, number, false)
 			Expect(err).ToNot(HaveOccurred())
 			transactionHashes := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
 			for i, trx := range test_helpers.MockBlock.Transactions() {
@@ -206,7 +209,7 @@ var _ = Describe("API", func() {
 				Expect(val).To(Equal(block[key]))
 			}
 			// with full txs
-			block, err = api.GetBlockByNumber(context.Background(), rpc.BlockNumber(number), true)
+			block, err = api.GetBlockByNumber(ctx, number, true)
 			Expect(err).ToNot(HaveOccurred())
 			transactions := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
 			for i, trx := range test_helpers.MockBlock.Transactions() {
@@ -222,7 +225,7 @@ var _ = Describe("API", func() {
 	Describe("GetBlockByHash", func() {
 		It("Retrieves a block by hash", func() {
 			// without full txs
-			block, err := api.GetBlockByHash(context.Background(), test_helpers.MockBlock.Hash(), false)
+			block, err := api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
 			transactionHashes := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
 			for i, trx := range test_helpers.MockBlock.Transactions() {
@@ -233,7 +236,7 @@ var _ = Describe("API", func() {
 				Expect(val).To(Equal(block[key]))
 			}
 			// with full txs
-			block, err = api.GetBlockByHash(context.Background(), test_helpers.MockBlock.Hash(), true)
+			block, err = api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), true)
 			Expect(err).ToNot(HaveOccurred())
 			transactions := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
 			for i, trx := range test_helpers.MockBlock.Transactions() {
@@ -254,12 +257,10 @@ var _ = Describe("API", func() {
 
 	Describe("GetUncleByBlockNumberAndIndex", func() {
 		It("Retrieves the uncle at the provided index in the canoncial block with the provided hash", func() {
-			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			uncle1, err := api.GetUncleByBlockNumberAndIndex(context.Background(), rpc.BlockNumber(number), 0)
+			uncle1, err := api.GetUncleByBlockNumberAndIndex(ctx, number, 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle1).To(Equal(expectedUncle1))
-			uncle2, err := api.GetUncleByBlockNumberAndIndex(context.Background(), rpc.BlockNumber(number), 1)
+			uncle2, err := api.GetUncleByBlockNumberAndIndex(ctx, number, 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle2).To(Equal(expectedUncle2))
 		})
@@ -267,11 +268,10 @@ var _ = Describe("API", func() {
 
 	Describe("GetUncleByBlockHashAndIndex", func() {
 		It("Retrieves the uncle at the provided index in the block with the provided hash", func() {
-			hash := test_helpers.MockBlock.Header().Hash()
-			uncle1, err := api.GetUncleByBlockHashAndIndex(context.Background(), hash, 0)
+			uncle1, err := api.GetUncleByBlockHashAndIndex(ctx, blockHash, 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle1).To(Equal(expectedUncle1))
-			uncle2, err := api.GetUncleByBlockHashAndIndex(context.Background(), hash, 1)
+			uncle2, err := api.GetUncleByBlockHashAndIndex(ctx, blockHash, 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle2).To(Equal(expectedUncle2))
 		})
@@ -279,17 +279,14 @@ var _ = Describe("API", func() {
 
 	Describe("GetUncleCountByBlockNumber", func() {
 		It("Retrieves the number of uncles for the canonical block with the provided number", func() {
-			number, err := strconv.ParseInt(test_helpers.BlockNumber.String(), 10, 64)
-			Expect(err).ToNot(HaveOccurred())
-			count := api.GetUncleCountByBlockNumber(context.Background(), rpc.BlockNumber(number))
+			count := api.GetUncleCountByBlockNumber(ctx, number)
 			Expect(uint64(*count)).To(Equal(uint64(2)))
 		})
 	})
 
 	Describe("GetUncleCountByBlockHash", func() {
 		It("Retrieves the number of uncles for the block with the provided hash", func() {
-			hash := test_helpers.MockBlock.Header().Hash()
-			count := api.GetUncleCountByBlockHash(context.Background(), hash)
+			count := api.GetUncleCountByBlockHash(ctx, blockHash)
 			Expect(uint64(*count)).To(Equal(uint64(2)))
 		})
 	})
@@ -308,52 +305,117 @@ var _ = Describe("API", func() {
 
 	Describe("GetBlockTransactionCountByNumber", func() {
 		It("Retrieves the number of transactions in the canonical block with the provided number", func() {
-
+			count := api.GetBlockTransactionCountByNumber(ctx, number)
+			Expect(uint64(*count)).To(Equal(uint64(3)))
 		})
 	})
 
 	Describe("GetBlockTransactionCountByHash", func() {
 		It("Retrieves the number of transactions in the block with the provided hash ", func() {
-
+			count := api.GetBlockTransactionCountByHash(ctx, blockHash)
+			Expect(uint64(*count)).To(Equal(uint64(3)))
 		})
 	})
 
 	Describe("GetTransactionByBlockNumberAndIndex", func() {
 		It("Retrieves the tx with the provided index in the canonical block with the provided block number", func() {
+			tx := api.GetTransactionByBlockNumberAndIndex(ctx, number, 0)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(expectedTransaction))
 
+			tx = api.GetTransactionByBlockNumberAndIndex(ctx, number, 1)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(expectedTransaction2))
+
+			tx = api.GetTransactionByBlockNumberAndIndex(ctx, number, 2)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(expectedTransaction3))
 		})
 	})
 
 	Describe("GetTransactionByBlockHashAndIndex", func() {
 		It("Retrieves the tx with the provided index in the block with the provided hash", func() {
+			tx := api.GetTransactionByBlockHashAndIndex(ctx, blockHash, 0)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(expectedTransaction))
 
+			tx = api.GetTransactionByBlockHashAndIndex(ctx, blockHash, 1)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(expectedTransaction2))
+
+			tx = api.GetTransactionByBlockHashAndIndex(ctx, blockHash, 2)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(expectedTransaction3))
 		})
 	})
 
 	Describe("GetRawTransactionByBlockNumberAndIndex", func() {
 		It("Retrieves the raw tx with the provided index in the canonical block with the provided block number", func() {
+			tx := api.GetRawTransactionByBlockNumberAndIndex(ctx, number, 0)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx)))
 
+			tx = api.GetRawTransactionByBlockNumberAndIndex(ctx, number, 1)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx2)))
+
+			tx = api.GetRawTransactionByBlockNumberAndIndex(ctx, number, 2)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx3)))
 		})
 	})
 
 	Describe("GetRawTransactionByBlockHashAndIndex", func() {
 		It("Retrieves the raw tx with the provided index in the block with the provided hash", func() {
+			tx := api.GetRawTransactionByBlockHashAndIndex(ctx, blockHash, 0)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx)))
 
+			tx = api.GetRawTransactionByBlockHashAndIndex(ctx, blockHash, 1)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx2)))
+
+			tx = api.GetRawTransactionByBlockHashAndIndex(ctx, blockHash, 2)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx3)))
 		})
 	})
 
 	Describe("GetTransactionByHash", func() {
 		It("Retrieves a transaction by hash", func() {
 			hash := test_helpers.MockTransactions[0].Hash()
-			tx, err := api.GetTransactionByHash(context.Background(), hash)
+			tx, err := api.GetTransactionByHash(ctx, hash)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(tx).To(Equal(expectedTransaction))
+
+			hash = test_helpers.MockTransactions[1].Hash()
+			tx, err = api.GetTransactionByHash(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx).To(Equal(expectedTransaction2))
+
+			hash = test_helpers.MockTransactions[2].Hash()
+			tx, err = api.GetTransactionByHash(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx).To(Equal(expectedTransaction3))
 		})
 	})
 
 	Describe("GetRawTransactionByHash", func() {
 		It("Retrieves a raw transaction by hash", func() {
+			hash := test_helpers.MockTransactions[0].Hash()
+			tx, err := api.GetRawTransactionByHash(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx)))
 
+			hash = test_helpers.MockTransactions[1].Hash()
+			tx, err = api.GetRawTransactionByHash(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx2)))
+
+			hash = test_helpers.MockTransactions[2].Hash()
+			tx, err = api.GetRawTransactionByHash(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx3)))
 		})
 	})
 
@@ -380,7 +442,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err := api.GetLogs(context.Background(), crit)
+			logs, err := api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -395,7 +457,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
@@ -410,7 +472,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -427,7 +489,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(0))
 
@@ -443,7 +505,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -460,7 +522,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
@@ -478,7 +540,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
@@ -497,7 +559,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
@@ -512,7 +574,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
@@ -527,7 +589,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -537,7 +599,7 @@ var _ = Describe("API", func() {
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
@@ -554,7 +616,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err := api.GetLogs(context.Background(), crit)
+			logs, err := api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -570,7 +632,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -584,7 +646,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
@@ -600,7 +662,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
@@ -616,7 +678,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(0))
 
@@ -632,7 +694,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
@@ -646,7 +708,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
@@ -664,7 +726,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
@@ -673,7 +735,7 @@ var _ = Describe("API", func() {
 				BlockHash: &hash,
 				Topics:    [][]common.Hash{},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
@@ -697,7 +759,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err := api.GetLogs(context.Background(), crit)
+			logs, err := api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -720,7 +782,7 @@ var _ = Describe("API", func() {
 					},
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
@@ -733,7 +795,7 @@ var _ = Describe("API", func() {
 					test_helpers.AnotherAddress,
 				},
 			}
-			logs, err = api.GetLogs(context.Background(), crit)
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
