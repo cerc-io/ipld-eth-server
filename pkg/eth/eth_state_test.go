@@ -66,6 +66,7 @@ var _ = Describe("eth state reading tests", func() {
 		chain       *core.BlockChain
 		db          *postgres.DB
 		api         *eth.PublicEthAPI
+		backend     *eth.Backend
 		chainConfig = params.TestChainConfig
 		mockTD      = big.NewInt(1337)
 	)
@@ -75,7 +76,7 @@ var _ = Describe("eth state reading tests", func() {
 		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
 		transformer := eth2.NewStateDiffTransformer(chainConfig, db)
-		backend, err := eth.NewEthBackend(db, &eth.Config{
+		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000),
@@ -174,6 +175,217 @@ var _ = Describe("eth state reading tests", func() {
 		})
 	})
 
+	var (
+		expectedContractBalance   = (*hexutil.Big)(common.Big0)
+		expectedBankBalanceBlock0 = (*hexutil.Big)(test_helpers.TestBankFunds)
+
+		expectedAcct1BalanceBlock1 = (*hexutil.Big)(big.NewInt(10000))
+		expectedBankBalanceBlock1  = (*hexutil.Big)(new(big.Int).Sub(test_helpers.TestBankFunds, big.NewInt(10000)))
+
+		expectedAcct2BalanceBlock2 = (*hexutil.Big)(big.NewInt(1000))
+		expectedBankBalanceBlock2  = (*hexutil.Big)(new(big.Int).Sub(expectedBankBalanceBlock1.ToInt(), big.NewInt(1000)))
+
+		expectedAcct2BalanceBlock3 = (*hexutil.Big)(new(big.Int).Add(expectedAcct2BalanceBlock2.ToInt(), test_helpers.MiningReward))
+
+		expectedAcct2BalanceBlock4 = (*hexutil.Big)(new(big.Int).Add(expectedAcct2BalanceBlock3.ToInt(), test_helpers.MiningReward))
+
+		expectedAcct1BalanceBlock5 = (*hexutil.Big)(new(big.Int).Add(expectedAcct1BalanceBlock1.ToInt(), test_helpers.MiningReward))
+	)
+
+	Describe("eth_getBalance", func() {
+		It("Retrieves the eth balance for the provided account address at the block with the provided number", func() {
+			bal, err := api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(0))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock0))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(1))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			_, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(1))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			_, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(1))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(1))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock1))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(2))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(2))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct2BalanceBlock2))
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(2))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedContractBalance))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(2))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(3))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(3))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct2BalanceBlock3))
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(3))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedContractBalance))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(3))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(4))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(4))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct2BalanceBlock4))
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(4))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedContractBalance))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(4))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock5))
+			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct2BalanceBlock4))
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedContractBalance))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+		})
+		It("Retrieves the eth balance for the provided account address at the block with the provided hash", func() {
+			bal, err := api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock0))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[1].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			_, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[1].Hash(), true))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			_, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[1].Hash(), true))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[1].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock1))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[2].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[2].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct2BalanceBlock2))
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[2].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedContractBalance))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[2].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct2BalanceBlock3))
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedContractBalance))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[4].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[4].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct2BalanceBlock4))
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[4].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedContractBalance))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[4].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+
+			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct1BalanceBlock5))
+			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedAcct2BalanceBlock4))
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedContractBalance))
+			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+		})
+		It("Throws an error for an account it cannot find the balance for an account at the provided block number", func() {
+			_, err := api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(0))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			_, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(0))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			_, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(0))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		})
+		It("Throws an error for an account it cannot find the balance for an account at the provided block hash", func() {
+			_, err := api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			_, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			_, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		})
+	})
+
+	Describe("eth_getCode", func() {
+		It("Retrieves the code for the provided contract address at the block with the provided number", func() {
+			code, err := api.GetCode(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(3))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
+
+			code, err = api.GetCode(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
+		})
+		It("Retrieves the code for the provided contract address at the block with the provided hash", func() {
+			code, err := api.GetCode(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
+
+			code, err = api.GetCode(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
+		})
+		It("Throws an error for an account it cannot find the code for", func() {
+			_, err := api.GetCode(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
+			Expect(err).To(HaveOccurred())
+		})
+		It("Throws an error for a contract that doesn't exist at this hieght", func() {
+			_, err := api.GetCode(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(0))
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Describe("eth_getStorageAt", func() {
 		It("Throws an error if it tries to access a contract which does not exist", func() {
 			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(0))
@@ -210,9 +422,5 @@ var _ = Describe("eth state reading tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(val).To(Equal(hexutil.Bytes{}))
 		})
-	})
-
-	Describe("eth_getProof", func() {
-
 	})
 })

@@ -30,9 +30,6 @@ import (
 )
 
 const (
-	RetrieveIPLDpgStr = `SELECT data
-						FROM public.blocks
-						WHERE key = $1`
 	RetrieveHeadersByHashesPgStr = `SELECT cid, data
 								FROM eth.header_cids 
 								INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
@@ -129,32 +126,19 @@ const (
 												AND block_number <= $3
 												ORDER BY block_number DESC
 												LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data
-												FROM eth.storage_cids, eth.state_cids, eth.header_cids, public.blocks
-												WHERE storage_cids.state_id = state_cids.id
-												AND state_cids.header_id = header_cids.id
-												AND storage_cids.mh_key = blocks.key
-												AND state_leaf_key = $1
-												AND storage_leaf_key = $2
-												AND block_number <= (SELECT block_number
-																	FROM eth.header_cids
-																	WHERE block_hash = $3)
-												AND header_cids.id = (SELECT canonical_header(block_number))
-												ORDER BY block_number DESC
-												LIMIT 1`
 	retrieveStorageInfoPgStr = `SELECT storage_cids.cid, data, storage_path, block_number
-												FROM eth.storage_cids, eth.state_cids, eth.header_cids, public.blocks
-												WHERE storage_cids.state_id = state_cids.id
-												AND state_cids.header_id = header_cids.id
-												AND storage_cids.mh_key = blocks.key
-												AND state_leaf_key = $1
-												AND storage_leaf_key = $2
-												AND block_number <= (SELECT block_number
-																	FROM eth.header_cids
-																	WHERE block_hash = $3)
-												AND header_cids.id = (SELECT canonical_header(block_number))
-												ORDER BY block_number DESC
-												LIMIT 1`
+									FROM eth.storage_cids, eth.state_cids, eth.header_cids, public.blocks
+									WHERE storage_cids.state_id = state_cids.id
+									AND state_cids.header_id = header_cids.id
+									AND storage_cids.mh_key = blocks.key
+									AND state_leaf_key = $1
+									AND storage_leaf_key = $2
+									AND block_number <= (SELECT block_number
+														FROM eth.header_cids
+														WHERE block_hash = $3)
+									AND header_cids.id = (SELECT canonical_header(block_number))
+									ORDER BY block_number DESC
+									LIMIT 1`
 	wasNodeDeletedpgStr = `SELECT exists(SELECT *
 					FROM eth.storage_cids, eth.state_cids, eth.header_cids
 					WHERE storage_cids.state_id = state_cids.id
