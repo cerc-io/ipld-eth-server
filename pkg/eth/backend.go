@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -606,6 +608,32 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 	code := make([]byte, 0)
 	err = tx.Get(&code, RetrieveCodeByMhKey, mhKey)
 	return code, err
+}
+
+// GetStorageByNumberOrHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided number or hash
+func (b *Backend) GetStorageByNumberOrHash(ctx context.Context, address common.Address, storageLeafKey common.Hash, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		return b.GetStorageByNumber(ctx, address, storageLeafKey, uint64(blockNr.Int64()))
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		return b.GetStorageByHash(ctx, address, storageLeafKey, hash)
+	}
+	return nil, errors.New("invalid arguments; neither block nor hash specified")
+}
+
+// GetStorageByNumber returns the storage value for the provided contract address an storage key at the block corresponding to the provided number
+func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address, storageLeafKey common.Hash, number uint64) (hexutil.Bytes, error) {
+	hash := b.GetCanonicalHash(number)
+	if hash == (common.Hash{}) {
+		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
+	}
+	return b.GetStorageByHash(ctx, address, storageLeafKey, hash)
+}
+
+// GetStorageByHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided hash
+func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, storageLeafKey, hash common.Hash) (hexutil.Bytes, error) {
+	_, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address, storageLeafKey, hash)
+	return storageRlp, err
 }
 
 // Engine satisfied the ChainContext interface

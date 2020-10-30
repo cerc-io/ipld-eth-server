@@ -619,13 +619,9 @@ func (pea *PublicEthAPI) localGetBalance(ctx context.Context, address common.Add
 // block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta block
 // numbers are also allowed.
 func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Address, key string, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
-	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state != nil && err == nil {
-		res := state.GetState(address, common.HexToHash(key))
-		err = state.Error()
-		if err == nil {
-			return res[:], nil
-		}
+	storageVal, err := pea.B.GetStorageByNumberOrHash(ctx, address, common.HexToHash(key), blockNrOrHash)
+	if storageVal != nil && err == nil {
+		return storageVal, nil
 	}
 	if pea.rpc != nil {
 		var res hexutil.Bytes

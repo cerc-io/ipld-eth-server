@@ -59,28 +59,23 @@ func init() {
 	}
 }
 
-var _ = Describe("eth_call", func() {
+var _ = Describe("eth state reading tests", func() {
 	var (
 		blocks      []*types.Block
 		receipts    []types.Receipts
 		chain       *core.BlockChain
 		db          *postgres.DB
-		transformer *eth2.StateDiffTransformer
-		backend     *eth.Backend
 		api         *eth.PublicEthAPI
-		builder     statediff.Builder
-		pams        statediff.Params
 		chainConfig = params.TestChainConfig
 		mockTD      = big.NewInt(1337)
 	)
-
-	BeforeEach(func() {
+	It("test init", func() {
 		// db and type initializations
 		var err error
 		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		transformer = eth2.NewStateDiffTransformer(chainConfig, db)
-		backend, err = eth.NewEthBackend(db, &eth.Config{
+		transformer := eth2.NewStateDiffTransformer(chainConfig, db)
+		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000),
@@ -90,12 +85,12 @@ var _ = Describe("eth_call", func() {
 
 		// make the test blockchain (and state)
 		blocks, receipts, chain = test_helpers.MakeChain(5, test_helpers.Genesis, test_helpers.TestChainGen)
-		pams = statediff.Params{
+		params := statediff.Params{
 			IntermediateStateNodes:   true,
 			IntermediateStorageNodes: true,
 		}
 		// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
-		builder = statediff.NewBuilder(chain.StateCache())
+		builder := statediff.NewBuilder(chain.StateCache())
 		for i, block := range blocks {
 			var args statediff.Args
 			var rcts types.Receipts
@@ -115,7 +110,7 @@ var _ = Describe("eth_call", func() {
 				}
 				rcts = receipts[i-1]
 			}
-			diff, err := builder.BuildStateDiffObject(args, pams)
+			diff, err := builder.BuildStateDiffObject(args, params)
 			Expect(err).ToNot(HaveOccurred())
 			diffRlp, err := rlp.EncodeToBytes(diff)
 			Expect(err).ToNot(HaveOccurred())
@@ -133,10 +128,11 @@ var _ = Describe("eth_call", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 	})
-	AfterEach(func() {
+	defer It("test teardown", func() {
 		eth.TearDownDB(db)
 		chain.Stop()
 	})
+
 	Describe("eth_call", func() {
 		It("Applies call args (tx data) on top of state, returning the result (e.g. a Getter method call)", func() {
 			data, err := parsedABI.Pack("data")
@@ -146,7 +142,7 @@ var _ = Describe("eth_call", func() {
 				To:   &test_helpers.ContractAddr,
 				Data: &bdata,
 			}
-			// Before contract deployment
+			// Before contract deployment, returns nil
 			res, err := api.Call(context.Background(), callArgs, rpc.BlockNumberOrHashWithNumber(0), nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(BeNil())
@@ -176,5 +172,47 @@ var _ = Describe("eth_call", func() {
 			expectedRes = hexutil.Bytes(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000000"))
 			Expect(res).To(Equal(expectedRes))
 		})
+	})
+
+	Describe("eth_getStorageAt", func() {
+		It("Throws an error if it tries to access a contract which does not exist", func() {
+			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(0))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+
+			_, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(1))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		})
+		It("Throws an error if it tries to access a contract slot which does not exist", func() {
+			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, randomHash.Hex(), rpc.BlockNumberOrHashWithNumber(2))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		})
+		It("Retrieves the storage value at the provided contract address and storage leaf key at the block with the provided hash or number", func() {
+			// After deployment
+			val, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(2))
+			Expect(err).ToNot(HaveOccurred())
+			expectedRes := hexutil.Bytes(common.Hex2Bytes("01"))
+			Expect(val).To(Equal(expectedRes))
+
+			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(3))
+			Expect(err).ToNot(HaveOccurred())
+			expectedRes = hexutil.Bytes(common.Hex2Bytes("03"))
+			Expect(val).To(Equal(expectedRes))
+
+			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(4))
+			Expect(err).ToNot(HaveOccurred())
+			expectedRes = hexutil.Bytes(common.Hex2Bytes("09"))
+			Expect(val).To(Equal(expectedRes))
+
+			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(5))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(val).To(Equal(hexutil.Bytes{}))
+		})
+	})
+
+	Describe("eth_getProof", func() {
+
 	})
 })

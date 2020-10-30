@@ -43,6 +43,7 @@ var (
 	randomAddr    = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
 	randomHash    = crypto.Keccak256Hash(randomAddr.Bytes())
 	number        = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
+	wrongNumber   = rpc.BlockNumber(number + 1)
 	blockHash     = test_helpers.MockBlock.Header().Hash()
 	ctx           = context.Background()
 	expectedBlock = map[string]interface{}{
@@ -177,18 +178,17 @@ var (
 
 var _ = Describe("API", func() {
 	var (
-		db                *postgres.DB
-		indexAndPublisher *eth2.IPLDPublisher
-		backend           *eth.Backend
-		api               *eth.PublicEthAPI
+		db  *postgres.DB
+		api *eth.PublicEthAPI
 	)
 	// Test db setup, rather than using BeforeEach we only need to setup once since the tests do not mutate the database
-	It("", func() {
+	// Note: if you focus one of the tests be sure to focus this and the defered It()
+	It("test init", func() {
 		var err error
 		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		indexAndPublisher = eth2.NewIPLDPublisher(db)
-		backend, err = eth.NewEthBackend(db, &eth.Config{})
+		indexAndPublisher := eth2.NewIPLDPublisher(db)
+		backend, err := eth.NewEthBackend(db, &eth.Config{})
 		Expect(err).ToNot(HaveOccurred())
 		api = eth.NewPublicEthAPI(backend, nil)
 		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
@@ -203,13 +203,13 @@ var _ = Describe("API", func() {
 		expectedBlock["uncles"] = uncleHashes
 	})
 	// Single test db tear down at end of all tests
-	defer It("", func() { eth.TearDownDB(db) })
+	defer It("test teardown", func() { eth.TearDownDB(db) })
 	/*
 
 	   Headers and blocks
 
 	*/
-	Describe("GetHeaderByNumber", func() {
+	Describe("eth_getHeaderByNumber", func() {
 		It("Retrieves a header by number", func() {
 			header, err := api.GetHeaderByNumber(ctx, number)
 			Expect(err).ToNot(HaveOccurred())
@@ -217,7 +217,7 @@ var _ = Describe("API", func() {
 		})
 
 		It("Throws an error if a header cannot be found", func() {
-			header, err := api.GetHeaderByNumber(ctx, rpc.BlockNumber(number+1))
+			header, err := api.GetHeaderByNumber(ctx, wrongNumber)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 			Expect(header).To(BeNil())
@@ -226,7 +226,19 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("BlockNumber", func() {
+	Describe("eth_getHeaderByHash", func() {
+		It("Retrieves a header by hash", func() {
+			header := api.GetHeaderByHash(ctx, blockHash)
+			Expect(header).To(Equal(expectedHeader))
+		})
+
+		It("Throws an error if a header cannot be found", func() {
+			header := api.GetHeaderByHash(ctx, randomHash)
+			Expect(header).To(BeNil())
+		})
+	})
+
+	Describe("eth_blockNumber", func() {
 		It("Retrieves the head block number", func() {
 			bn := api.BlockNumber()
 			ubn := (uint64)(bn)
@@ -235,9 +247,8 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetBlockByNumber", func() {
-		It("Retrieves a block by number", func() {
-			// without full txs
+	Describe("eth_getBlockByNumber", func() {
+		It("Retrieves a block by number, without full txs", func() {
 			block, err := api.GetBlockByNumber(ctx, number, false)
 			Expect(err).ToNot(HaveOccurred())
 			transactionHashes := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
@@ -248,8 +259,9 @@ var _ = Describe("API", func() {
 			for key, val := range expectedBlock {
 				Expect(val).To(Equal(block[key]))
 			}
-			// with full txs
-			block, err = api.GetBlockByNumber(ctx, number, true)
+		})
+		It("Retrieves a block by number, with full txs", func() {
+			block, err := api.GetBlockByNumber(ctx, number, true)
 			Expect(err).ToNot(HaveOccurred())
 			transactions := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
 			for i, trx := range test_helpers.MockBlock.Transactions() {
@@ -260,11 +272,15 @@ var _ = Describe("API", func() {
 				Expect(val).To(Equal(block[key]))
 			}
 		})
+		It("Throws an error if a block cannot be found", func() {
+			_, err := api.GetBlockByNumber(ctx, wrongNumber, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		})
 	})
 
-	Describe("GetBlockByHash", func() {
-		It("Retrieves a block by hash", func() {
-			// without full txs
+	Describe("eth_getBlockByHash", func() {
+		It("Retrieves a block by hash, without full txs", func() {
 			block, err := api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
 			transactionHashes := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
@@ -275,8 +291,9 @@ var _ = Describe("API", func() {
 			for key, val := range expectedBlock {
 				Expect(val).To(Equal(block[key]))
 			}
-			// with full txs
-			block, err = api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), true)
+		})
+		It("Retrieves a block by hash, with full txs", func() {
+			block, err := api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), true)
 			Expect(err).ToNot(HaveOccurred())
 			transactions := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
 			for i, trx := range test_helpers.MockBlock.Transactions() {
@@ -287,6 +304,11 @@ var _ = Describe("API", func() {
 				Expect(val).To(Equal(block[key]))
 			}
 		})
+		It("Throws an error if a block cannot be found", func() {
+			_, err := api.GetBlockByHash(ctx, randomHash, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		})
 	})
 
 	/*
@@ -295,7 +317,7 @@ var _ = Describe("API", func() {
 
 	*/
 
-	Describe("GetUncleByBlockNumberAndIndex", func() {
+	Describe("eth_getUncleByBlockNumberAndIndex", func() {
 		It("Retrieves the uncle at the provided index in the canoncial block with the provided hash", func() {
 			uncle1, err := api.GetUncleByBlockNumberAndIndex(ctx, number, 0)
 			Expect(err).ToNot(HaveOccurred())
@@ -304,9 +326,19 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle2).To(Equal(expectedUncle2))
 		})
+		It("Throws an error if an block for blocknumber cannot be found", func() {
+			_, err := api.GetUncleByBlockNumberAndIndex(ctx, wrongNumber, 0)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		})
+		It("Returns `nil` if an uncle at the provided index does not exist for the block found for the provided block number", func() {
+			uncle, err := api.GetUncleByBlockNumberAndIndex(ctx, number, 2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uncle).To(BeNil())
+		})
 	})
 
-	Describe("GetUncleByBlockHashAndIndex", func() {
+	Describe("eth_getUncleByBlockHashAndIndex", func() {
 		It("Retrieves the uncle at the provided index in the block with the provided hash", func() {
 			uncle1, err := api.GetUncleByBlockHashAndIndex(ctx, blockHash, 0)
 			Expect(err).ToNot(HaveOccurred())
@@ -315,16 +347,26 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle2).To(Equal(expectedUncle2))
 		})
+		It("Throws an error if an block for blockhash cannot be found", func() {
+			_, err := api.GetUncleByBlockHashAndIndex(ctx, randomHash, 0)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		})
+		It("Returns `nil` if an uncle at the provided index does not exist for the block with the provided hash", func() {
+			uncle, err := api.GetUncleByBlockHashAndIndex(ctx, blockHash, 2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uncle).To(BeNil())
+		})
 	})
 
-	Describe("GetUncleCountByBlockNumber", func() {
+	Describe("eth_getUncleCountByBlockNumber", func() {
 		It("Retrieves the number of uncles for the canonical block with the provided number", func() {
 			count := api.GetUncleCountByBlockNumber(ctx, number)
 			Expect(uint64(*count)).To(Equal(uint64(2)))
 		})
 	})
 
-	Describe("GetUncleCountByBlockHash", func() {
+	Describe("eth_getUncleCountByBlockHash", func() {
 		It("Retrieves the number of uncles for the block with the provided hash", func() {
 			count := api.GetUncleCountByBlockHash(ctx, blockHash)
 			Expect(uint64(*count)).To(Equal(uint64(2)))
@@ -337,7 +379,7 @@ var _ = Describe("API", func() {
 
 	*/
 
-	Describe("GetTransactionCount", func() {
+	Describe("eth_getTransactionCount", func() {
 		It("Retrieves the number of transactions the given address has sent for the given block number", func() {
 			count, err := api.GetTransactionCount(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithNumber(number))
 			Expect(err).ToNot(HaveOccurred())
@@ -358,21 +400,21 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetBlockTransactionCountByNumber", func() {
+	Describe("eth_getBlockTransactionCountByNumber", func() {
 		It("Retrieves the number of transactions in the canonical block with the provided number", func() {
 			count := api.GetBlockTransactionCountByNumber(ctx, number)
 			Expect(uint64(*count)).To(Equal(uint64(3)))
 		})
 	})
 
-	Describe("GetBlockTransactionCountByHash", func() {
+	Describe("eth_getBlockTransactionCountByHash", func() {
 		It("Retrieves the number of transactions in the block with the provided hash ", func() {
 			count := api.GetBlockTransactionCountByHash(ctx, blockHash)
 			Expect(uint64(*count)).To(Equal(uint64(3)))
 		})
 	})
 
-	Describe("GetTransactionByBlockNumberAndIndex", func() {
+	Describe("eth_getTransactionByBlockNumberAndIndex", func() {
 		It("Retrieves the tx with the provided index in the canonical block with the provided block number", func() {
 			tx := api.GetTransactionByBlockNumberAndIndex(ctx, number, 0)
 			Expect(tx).ToNot(BeNil())
@@ -388,7 +430,7 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetTransactionByBlockHashAndIndex", func() {
+	Describe("eth_getTransactionByBlockHashAndIndex", func() {
 		It("Retrieves the tx with the provided index in the block with the provided hash", func() {
 			tx := api.GetTransactionByBlockHashAndIndex(ctx, blockHash, 0)
 			Expect(tx).ToNot(BeNil())
@@ -404,7 +446,7 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetRawTransactionByBlockNumberAndIndex", func() {
+	Describe("eth_getRawTransactionByBlockNumberAndIndex", func() {
 		It("Retrieves the raw tx with the provided index in the canonical block with the provided block number", func() {
 			tx := api.GetRawTransactionByBlockNumberAndIndex(ctx, number, 0)
 			Expect(tx).ToNot(BeNil())
@@ -420,7 +462,7 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetRawTransactionByBlockHashAndIndex", func() {
+	Describe("eth_getRawTransactionByBlockHashAndIndex", func() {
 		It("Retrieves the raw tx with the provided index in the block with the provided hash", func() {
 			tx := api.GetRawTransactionByBlockHashAndIndex(ctx, blockHash, 0)
 			Expect(tx).ToNot(BeNil())
@@ -436,7 +478,7 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetTransactionByHash", func() {
+	Describe("eth_getTransactionByHash", func() {
 		It("Retrieves a transaction by hash", func() {
 			hash := test_helpers.MockTransactions[0].Hash()
 			tx, err := api.GetTransactionByHash(ctx, hash)
@@ -459,7 +501,7 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetRawTransactionByHash", func() {
+	Describe("eth_getRawTransactionByHash", func() {
 		It("Retrieves a raw transaction by hash", func() {
 			hash := test_helpers.MockTransactions[0].Hash()
 			tx, err := api.GetRawTransactionByHash(ctx, hash)
@@ -488,7 +530,7 @@ var _ = Describe("API", func() {
 
 	*/
 
-	Describe("GetTransactionReceipt", func() {
+	Describe("eth_getTransactionReceipt", func() {
 		It("Retrieves a receipt by tx hash", func() {
 			hash := test_helpers.MockTransactions[0].Hash()
 			rct, err := api.GetTransactionReceipt(ctx, hash)
@@ -511,7 +553,7 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetLogs", func() {
+	Describe("eth_getLogs", func() {
 		It("Retrieves receipt logs that match the provided topics within the provided range", func() {
 			crit := ethereum.FilterQuery{
 				Topics: [][]common.Hash{
@@ -888,7 +930,7 @@ var _ = Describe("API", func() {
 
 	*/
 
-	Describe("GetBalance", func() {
+	Describe("eth_getBalance", func() {
 		It("Retrieves the eth balance for the provided account address at the block with the provided number", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithNumber(number))
 			Expect(err).ToNot(HaveOccurred())
@@ -913,17 +955,7 @@ var _ = Describe("API", func() {
 		})
 	})
 
-	Describe("GetStorageAt", func() {
-		It("Retrieves the storage value at the provided contract address and storage leaf key at the block with the provided hash or number", func() {
-			/*
-				val, err := api.GetStorageAt(ctx, test_helpers.ContractAddress, common.Bytes2Hex(test_helpers.StorageLeafKey), rpc.BlockNumberOrHashWithNumber(number))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(val).To(Equal((hexutil.Bytes)(test_helpers.StorageValue)))
-			*/
-		})
-	})
-
-	Describe("GetCode", func() {
+	Describe("eth_getCode", func() {
 		It("Retrieves the code for the provided contract address at the block with the provided number", func() {
 			code, err := api.GetCode(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithNumber(number))
 			Expect(err).ToNot(HaveOccurred())
@@ -937,13 +969,6 @@ var _ = Describe("API", func() {
 		It("Throws an error for an account it cannot find the code for", func() {
 			_, err := api.GetCode(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blockHash, true))
 			Expect(err).To(HaveOccurred())
-		})
-
-	})
-
-	Describe("GetProof", func() {
-		It("Retrieves the Merkle-proof for a given account and optionally some storage keys at the block with the provided hash or number", func() {
-
 		})
 	})
 })
