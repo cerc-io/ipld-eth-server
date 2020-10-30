@@ -67,7 +67,12 @@ const (
 											WHERE state_accounts.state_id = state_cids.id
 											AND state_cids.header_id = header_cids.id
 											AND state_leaf_key = $1
-											AND block_hash = $2`
+											AND block_number <= (SELECT block_number
+																FROM eth.header_cids
+																WHERE block_hash = $2)
+											AND header_cids.id = (SELECT canonical_header(block_number))
+											ORDER BY block_number DESC
+											LIMIT 1`
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
 

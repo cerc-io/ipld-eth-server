@@ -87,12 +87,19 @@ const (
 												WHERE state_cids.header_id = header_cids.id
 												AND state_cids.mh_key = blocks.key
 												AND state_leaf_key = $1
-												AND block_hash = $2`
+												AND block_number <= (SELECT block_number
+																	FROM eth.header_cids
+																	WHERE block_hash = $2)
+												AND header_cids.id = (SELECT canonical_header(block_number))
+												ORDER BY block_number DESC
+												LIMIT 1`
 	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data FROM eth.state_cids, eth.header_cids, public.blocks
 												WHERE state_cids.header_id = header_cids.id
 												AND state_cids.mh_key = blocks.key
 												AND state_leaf_key = $1
-												AND block_number = $2`
+												AND block_number <= $2
+												ORDER BY block_number DESC
+												LIMIT 1`
 )
 
 type ipldResult struct {

@@ -89,7 +89,7 @@ var _ = Describe("eth_call", func() {
 		api = eth.NewPublicEthAPI(backend, nil)
 
 		// make the test blockchain (and state)
-		blocks, receipts, chain = test_helpers.MakeChain(4, test_helpers.Genesis, test_helpers.TestChainGen)
+		blocks, receipts, chain = test_helpers.MakeChain(5, test_helpers.Genesis, test_helpers.TestChainGen)
 		pams = statediff.Params{
 			IntermediateStateNodes:   true,
 			IntermediateStorageNodes: true,
@@ -146,7 +146,17 @@ var _ = Describe("eth_call", func() {
 				To:   &test_helpers.ContractAddr,
 				Data: &bdata,
 			}
-			res, err := api.Call(context.Background(), callArgs, rpc.BlockNumberOrHashWithNumber(2), nil)
+			// Before contract deployment
+			res, err := api.Call(context.Background(), callArgs, rpc.BlockNumberOrHashWithNumber(0), nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).To(BeNil())
+
+			res, err = api.Call(context.Background(), callArgs, rpc.BlockNumberOrHashWithNumber(1), nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).To(BeNil())
+
+			// After deployment
+			res, err = api.Call(context.Background(), callArgs, rpc.BlockNumberOrHashWithNumber(2), nil)
 			Expect(err).ToNot(HaveOccurred())
 			expectedRes := hexutil.Bytes(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001"))
 			Expect(res).To(Equal(expectedRes))
@@ -159,6 +169,11 @@ var _ = Describe("eth_call", func() {
 			res, err = api.Call(context.Background(), callArgs, rpc.BlockNumberOrHashWithNumber(4), nil)
 			Expect(err).ToNot(HaveOccurred())
 			expectedRes = hexutil.Bytes(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000009"))
+			Expect(res).To(Equal(expectedRes))
+
+			res, err = api.Call(context.Background(), callArgs, rpc.BlockNumberOrHashWithNumber(5), nil)
+			Expect(err).ToNot(HaveOccurred())
+			expectedRes = hexutil.Bytes(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000000"))
 			Expect(res).To(Equal(expectedRes))
 		})
 	})

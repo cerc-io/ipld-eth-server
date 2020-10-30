@@ -259,7 +259,7 @@ var (
 	// statediff data
 	storageLocation    = common.HexToHash("0")
 	StorageLeafKey     = crypto.Keccak256Hash(storageLocation[:]).Bytes()
-	StorageValue       = common.Hex2Bytes("01")
+	StorageValue       = crypto.Keccak256([]byte{1, 2, 3, 4, 5})
 	StoragePartialPath = common.Hex2Bytes("20290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563")
 	StorageLeafNode, _ = rlp.EncodeToBytes([]interface{}{
 		StoragePartialPath,
@@ -268,7 +268,7 @@ var (
 
 	nonce1             = uint64(1)
 	ContractRoot       = "0x821e2556a290c86405f8160a2d662042a431ba456b9db265c79bb837c04be5f0"
-	ContractCodeHash   = common.HexToHash("0x753f98a8d4328b15636e46f66f2cb4bc860100aa17967cc145fcd17d1d4710ea")
+	ContractCodeHash   = crypto.Keccak256Hash(MockContractByteCode)
 	contractPath       = common.Bytes2Hex([]byte{'\x06'})
 	ContractLeafKey    = testhelpers.AddressToLeafKey(ContractAddress)
 	ContractAccount, _ = rlp.EncodeToBytes(state.Account{
@@ -284,13 +284,14 @@ var (
 	})
 
 	nonce0          = uint64(0)
+	AccountBalance  = big.NewInt(1000)
 	AccountRoot     = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
 	AccountCodeHash = common.HexToHash("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
 	AccountAddresss = common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e")
 	AccountLeafKey  = testhelpers.Account2LeafKey
 	Account, _      = rlp.EncodeToBytes(state.Account{
 		Nonce:    nonce0,
-		Balance:  big.NewInt(1000),
+		Balance:  AccountBalance,
 		CodeHash: AccountCodeHash.Bytes(),
 		Root:     common.HexToHash(AccountRoot),
 	})

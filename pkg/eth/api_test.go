@@ -20,18 +20,19 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/rlp"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
@@ -39,6 +40,8 @@ import (
 )
 
 var (
+	randomAddr    = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
+	randomHash    = crypto.Keccak256Hash(randomAddr.Bytes())
 	number        = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
 	blockHash     = test_helpers.MockBlock.Header().Hash()
 	ctx           = context.Background()
@@ -128,6 +131,48 @@ var (
 	expectRawTx, _       = rlp.EncodeToBytes(test_helpers.MockTransactions[0])
 	expectRawTx2, _      = rlp.EncodeToBytes(test_helpers.MockTransactions[1])
 	expectRawTx3, _      = rlp.EncodeToBytes(test_helpers.MockTransactions[2])
+	expectedReceipt      = map[string]interface{}{
+		"blockHash":         blockHash,
+		"blockNumber":       hexutil.Uint64(uint64(number.Int64())),
+		"transactionHash":   expectedTransaction.Hash,
+		"transactionIndex":  hexutil.Uint64(0),
+		"from":              expectedTransaction.From,
+		"to":                expectedTransaction.To,
+		"gasUsed":           hexutil.Uint64(test_helpers.MockReceipts[0].GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(test_helpers.MockReceipts[0].CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              test_helpers.MockReceipts[0].Logs,
+		"logsBloom":         test_helpers.MockReceipts[0].Bloom,
+		"root":              hexutil.Bytes(test_helpers.MockReceipts[0].PostState),
+	}
+	expectedReceipt2 = map[string]interface{}{
+		"blockHash":         blockHash,
+		"blockNumber":       hexutil.Uint64(uint64(number.Int64())),
+		"transactionHash":   expectedTransaction2.Hash,
+		"transactionIndex":  hexutil.Uint64(1),
+		"from":              expectedTransaction2.From,
+		"to":                expectedTransaction2.To,
+		"gasUsed":           hexutil.Uint64(test_helpers.MockReceipts[1].GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(test_helpers.MockReceipts[1].CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              test_helpers.MockReceipts[1].Logs,
+		"logsBloom":         test_helpers.MockReceipts[1].Bloom,
+		"root":              hexutil.Bytes(test_helpers.MockReceipts[1].PostState),
+	}
+	expectedReceipt3 = map[string]interface{}{
+		"blockHash":         blockHash,
+		"blockNumber":       hexutil.Uint64(uint64(number.Int64())),
+		"transactionHash":   expectedTransaction3.Hash,
+		"transactionIndex":  hexutil.Uint64(2),
+		"from":              expectedTransaction3.From,
+		"to":                expectedTransaction3.To,
+		"gasUsed":           hexutil.Uint64(test_helpers.MockReceipts[2].GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(test_helpers.MockReceipts[2].CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              test_helpers.MockReceipts[2].Logs,
+		"logsBloom":         test_helpers.MockReceipts[2].Bloom,
+		"root":              hexutil.Bytes(test_helpers.MockReceipts[2].PostState),
+	}
 )
 
 var _ = Describe("API", func() {
@@ -137,7 +182,8 @@ var _ = Describe("API", func() {
 		backend           *eth.Backend
 		api               *eth.PublicEthAPI
 	)
-	BeforeEach(func() {
+	// Test db setup, rather than using BeforeEach we only need to setup once since the tests do not mutate the database
+	It("", func() {
 		var err error
 		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
@@ -147,6 +193,8 @@ var _ = Describe("API", func() {
 		api = eth.NewPublicEthAPI(backend, nil)
 		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
 		Expect(err).ToNot(HaveOccurred())
+		err = publishCode(db, test_helpers.ContractCodeHash, test_helpers.ContractCode)
+		Expect(err).ToNot(HaveOccurred())
 		uncles := test_helpers.MockBlock.Uncles()
 		uncleHashes := make([]common.Hash, len(uncles))
 		for i, uncle := range uncles {
@@ -154,21 +202,13 @@ var _ = Describe("API", func() {
 		}
 		expectedBlock["uncles"] = uncleHashes
 	})
-	AfterEach(func() {
-		eth.TearDownDB(db)
-	})
+	// Single test db tear down at end of all tests
+	defer It("", func() { eth.TearDownDB(db) })
 	/*
 
 	   Headers and blocks
 
 	*/
-	Describe("GetHeaderByHash", func() {
-		It("Retrieves a header by hash", func() {
-			header := api.GetHeaderByHash(ctx, blockHash)
-			Expect(header).To(Equal(expectedHeader))
-		})
-	})
-
 	Describe("GetHeaderByNumber", func() {
 		It("Retrieves a header by number", func() {
 			header, err := api.GetHeaderByNumber(ctx, number)
@@ -298,8 +338,23 @@ var _ = Describe("API", func() {
 	*/
 
 	Describe("GetTransactionCount", func() {
-		It("Retrieves the number of transactions the given address has sent for the given block number or block hash", func() {
+		It("Retrieves the number of transactions the given address has sent for the given block number", func() {
+			count, err := api.GetTransactionCount(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithNumber(number))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*count).To(Equal(hexutil.Uint64(1)))
 
+			count, err = api.GetTransactionCount(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithNumber(number))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*count).To(Equal(hexutil.Uint64(0)))
+		})
+		It("Retrieves the number of transactions the given address has sent for the given block hash", func() {
+			count, err := api.GetTransactionCount(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*count).To(Equal(hexutil.Uint64(1)))
+
+			count, err = api.GetTransactionCount(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*count).To(Equal(hexutil.Uint64(0)))
 		})
 	})
 
@@ -398,6 +453,10 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(tx).To(Equal(expectedTransaction3))
 		})
+		It("Throws an error if it cannot find a tx for the provided tx hash", func() {
+			_, err := api.GetTransactionByHash(ctx, randomHash)
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Describe("GetRawTransactionByHash", func() {
@@ -417,6 +476,10 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(tx).To(Equal(hexutil.Bytes(expectRawTx3)))
 		})
+		It("Throws an error if it cannot find a tx for the provided tx hash", func() {
+			_, err := api.GetRawTransactionByHash(ctx, randomHash)
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	/*
@@ -427,7 +490,24 @@ var _ = Describe("API", func() {
 
 	Describe("GetTransactionReceipt", func() {
 		It("Retrieves a receipt by tx hash", func() {
+			hash := test_helpers.MockTransactions[0].Hash()
+			rct, err := api.GetTransactionReceipt(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rct).To(Equal(expectedReceipt))
 
+			hash = test_helpers.MockTransactions[1].Hash()
+			rct, err = api.GetTransactionReceipt(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rct).To(Equal(expectedReceipt2))
+
+			hash = test_helpers.MockTransactions[2].Hash()
+			rct, err = api.GetTransactionReceipt(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rct).To(Equal(expectedReceipt3))
+		})
+		It("Throws an error if it cannot find a receipt for the provided tx hash", func() {
+			_, err := api.GetTransactionReceipt(ctx, randomHash)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -809,21 +889,56 @@ var _ = Describe("API", func() {
 	*/
 
 	Describe("GetBalance", func() {
-		It("Retrieves the eth balance for the provided account address at the block with the provided hash or number", func() {
+		It("Retrieves the eth balance for the provided account address at the block with the provided number", func() {
+			bal, err := api.GetBalance(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithNumber(number))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal((*hexutil.Big)(test_helpers.AccountBalance)))
 
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithNumber(number))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+		})
+		It("Retrieves the eth balance for the provided account address at the block with the provided hash", func() {
+			bal, err := api.GetBalance(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal((*hexutil.Big)(test_helpers.AccountBalance)))
+
+			bal, err = api.GetBalance(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+		})
+		It("Throws an error for an account it cannot find the balance for", func() {
+			_, err := api.GetBalance(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	Describe("GetStorageAt", func() {
 		It("Retrieves the storage value at the provided contract address and storage leaf key at the block with the provided hash or number", func() {
-
+			/*
+				val, err := api.GetStorageAt(ctx, test_helpers.ContractAddress, common.Bytes2Hex(test_helpers.StorageLeafKey), rpc.BlockNumberOrHashWithNumber(number))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(val).To(Equal((hexutil.Bytes)(test_helpers.StorageValue)))
+			*/
 		})
 	})
 
 	Describe("GetCode", func() {
-		It("Retrieves the code for the provided contract address at the block with the provied hash or number", func() {
-
+		It("Retrieves the code for the provided contract address at the block with the provided number", func() {
+			code, err := api.GetCode(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithNumber(number))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
 		})
+		It("Retrieves the code for the provided contract address at the block with the provided hash", func() {
+			code, err := api.GetCode(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
+		})
+		It("Throws an error for an account it cannot find the code for", func() {
+			_, err := api.GetCode(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).To(HaveOccurred())
+		})
+
 	})
 
 	Describe("GetProof", func() {
@@ -831,5 +946,21 @@ var _ = Describe("API", func() {
 
 		})
 	})
-
 })
+
+func publishCode(db *postgres.DB, codeHash common.Hash, code []byte) error {
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+	mhKey, err := shared2.MultihashKeyFromKeccak256(codeHash)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := shared2.PublishDirect(tx, mhKey, code); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
