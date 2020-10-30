@@ -244,14 +244,9 @@ Transactions
 
 // GetTransactionCount returns the number of transactions the given address has sent for the given block number
 func (pea *PublicEthAPI) GetTransactionCount(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Uint64, error) {
-	// Resolve block number and use its state to ask for the nonce
-	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state != nil && err == nil {
-		nonce := state.GetNonce(address)
-		err = state.Error()
-		if err == nil {
-			return (*hexutil.Uint64)(&nonce), nil
-		}
+	count, err := pea.localGetTransactionCount(ctx, address, blockNrOrHash)
+	if count != nil && err == nil {
+		return count, nil
 	}
 	if pea.rpc != nil {
 		var num *hexutil.Uint64
@@ -260,6 +255,15 @@ func (pea *PublicEthAPI) GetTransactionCount(ctx context.Context, address common
 		}
 	}
 	return nil, err
+}
+
+func (pea *PublicEthAPI) localGetTransactionCount(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Uint64, error) {
+	account, err := pea.B.GetAccountByNumberOrHash(ctx, address, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	nonce := hexutil.Uint64(account.Nonce)
+	return &nonce, nil
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -401,6 +405,7 @@ func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.
 }
 
 func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
+	// TODO: this can be optimized for Postgres
 	tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -444,7 +449,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 		fields["status"] = hexutil.Uint(receipt.Status)
 	}
 	if receipt.Logs == nil {
-		fields["logs"] = [][]*types.Log{}
+		fields["logs"] = []*types.Log{}
 	}
 	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
 	if receipt.ContractAddress != (common.Address{}) {
@@ -492,6 +497,7 @@ func (pea *PublicEthAPI) GetLogs(ctx context.Context, crit ethereum.FilterQuery)
 }
 
 func (pea *PublicEthAPI) localGetLogs(ctx context.Context, crit ethereum.FilterQuery) ([]*types.Log, error) {
+	// TODO: this can be optimized away from using the old cid retriever and ipld fetcher interfaces
 	// Convert FilterQuery into ReceiptFilter
 	addrStrs := make([]string, len(crit.Addresses))
 	for i, addr := range crit.Addresses {
@@ -588,13 +594,9 @@ State and Storage
 // given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
 // block numbers are also allowed.
 func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Big, error) {
-	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state != nil && err == nil {
-		balance := state.GetBalance(address)
-		err = state.Error()
-		if err == nil {
-			return (*hexutil.Big)(balance), nil
-		}
+	bal, err := pea.localGetBalance(ctx, address, blockNrOrHash)
+	if bal != nil && err == nil {
+		return bal, nil
 	}
 	if pea.rpc != nil {
 		var res *hexutil.Big
@@ -603,6 +605,14 @@ func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address,
 		}
 	}
 	return nil, err
+}
+
+func (pea *PublicEthAPI) localGetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Big, error) {
+	account, err := pea.B.GetAccountByNumberOrHash(ctx, address, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	return (*hexutil.Big)(account.Balance), nil
 }
 
 // GetStorageAt returns the storage from the state at the given address, key and
@@ -628,13 +638,9 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 
 // GetCode returns the code stored at the given address in the state for the given block number.
 func (pea *PublicEthAPI) GetCode(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
-	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state != nil && err == nil {
-		code := state.GetCode(address)
-		err = state.Error()
-		if err == nil {
-			return code, nil
-		}
+	code, err := pea.B.GetCodeByNumberOrHash(ctx, address, blockNrOrHash)
+	if code != nil && err == nil {
+		return code, nil
 	}
 	if pea.rpc != nil {
 		var res hexutil.Bytes

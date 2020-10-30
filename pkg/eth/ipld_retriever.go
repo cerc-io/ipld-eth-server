@@ -40,11 +40,11 @@ const (
 	RetrieveUnclesByHashesPgStr = `SELECT cid, data FROM eth.uncle_cids
 								INNER JOIN public.blocks ON (uncle_cids.mh_key = blocks.key)
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveUnclesByBlockHashPgStr = `SELECT cid, data FROM eth.uncle_cids, eth.header_cids, public.blocks
+	RetrieveUnclesByBlockHashPgStr = `SELECT uncle_cids.cid, data FROM eth.uncle_cids, eth.header_cids, public.blocks
 										WHERE uncle_cids.header_id = header_cids.id
 										AND uncle_cids.mh_key = blocks.key
 										AND block_hash = $1`
-	RetrieveUnclesByBlockNumberPgStr = `SELECT cid, data FROM eth.uncle_cids, eth.header_cids, public.blocks
+	RetrieveUnclesByBlockNumberPgStr = `SELECT uncle_cids.cid, data FROM eth.uncle_cids, eth.header_cids, public.blocks
 										WHERE uncle_cids.header_id = header_cids.id
 										AND uncle_cids.mh_key = blocks.key
 										AND block_number = $1`
@@ -54,41 +54,41 @@ const (
 	RetrieveTransactionsByHashesPgStr = `SELECT cid, data FROM eth.transaction_cids
 									INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveTransactionsByBlockHashPgStr = `SELECT cid, data FROM eth.transaction_cids, eth.header_cids, public.blocks
+	RetrieveTransactionsByBlockHashPgStr = `SELECT transaction_cids.cid, data FROM eth.transaction_cids, eth.header_cids, public.blocks
 											WHERE transaction_cids.header_id = header_cids.id
 											AND transaction_cids.mh_key = blocks.key
 											AND block_hash = $1`
-	RetrieveTransactionsByBlockNumberPgStr = `SELECT cid, data FROM eth.transaction_cids, eth.header_cids, public.blocks
+	RetrieveTransactionsByBlockNumberPgStr = `SELECT transaction_cids.cid, data FROM eth.transaction_cids, eth.header_cids, public.blocks
 											WHERE transaction_cids.header_id = header_cids.id
 											AND transaction_cids.mh_key = blocks.key
 											AND block_number = $1`
 	RetrieveTransactionByHashPgStr = `SELECT cid, data FROM eth.transaction_cids
 									INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
 									WHERE tx_hash = $1`
-	RetrieveReceiptsByTxHashesPgStr = `SELECT cid, data FROM eth.receipt_cids, eth.transaction_cids, public.blocks
+	RetrieveReceiptsByTxHashesPgStr = `SELECT receipt_cids.cid, data FROM eth.receipt_cids, eth.transaction_cids, public.blocks
 									WHERE receipt_cids.mh_key = blocks.key
 									AND receipt_cids.tx_id = transaction_cids.id
 									AND tx_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveReceiptsByBlockHashPgStr = `SELECT cid, data FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
+	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.cid, data FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
 										WHERE receipt_cids.tx_id = transaction_cids.id
 										AND transaction_cids.header_id = header_cids.id
 										AND receipt_cids.mh_key = blocks.key
 										AND block_hash = $1`
-	RetrieveReceiptsByBlockNumberPgStr = `SELECT cid, data FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
+	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.cid, data FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
 										WHERE receipt_cids.tx_id = transaction_cids.id
 										AND transaction_cids.header_id = header_cids.id
 										AND receipt_cids.mh_key = blocks.key
 										AND block_number = $1`
-	RetrieveReceiptByTxHashPgStr = `SELECT cid, data FROM eth.receipt_cids, eth.transaction_cids, eth.receipt_cids
+	RetrieveReceiptByTxHashPgStr = `SELECT receipt_cids.cid, data FROM eth.receipt_cids, eth.transaction_cids, eth.receipt_cids
 									WHERE receipt_cids.mh_key = blocks.key
 									AND receipt_cids.tx_id = transaction_cids.id
 									AND tx_hash = $1`
-	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT cid, data FROM eth.state_cids, eth.header_cids, public.blocks
+	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, data FROM eth.state_cids, eth.header_cids, public.blocks
 												WHERE state_cids.header_id = header_cids.id
 												AND state_cids.mh_key = blocks.key
 												AND state_leaf_key = $1
 												AND block_hash = $2`
-	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT cid, data FROM eth.state_cids, eth.header_cids, public.blocks
+	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data FROM eth.state_cids, eth.header_cids, public.blocks
 												WHERE state_cids.header_id = header_cids.id
 												AND state_cids.mh_key = blocks.key
 												AND state_leaf_key = $1
@@ -333,7 +333,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 }
 
 // RetrieveAccountByAddressAndBlockNumber returns the cid and rlp bytes for the account corresponding to the provided address and block number
-// This can return multiple results if we have two versions of state in the database as the provided height
+// This can return multiple results if we have two versions of state in the database at the provided height
 func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Address, number uint64) ([]string, [][]byte, error) {
 	accountResults := make([]ipldResult, 0)
 	leafKey := crypto.Keccak256Hash(address.Bytes())
