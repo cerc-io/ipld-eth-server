@@ -100,6 +100,45 @@ CREATE FUNCTION public.header_weight(hash character varying) RETURNS bigint
 $$;
 
 
+--
+-- Name: was_state_removed(bytea, bigint, character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.was_state_removed(path bytea, height bigint, hash character varying) RETURNS boolean
+    LANGUAGE sql
+    AS $$
+  SELECT exists(SELECT *
+					FROM eth.state_cids
+            INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+					WHERE state_path = path
+					AND block_number > height
+					AND block_number <= (SELECT block_number
+										FROM eth.header_cids
+										WHERE block_hash = hash)
+					AND state_cids.node_type = 3);
+$$;
+
+
+--
+-- Name: was_storage_removed(bytea, bigint, character varying); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.was_storage_removed(path bytea, height bigint, hash character varying) RETURNS boolean
+    LANGUAGE sql
+    AS $$
+  SELECT exists(SELECT *
+					FROM eth.storage_cids
+            INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
+            INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+					WHERE storage_path = path
+					AND block_number > height
+					AND block_number <= (SELECT block_number
+										FROM eth.header_cids
+										WHERE block_hash = hash)
+					AND storage_cids.node_type = 3);
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
