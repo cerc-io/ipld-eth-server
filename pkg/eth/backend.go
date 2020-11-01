@@ -19,27 +19,31 @@ package eth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/bloombits"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	ipfsethdb "github.com/vulcanize/pg-ipfs-ethdb"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -61,6 +65,17 @@ const (
 			WHERE blocks.key = transaction_cids.mh_key
 			AND transaction_cids.header_id = header_cids.id
 			AND transaction_cids.tx_hash = $1`
+	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
+											WHERE state_accounts.state_id = state_cids.id
+											AND state_cids.header_id = header_cids.id
+											AND state_leaf_key = $1
+											AND block_number <= (SELECT block_number
+																FROM eth.header_cids
+																WHERE block_hash = $2)
+											AND header_cids.id = (SELECT canonical_header(block_number))
+											ORDER BY block_number DESC
+											LIMIT 1`
+	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
 
 type Backend struct {
@@ -165,18 +180,6 @@ func (b *Backend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Bl
 		return header, nil
 	}
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
-}
-
-// rpcMarshalHeader uses the generalized output filler, then adds the total difficulty field, which requires
-// a `PublicEthAPI`.
-func (pea *PublicEthAPI) rpcMarshalHeader(header *types.Header) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(header)
-	td, err := pea.B.GetTd(header.Hash())
-	if err != nil {
-		return nil, err
-	}
-	fields["totalDifficulty"] = (*hexutil.Big)(td)
-	return fields, nil
 }
 
 // GetTd gets the total difficulty at the given block hash
@@ -431,7 +434,7 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 	if err != nil {
 		return nil, err
 	}
-	rcts := make(types.Receipts, 0, len(receiptBytes))
+	rcts := make(types.Receipts, len(receiptBytes))
 	for i, rctBytes := range receiptBytes {
 		rct := new(types.Receipt)
 		if err := rlp.DecodeBytes(rctBytes, rct); err != nil {
@@ -457,21 +460,6 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log
 		logs[i] = rct.Logs
 	}
 	return logs, nil
-}
-
-// rpcMarshalBlock uses the generalized output filler, then adds the total difficulty field, which requires
-// a `PublicBlockchainAPI`.
-func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
-	if err != nil {
-		return nil, err
-	}
-	td, err := pea.B.GetTd(b.Hash())
-	if err != nil {
-		return nil, err
-	}
-	fields["totalDifficulty"] = (*hexutil.Big)(td)
-	return fields, err
 }
 
 // StateAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
@@ -539,6 +527,113 @@ func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.Sta
 	state.SetBalance(msg.From(), math.MaxBig256)
 	c := core.NewEVMContext(msg, header, b, nil)
 	return vm.NewEVM(c, state, b.Config.ChainConfig, b.Config.VmConfig), nil
+}
+
+// GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash
+func (b *Backend) GetAccountByNumberOrHash(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*state.Account, error) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		return b.GetAccountByNumber(ctx, address, uint64(blockNr.Int64()))
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		return b.GetAccountByHash(ctx, address, hash)
+	}
+	return nil, errors.New("invalid arguments; neither block nor hash specified")
+}
+
+// GetAccountByNumber returns the account object for the provided address at the canonical block at the provided height
+func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address, number uint64) (*state.Account, error) {
+	hash := b.GetCanonicalHash(number)
+	if hash == (common.Hash{}) {
+		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
+	}
+	return b.GetAccountByHash(ctx, address, hash)
+}
+
+// GetAccountByHash returns the account object for the provided address at the block with the provided hash
+func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, hash common.Hash) (*state.Account, error) {
+	_, accountRlp, err := b.IPLDRetriever.RetrieveAccountByAddressAndBlockHash(address, hash)
+	if err != nil {
+		return nil, err
+	}
+	acct := new(state.Account)
+	return acct, rlp.DecodeBytes(accountRlp, acct)
+}
+
+// GetCodeByNumberOrHash returns the byte code for the contract deployed at the provided address at the block with the provided hash or block number
+func (b *Backend) GetCodeByNumberOrHash(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) ([]byte, error) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		return b.GetCodeByNumber(ctx, address, uint64(blockNr.Int64()))
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		return b.GetCodeByHash(ctx, address, hash)
+	}
+	return nil, errors.New("invalid arguments; neither block nor hash specified")
+}
+
+// GetCodeByNumber returns the byte code for the contract deployed at the provided address at the canonical block with the provided block number
+func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, number uint64) ([]byte, error) {
+	hash := b.GetCanonicalHash(number)
+	if hash == (common.Hash{}) {
+		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
+	}
+	return b.GetCodeByHash(ctx, address, hash)
+}
+
+// GetCodeByHash returns the byte code for the contract deployed at the provided address at the block with the provided hash
+func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, hash common.Hash) ([]byte, error) {
+	codeHash := make([]byte, 0)
+	leafKey := crypto.Keccak256Hash(address.Bytes())
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+	if err := tx.Get(&codeHash, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex()); err != nil {
+		return nil, err
+	}
+	mhKey, err := shared2.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
+	if err != nil {
+		return nil, err
+	}
+	code := make([]byte, 0)
+	err = tx.Get(&code, RetrieveCodeByMhKey, mhKey)
+	return code, err
+}
+
+// GetStorageByNumberOrHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided number or hash
+func (b *Backend) GetStorageByNumberOrHash(ctx context.Context, address common.Address, storageLeafKey common.Hash, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		return b.GetStorageByNumber(ctx, address, storageLeafKey, uint64(blockNr.Int64()))
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		return b.GetStorageByHash(ctx, address, storageLeafKey, hash)
+	}
+	return nil, errors.New("invalid arguments; neither block nor hash specified")
+}
+
+// GetStorageByNumber returns the storage value for the provided contract address an storage key at the block corresponding to the provided number
+func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address, storageLeafKey common.Hash, number uint64) (hexutil.Bytes, error) {
+	hash := b.GetCanonicalHash(number)
+	if hash == (common.Hash{}) {
+		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
+	}
+	return b.GetStorageByHash(ctx, address, storageLeafKey, hash)
+}
+
+// GetStorageByHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided hash
+func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, storageLeafKey, hash common.Hash) (hexutil.Bytes, error) {
+	_, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address, storageLeafKey, hash)
+	return storageRlp, err
 }
 
 // Engine satisfied the ChainContext interface
