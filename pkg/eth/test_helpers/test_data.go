@@ -77,9 +77,21 @@ var (
 			Extra:       []byte{},
 		},
 	}
-	ReceiptsRlp, _       = rlp.EncodeToBytes(MockReceipts)
-	MockBlock            = types.NewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts)
-	MockHeaderRlp, _     = rlp.EncodeToBytes(MockBlock.Header())
+	ReceiptsRlp, _   = rlp.EncodeToBytes(MockReceipts)
+	MockBlock        = types.NewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts)
+	MockHeaderRlp, _ = rlp.EncodeToBytes(MockBlock.Header())
+	MockChildHeader  = types.Header{
+		Time:        0,
+		Number:      new(big.Int).Add(BlockNumber, common.Big1),
+		Root:        common.HexToHash("0x0"),
+		TxHash:      common.HexToHash("0x0"),
+		ReceiptHash: common.HexToHash("0x0"),
+		Difficulty:  big.NewInt(5000001),
+		Extra:       []byte{},
+		ParentHash:  MockBlock.Header().Hash(),
+	}
+	MockChild            = types.NewBlock(&MockChildHeader, MockTransactions, MockUncles, MockReceipts)
+	MockChildRlp, _      = rlp.EncodeToBytes(MockChild.Header())
 	Address              = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476592")
 	AnotherAddress       = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476593")
 	ContractAddress      = crypto.CreateAddress(SenderAddr, MockTransactions[2].Nonce())
@@ -345,6 +357,15 @@ var (
 	MockConvertedPayload = eth.ConvertedPayload{
 		TotalDifficulty: MockBlock.Difficulty(),
 		Block:           MockBlock,
+		Receipts:        MockReceipts,
+		TxMetaData:      MockTrxMeta,
+		ReceiptMetaData: MockRctMeta,
+		StorageNodes:    MockStorageNodes,
+		StateNodes:      MockStateNodes,
+	}
+	MockConvertedPayloadForChild = eth.ConvertedPayload{
+		TotalDifficulty: MockChild.Difficulty(),
+		Block:           MockChild,
 		Receipts:        MockReceipts,
 		TxMetaData:      MockTrxMeta,
 		ReceiptMetaData: MockRctMeta,

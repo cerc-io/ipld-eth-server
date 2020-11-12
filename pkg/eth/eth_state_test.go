@@ -61,14 +61,15 @@ func init() {
 
 var _ = Describe("eth state reading tests", func() {
 	var (
-		blocks      []*types.Block
-		receipts    []types.Receipts
-		chain       *core.BlockChain
-		db          *postgres.DB
-		api         *eth.PublicEthAPI
-		backend     *eth.Backend
-		chainConfig = params.TestChainConfig
-		mockTD      = big.NewInt(1337)
+		blocks                  []*types.Block
+		receipts                []types.Receipts
+		chain                   *core.BlockChain
+		db                      *postgres.DB
+		api                     *eth.PublicEthAPI
+		backend                 *eth.Backend
+		chainConfig             = params.TestChainConfig
+		mockTD                  = big.NewInt(1337)
+		expectedCanonicalHeader map[string]interface{}
 	)
 	It("test init", func() {
 		// db and type initializations
@@ -89,6 +90,27 @@ var _ = Describe("eth state reading tests", func() {
 		params := statediff.Params{
 			IntermediateStateNodes:   true,
 			IntermediateStorageNodes: true,
+		}
+		canonicalHeader := blocks[1].Header()
+		expectedCanonicalHeader = map[string]interface{}{
+			"number":           (*hexutil.Big)(canonicalHeader.Number),
+			"hash":             canonicalHeader.Hash(),
+			"parentHash":       canonicalHeader.ParentHash,
+			"nonce":            canonicalHeader.Nonce,
+			"mixHash":          canonicalHeader.MixDigest,
+			"sha3Uncles":       canonicalHeader.UncleHash,
+			"logsBloom":        canonicalHeader.Bloom,
+			"stateRoot":        canonicalHeader.Root,
+			"miner":            canonicalHeader.Coinbase,
+			"difficulty":       (*hexutil.Big)(canonicalHeader.Difficulty),
+			"extraData":        hexutil.Bytes([]byte{}),
+			"size":             hexutil.Uint64(canonicalHeader.Size()),
+			"gasLimit":         hexutil.Uint64(canonicalHeader.GasLimit),
+			"gasUsed":          hexutil.Uint64(canonicalHeader.GasUsed),
+			"timestamp":        hexutil.Uint64(canonicalHeader.Time),
+			"transactionsRoot": canonicalHeader.TxHash,
+			"receiptsRoot":     canonicalHeader.ReceiptHash,
+			"totalDifficulty":  (*hexutil.Big)(mockTD),
 		}
 		// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
 		builder := statediff.NewBuilder(chain.StateCache())
@@ -128,6 +150,17 @@ var _ = Describe("eth state reading tests", func() {
 			_, err = transformer.Transform(0, payload)
 			Expect(err).ToNot(HaveOccurred())
 		}
+
+		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
+		indexAndPublisher := eth2.NewIPLDPublisher(db)
+		api = eth.NewPublicEthAPI(backend, nil)
+		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
+		Expect(err).ToNot(HaveOccurred())
+		// The non-canonical header has a child
+		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayloadForChild)
+		Expect(err).ToNot(HaveOccurred())
+		err = publishCode(db, test_helpers.ContractCodeHash, test_helpers.ContractCode)
+		Expect(err).ToNot(HaveOccurred())
 	})
 	defer It("test teardown", func() {
 		eth.TearDownDB(db)
@@ -421,6 +454,14 @@ var _ = Describe("eth state reading tests", func() {
 			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(val).To(Equal(hexutil.Bytes{}))
+		})
+	})
+
+	Describe("eth_getHeaderByNumber", func() {
+		It("Finds the canonical header based on the header's weight relative to others at the provided height", func() {
+			header, err := api.GetHeaderByNumber(ctx, number)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(header).To(Equal(expectedCanonicalHeader))
 		})
 	})
 })

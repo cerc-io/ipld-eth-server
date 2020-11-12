@@ -1,30 +1,32 @@
 -- +goose Up
-ALTER FUNCTION canonical_header RENAME TO canonical_header_id;
-
 -- +goose StatementBegin
 CREATE TYPE child_result AS (
   has_child BOOLEAN,
   children eth.header_cids[]
 );
 
-CREATE OR REPLACE FUNCTION has_child(hash VARCHAR(66)) RETURNS child_result AS
+CREATE OR REPLACE FUNCTION has_child(hash VARCHAR(66), height BIGINT) RETURNS child_result AS
 $BODY$
 DECLARE
+  child_height INT;
+  temp_child eth.header_cids;
   new_child_result child_result;
 BEGIN
+  child_height = height + 1;
   -- short circuit if there are no children
   SELECT exists(SELECT 1
                 FROM eth.header_cids
                 WHERE parent_hash = hash
+                AND block_number = child_height
                 LIMIT 1)
   INTO new_child_result.has_child;
   -- collect all the children for this header
   IF new_child_result.has_child THEN
-    SELECT *
-    INTO new_child_result.children
-    FROM eth.header_cids
-    WHERE parent_hash = hash;
-  ELSE
+    FOR temp_child IN
+      SELECT * FROM eth.header_cids WHERE parent_hash = hash AND block_number = child_height
+    LOOP
+      new_child_result.children = array_append(new_child_result.children, temp_child);
+    END LOOP;
   END IF;
   RETURN new_child_result;
 END
@@ -33,7 +35,7 @@ LANGUAGE 'plpgsql';
 -- +goose StatementEnd
 
 -- +goose StatementBegin
-CREATE OR REPLACE FUNCTION canonical_header_from_set(headers eth.header_cids[]) RETURNS eth.header_cids AS
+CREATE OR REPLACE FUNCTION canonical_header_from_array(headers eth.header_cids[]) RETURNS eth.header_cids AS
 $BODY$
 DECLARE
   canonical_header eth.header_cids;
@@ -45,10 +47,10 @@ DECLARE
   has_children_count INT DEFAULT 0;
 BEGIN
   -- for each header in the provided set
-  FOR header IN SELECT * FROM headers
+  FOREACH header IN ARRAY headers
   LOOP
     -- check if it has any children
-    SELECT * INTO current_child_result FROM has_child(header.block_hash);
+    current_child_result = has_child(header.block_hash, header.block_number);
     IF current_child_result.has_child THEN
       -- if it does, take note
       has_children_count = has_children_count + 1;
@@ -60,17 +62,17 @@ BEGIN
   -- if none of the headers had children, none is more canonical than the other
   IF has_children_count = 0 THEN
     -- return the first one selected
-    SELECT * INTO canonical_header FROM headers LIMIT 1;
+    SELECT * INTO canonical_header FROM unnest(headers) LIMIT 1;
   -- if only one header had children, it can be considered the heaviest/canonical header of the set
   ELSIF has_children_count = 1 THEN
     -- return the only header with a child
     canonical_header = current_header_with_child;
   -- if there are multiple headers with children
   ELSE
-    -- find the canonical the canonical header from the child set
-    canonical_child = canonical_header_from_set(child_headers);
+    -- find the canonical header from the child set
+    canonical_child = canonical_header_from_array(child_headers);
     -- the header that is parent to this header, is the canonical header at this level
-    SELECT * INTO canonical_header FROM headers
+    SELECT * INTO canonical_header FROM unnest(headers)
     WHERE block_hash = canonical_child.parent_hash;
   END IF;
   RETURN canonical_header;
@@ -80,31 +82,40 @@ LANGUAGE 'plpgsql';
 -- +goose StatementEnd
 
 -- +goose StatementBegin
-CREATE OR REPLACE FUNCTION canonical_header(height BIGINT) RETURNS eth.header_cids AS
+CREATE OR REPLACE FUNCTION canonical_header_id(height BIGINT) RETURNS INTEGER AS
 $BODY$
 DECLARE
-  header_count INT;
+  canonical_header eth.header_cids;
   headers eth.header_cids[];
+  header_count INT;
+  temp_header eth.header_cids;
 BEGIN
-  -- collect every header at this height, noting how many are collected
-  SELECT *, count(*)
-  INTO headers, header_count
-  FROM eth.header_cids
-  WHERE block_number = height;
-  -- if only one header is present, it can be considered canonical (if no header is present we will throw an error)
-  IF header_count = 1 THEN
-    RETURN headers[0];
+  -- collect all headers at this height
+  FOR temp_header IN
+    SELECT * FROM eth.header_cids WHERE block_number = height
+  LOOP
+    headers = array_append(headers, temp_header);
+  END LOOP;
+  -- count the number of headers collected
+  header_count = array_length(headers, 1);
+  -- if we have less than 1 header, return NULL
+  IF header_count IS NULL OR header_count < 1 THEN
+    RETURN NULL;
+  -- if we have one header, return its id
+  ELSIF header_count = 1 THEN
+    RETURN headers[1].id;
+  -- if we have multiple headers we need to determine which one is canonical
+  ELSE
+    canonical_header = canonical_header_from_array(headers);
+    RETURN canonical_header.id;
   END IF;
-  -- otherwise, if there are multiple headers at this height, we need to determine which is canonical
-  RETURN canonical_header_from_set(headers);
-END
+END;
 $BODY$
 LANGUAGE 'plpgsql';
 -- +goose StatementEnd
 
 -- +goose Down
-DROP FUNCTION canonical_header;
-DROP FUNCTION canonical_header_from_set;
+DROP FUNCTION canonical_header_id;
+DROP FUNCTION canonical_header_from_array;
 DROP FUNCTION has_child;
 DROP TYPE child_result;
-ALTER FUNCTION canonical_header_id RENAME TO canonical_header;
