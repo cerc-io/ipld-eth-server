@@ -11,8 +11,7 @@ $(BIN)/ginkgo:
 ## Migration tool
 GOOSE = $(BIN)/goose
 $(BIN)/goose:
-	go get -u -d github.com/pressly/goose/cmd/goose
-	go build -tags='no_mysql no_sqlite' -o $(BIN)/goose github.com/pressly/goose/cmd/goose
+	go get -u github.com/pressly/goose/cmd/goose
 
 ## Source linter
 LINT = $(BIN)/golint
@@ -46,14 +45,15 @@ HOST_NAME = localhost
 PORT = 5432
 NAME =
 USER = postgres
-CONNECT_STRING=postgresql://$(USER)@$(HOST_NAME):$(PORT)/$(NAME)?sslmode=disable
+PASSWORD = password
+CONNECT_STRING=postgresql://$(USER):$(PASSWORD)@$(HOST_NAME):$(PORT)/$(NAME)?sslmode=disable
 
 #Test
 TEST_DB = vulcanize_testing
 TEST_CONNECT_STRING = postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOSTNAME):$(DATABASE_PORT)/$(TEST_DB)?sslmode=disable
 
 .PHONY: test
-test: | $(GINKGO) $(LINT)
+test: | $(GINKGO) $(GOOSE)
 	go vet ./...
 	go fmt ./...
 	dropdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) --if-exists $(TEST_DB)
@@ -62,11 +62,11 @@ test: | $(GINKGO) $(LINT)
 	$(GINKGO) -r --skipPackage=integration_tests,integration
 
 .PHONY: integrationtest
-integrationtest: | $(GINKGO) $(LINT)
+integrationtest: | $(GINKGO) $(GOOSE)
 	go vet ./...
 	go fmt ./...
-	dropdb --if-exists $(TEST_DB)
-	createdb $(TEST_DB)
+	#dropdb -h $(DATABASE_HOSTNAME) -p $(PORT) -U $(USER) -W --if-exists $(TEST_DB)
+	#createdb -h $(HOST_NAME) -p $(PORT) -U $(USER) -W $(TEST_DB)
 	$(GOOSE) -dir db/migrations "$(TEST_CONNECT_STRING)" up
 	$(GOOSE) -dir db/migrations "$(TEST_CONNECT_STRING)" reset
 	make migrate NAME=$(TEST_DB)
