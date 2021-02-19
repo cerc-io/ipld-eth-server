@@ -20,6 +20,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+	"github.com/ethereum/go-ethereum/trie"
 	"math/big"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
@@ -30,7 +32,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/ethereum/go-ethereum/statediff/testhelpers"
 	"github.com/ipfs/go-block-format"
 	"github.com/multiformats/go-multihash"
@@ -78,7 +79,7 @@ var (
 		},
 	}
 	ReceiptsRlp, _   = rlp.EncodeToBytes(MockReceipts)
-	MockBlock        = types.NewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts)
+	MockBlock        = types.NewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts, new(trie.Trie))
 	MockHeaderRlp, _ = rlp.EncodeToBytes(MockBlock.Header())
 	MockChildHeader  = types.Header{
 		Time:        0,
@@ -90,7 +91,7 @@ var (
 		Extra:       []byte{},
 		ParentHash:  MockBlock.Header().Hash(),
 	}
-	MockChild            = types.NewBlock(&MockChildHeader, MockTransactions, MockUncles, MockReceipts)
+	MockChild            = types.NewBlock(&MockChildHeader, MockTransactions, MockUncles, MockReceipts, new(trie.Trie))
 	MockChildRlp, _      = rlp.EncodeToBytes(MockChild.Header())
 	Address              = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476592")
 	AnotherAddress       = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476593")
@@ -318,13 +319,13 @@ var (
 			LeafKey: common.BytesToHash(ContractLeafKey),
 			Path:    []byte{'\x06'},
 			Value:   ContractLeafNode,
-			Type:    statediff.Leaf,
+			Type:    sdtypes.Leaf,
 		},
 		{
 			LeafKey: common.BytesToHash(AccountLeafKey),
 			Path:    []byte{'\x0c'},
 			Value:   AccountLeafNode,
-			Type:    statediff.Leaf,
+			Type:    sdtypes.Leaf,
 		},
 	}
 	MockStateMetaPostPublish = []eth.StateNodeModel{
@@ -348,7 +349,7 @@ var (
 			{
 				LeafKey: common.BytesToHash(StorageLeafKey),
 				Value:   StorageLeafNode,
-				Type:    statediff.Leaf,
+				Type:    sdtypes.Leaf,
 				Path:    []byte{},
 			},
 		},
@@ -455,7 +456,7 @@ var (
 		StateNodes: []eth2.StateNode{
 			{
 				StateLeafKey: common.BytesToHash(ContractLeafKey),
-				Type:         statediff.Leaf,
+				Type:         sdtypes.Leaf,
 				IPLD: ipfs.BlockModel{
 					Data: State1IPLD.RawData(),
 					CID:  State1IPLD.Cid().String(),
@@ -464,7 +465,7 @@ var (
 			},
 			{
 				StateLeafKey: common.BytesToHash(AccountLeafKey),
-				Type:         statediff.Leaf,
+				Type:         sdtypes.Leaf,
 				IPLD: ipfs.BlockModel{
 					Data: State2IPLD.RawData(),
 					CID:  State2IPLD.Cid().String(),
@@ -476,7 +477,7 @@ var (
 			{
 				StateLeafKey:   common.BytesToHash(ContractLeafKey),
 				StorageLeafKey: common.BytesToHash(StorageLeafKey),
-				Type:           statediff.Leaf,
+				Type:           sdtypes.Leaf,
 				IPLD: ipfs.BlockModel{
 					Data: StorageIPLD.RawData(),
 					CID:  StorageIPLD.Cid().String(),

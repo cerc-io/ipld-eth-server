@@ -19,13 +19,13 @@ package eth_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var _ = Describe("IPLDFetcher", func() {

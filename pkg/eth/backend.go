@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/trie"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -39,7 +40,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	ipfsethdb "github.com/vulcanize/pg-ipfs-ethdb"
+	"github.com/vulcanize/ipfs-ethdb"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
@@ -329,7 +330,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		receipts = append(receipts, &receipt)
 	}
 	// Compose everything together into a complete block
-	return types.NewBlock(&header, transactions, uncles, receipts), err
+	return types.NewBlock(&header, transactions, uncles, receipts, new(trie.Trie)), err
 }
 
 // BlockByHash returns the requested block. When fullTx is true all transactions in the block are returned in full
@@ -406,7 +407,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		receipts = append(receipts, &receipt)
 	}
 	// Compose everything together into a complete block
-	return types.NewBlock(&header, transactions, uncles, receipts), err
+	return types.NewBlock(&header, transactions, uncles, receipts, new(trie.Trie)), err
 }
 
 // GetTransaction retrieves a tx by hash
@@ -478,7 +479,7 @@ func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHas
 		if blockNrOrHash.RequireCanonical && b.GetCanonicalHash(header.Number.Uint64()) != hash {
 			return nil, nil, errors.New("hash is not currently canonical")
 		}
-		stateDb, err := state.New(header.Root, b.StateDatabase)
+		stateDb, err := state.New(header.Root, b.StateDatabase, nil)
 		return stateDb, header, err
 	}
 	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
@@ -498,7 +499,7 @@ func (b *Backend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNu
 	if header == nil {
 		return nil, nil, errors.New("header not found")
 	}
-	stateDb, err := state.New(header.Root, b.StateDatabase)
+	stateDb, err := state.New(header.Root, b.StateDatabase, nil)
 	return stateDb, header, err
 }
 
@@ -525,8 +526,9 @@ func (b *Backend) GetCanonicalHeader(number uint64) (string, []byte, error) {
 // GetEVM constructs and returns a vm.EVM
 func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, error) {
 	state.SetBalance(msg.From(), math.MaxBig256)
-	c := core.NewEVMContext(msg, header, b, nil)
-	return vm.NewEVM(c, state, b.Config.ChainConfig, b.Config.VmConfig), nil
+	vmctx := core.NewEVMBlockContext(header, b, nil)
+	txContext := core.NewEVMTxContext(msg)
+	return vm.NewEVM(vmctx, txContext, state, b.Config.ChainConfig, b.Config.VmConfig), nil
 }
 
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash

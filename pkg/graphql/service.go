@@ -18,6 +18,8 @@ package graphql
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/cmd/utils"
+	"github.com/ethereum/go-ethereum/node"
 	"net"
 	"net/http"
 
@@ -66,11 +68,16 @@ func (s *Service) Start(server *p2p.Server) error {
 	if err != nil {
 		return err
 	}
-	if s.listener, err = net.Listen("tcp", s.endpoint); err != nil {
-		return err
+
+	handler := node.NewHTTPHandlerStack(s.handler, s.cors, s.vhosts)
+
+	// start http server
+	_, addr, err := node.StartHTTPEndpoint(s.endpoint, rpc.DefaultHTTPTimeouts, handler)
+	if err != nil {
+		utils.Fatalf("Could not start RPC api: %v", err)
 	}
-	go rpc.NewHTTPServer(s.cors, s.vhosts, s.timeouts, s.handler).Serve(s.listener)
-	logrus.Debugf("graphQL endpoint opened for url %s", fmt.Sprintf("http://%s", s.endpoint))
+	extapiURL := fmt.Sprintf("http://%v/", addr)
+	logrus.Infof("graphQL endpoint opened for url %s", extapiURL)
 	return nil
 }
 
