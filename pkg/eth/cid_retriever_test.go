@@ -17,6 +17,8 @@
 package eth_test
 
 import (
+	"github.com/ethereum/go-ethereum/trie"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -29,7 +31,6 @@ import (
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -470,5 +471,5 @@ var _ = Describe("Retriever", func() {
 func newMockBlock(blockNumber uint64) *types.Block {
 	header := test_helpers.MockHeader
 	header.Number.SetUint64(blockNumber)
-	return types.NewBlock(&test_helpers.MockHeader, test_helpers.MockTransactions, nil, test_helpers.MockReceipts)
+	return types.NewBlock(&test_helpers.MockHeader, test_helpers.MockTransactions, nil, test_helpers.MockReceipts, new(trie.Trie))
 }

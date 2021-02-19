@@ -19,34 +19,8 @@ package shared
 import (
 	"bytes"
 
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-
-	"github.com/ipfs/go-cid"
-	"github.com/multiformats/go-multihash"
-
 	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/node"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 )
-
-// SetupDB is use to setup a db for watcher tests
-func SetupDB() (*postgres.DB, error) {
-	return postgres.NewDB(postgres.Config{
-		Hostname: "localhost",
-		Name:     "vulcanize_testing",
-		Port:     5432,
-	}, node.Info{})
-}
-
-// ListContainsString used to check if a list of strings contains a particular string
-func ListContainsString(sss []string, s string) bool {
-	for _, str := range sss {
-		if s == str {
-			return true
-		}
-	}
-	return false
-}
 
 // IPLDsContainBytes used to check if a list of strings contains a particular string
 func IPLDsContainBytes(iplds []ipfs.BlockModel, b []byte) bool {
@@ -56,32 +30,4 @@ func IPLDsContainBytes(iplds []ipfs.BlockModel, b []byte) bool {
 		}
 	}
 	return false
-}
-
-// ListContainsGap used to check if a list of Gaps contains a particular Gap
-func ListContainsGap(gapList []eth.DBGap, gap eth.DBGap) bool {
-	for _, listGap := range gapList {
-		if listGap == gap {
-			return true
-		}
-	}
-	return false
-}
-
-// TestCID creates a basic CID for testing purposes
-func TestCID(b []byte) cid.Cid {
-	pref := cid.Prefix{
-		Version:  1,
-		Codec:    cid.Raw,
-		MhType:   multihash.KECCAK_256,
-		MhLength: -1,
-	}
-	c, _ := pref.Sum(b)
-	return c
-}
-
-// PublishMockIPLD writes a mhkey-data pair to the public.blocks table so that test data can FK reference the mhkey
-func PublishMockIPLD(db *postgres.DB, mhKey string, mockData []byte) error {
-	_, err := db.Exec(`INSERT INTO public.blocks (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, mhKey, mockData)
-	return err
 }

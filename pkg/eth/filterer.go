@@ -18,12 +18,12 @@ package eth
 
 import (
 	"bytes"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/multiformats/go-multihash"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
@@ -269,7 +269,7 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 	}
 	for _, stateNode := range payload.StateNodes {
 		if !stateFilter.Off && checkNodeKeys(stateAddressFilters, stateNode.LeafKey) {
-			if stateNode.Type == statediff.Leaf || stateFilter.IntermediateNodes {
+			if stateNode.Type == sdtypes.Leaf || stateFilter.IntermediateNodes {
 				cid, err := ipld.RawdataToCid(ipld.MEthStateTrie, stateNode.Value, multihash.KECCAK_256)
 				if err != nil {
 					return err

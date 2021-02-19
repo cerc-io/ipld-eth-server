@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/statediff"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 )
@@ -118,14 +118,14 @@ type IPLDs struct {
 }
 
 type StateNode struct {
-	Type         statediff.NodeType
+	Type         sdtypes.NodeType
 	StateLeafKey common.Hash
 	Path         []byte
 	IPLD         ipfs.BlockModel
 }
 
 type StorageNode struct {
-	Type           statediff.NodeType
+	Type           sdtypes.NodeType
 	StateLeafKey   common.Hash
 	StorageLeafKey common.Hash
 	Path           []byte

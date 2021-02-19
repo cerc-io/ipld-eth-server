@@ -86,7 +86,8 @@ const (
 											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
 											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.id)
 											INNER JOIN public.blocks ON (receipt_cids.mh_key = blocks.key)
-										WHERE block_hash = $1`
+										WHERE block_hash = $1
+										--ORDER BY eth.transaction_cids.index ASC`
 	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.cid, data
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)

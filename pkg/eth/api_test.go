@@ -32,11 +32,10 @@ import (
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
-	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -978,12 +977,12 @@ func publishCode(db *postgres.DB, codeHash common.Hash, code []byte) error {
 	if err != nil {
 		return err
 	}
-	mhKey, err := shared2.MultihashKeyFromKeccak256(codeHash)
+	mhKey, err := shared.MultihashKeyFromKeccak256(codeHash)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
-	if err := shared2.PublishDirect(tx, mhKey, code); err != nil {
+	if err := shared.PublishDirect(tx, mhKey, code); err != nil {
 		tx.Rollback()
 		return err
 	}

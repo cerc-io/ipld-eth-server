@@ -19,6 +19,7 @@ package eth_test
 import (
 	"bytes"
 	"context"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 	"io/ioutil"
 	"math/big"
 
@@ -40,7 +41,6 @@ import (
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (

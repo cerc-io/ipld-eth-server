@@ -44,8 +44,10 @@ const (
 // and indexing all chain data; screening this data; and serving it up to subscribed clients
 // This service is compatible with the Ethereum service interface (node.Service)
 type Server interface {
-	// APIs(), Protocols(), Start() and Stop()
-	ethnode.Service
+	// Start() and Stop()
+	ethnode.Lifecycle
+	APIs() []rpc.API
+	Protocols() []p2p.Protocol
 	// Pub-Sub handling event loop
 	Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth2.ConvertedPayload)
 	// Method to subscribe to the service
@@ -337,7 +339,7 @@ func (sap *Service) Unsubscribe(id rpc.ID) {
 
 // Start is used to begin the service
 // This is mostly just to satisfy the node.Service interface
-func (sap *Service) Start(*p2p.Server) error {
+func (sap *Service) Start() error {
 	log.Info("starting eth ipld server")
 	wg := new(sync.WaitGroup)
 	payloadChan := make(chan eth2.ConvertedPayload, PayloadChanBufferSize)

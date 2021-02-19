@@ -18,8 +18,8 @@ package eth_test
 
 import (
 	"bytes"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
-	"github.com/ethereum/go-ethereum/statediff"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -58,7 +58,7 @@ var _ = Describe("Filterer", func() {
 			Expect(shared.IPLDsContainBytes(iplds.Receipts, test_helpers.MockReceipts.GetRlp(2))).To(BeTrue())
 			Expect(len(iplds.StateNodes)).To(Equal(2))
 			for _, stateNode := range iplds.StateNodes {
-				Expect(stateNode.Type).To(Equal(statediff.Leaf))
+				Expect(stateNode.Type).To(Equal(sdtypes.Leaf))
 				if bytes.Equal(stateNode.StateLeafKey.Bytes(), test_helpers.AccountLeafKey) {
 					Expect(stateNode.IPLD).To(Equal(ipfs.BlockModel{
 						Data: test_helpers.State2IPLD.RawData(),

@@ -688,7 +688,7 @@ func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Addre
 			if storageError != nil {
 				return nil, storageError
 			}
-			storageProof[i] = StorageResult{key, (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()), common.ToHexArray(proof)}
+			storageProof[i] = StorageResult{key, (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()), toHexSlice(proof)}
 		} else {
 			storageProof[i] = StorageResult{key, &hexutil.Big{}, []string{}}
 		}
@@ -702,7 +702,7 @@ func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Addre
 
 	return &AccountResult{
 		Address:      address,
-		AccountProof: common.ToHexArray(accountProof),
+		AccountProof: toHexSlice(accountProof),
 		Balance:      (*hexutil.Big)(state.GetBalance(address)),
 		CodeHash:     codeHash,
 		Nonce:        hexutil.Uint64(state.GetNonce(address)),
@@ -834,12 +834,15 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
-	res, gas, failed, err := core.ApplyMessage(evm, msg, gp)
+	result, err := core.ApplyMessage(evm, msg, gp)
+	if err != nil {
+		return nil, 0, false, fmt.Errorf("execution failed: %v", err)
+	}
 	// If the timer caused an abort, return an appropriate error message
 	if evm.Cancelled() {
 		return nil, 0, false, fmt.Errorf("execution aborted (timeout = %v)", timeout)
 	}
-	return res, gas, failed, err
+	return result.Return(), result.UsedGas, result.Failed(), err
 }
 
 // rpcMarshalBlock uses the generalized output filler, then adds the total difficulty field
@@ -870,4 +873,13 @@ func (pea *PublicEthAPI) rpcMarshalBlockWithUncleHashes(b *types.Block, uncleHas
 	}
 	fields["totalDifficulty"] = (*hexutil.Big)(td)
 	return fields, err
+}
+
+// toHexSlice creates a slice of hex-strings based on []byte.
+func toHexSlice(b [][]byte) []string {
+	r := make([]string, len(b))
+	for i := range b {
+		r[i] = hexutil.Encode(b[i])
+	}
+	return r
 }
