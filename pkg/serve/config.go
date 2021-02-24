@@ -48,19 +48,21 @@ const (
 
 	ETH_DEFAULT_SENDER_ADDR = "ETH_DEFAULT_SENDER_ADDR"
 	ETH_RPC_GAS_CAP         = "ETH_RPC_GAS_CAP"
+	ETH_SUPPORTS_STATEDIFF  = "ETH_SUPPORTS_STATEDIFF"
 )
 
 // Config struct
 type Config struct {
-	DB            *postgres.DB
-	DBConfig      postgres.Config
-	WSEndpoint    string
-	HTTPEndpoint  string
-	IPCEndpoint   string
-	ChainConfig   *params.ChainConfig
-	DefaultSender *common.Address
-	RPCGasCap     *big.Int
-	Client        *rpc.Client
+	DB               *postgres.DB
+	DBConfig         postgres.Config
+	WSEndpoint       string
+	HTTPEndpoint     string
+	IPCEndpoint      string
+	ChainConfig      *params.ChainConfig
+	DefaultSender    *common.Address
+	RPCGasCap        *big.Int
+	Client           *rpc.Client
+	SupportStateDiff bool
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -74,6 +76,7 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.httpPath", shared.ETH_HTTP_PATH)
 	viper.BindEnv("ethereum.defaultSender", ETH_DEFAULT_SENDER_ADDR)
 	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
+	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
 
 	c.DBConfig.Init()
 
@@ -83,6 +86,7 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 	c.Client = cli
+	c.SupportStateDiff = viper.GetBool("ethereum.supportsStateDiff")
 
 	wsPath := viper.GetString("server.wsPath")
 	if wsPath == "" {

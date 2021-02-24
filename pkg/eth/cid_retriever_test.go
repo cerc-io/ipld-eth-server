@@ -17,9 +17,10 @@
 package eth_test
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"

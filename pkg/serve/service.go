@@ -80,6 +80,8 @@ type Service struct {
 	serveWg *sync.WaitGroup
 	// rpc client for forwarding cache misses
 	client *rpc.Client
+	// whether the proxied client supports state diffing
+	supportsStateDiffing bool
 	// backend for the server
 	backend *eth.Backend
 }
@@ -94,6 +96,8 @@ func NewServer(settings *Config) (Server, error) {
 	sap.QuitChan = make(chan bool)
 	sap.Subscriptions = make(map[common.Hash]map[rpc.ID]Subscription)
 	sap.SubscriptionTypes = make(map[common.Hash]eth.SubscriptionSettings)
+	sap.client = settings.Client
+	sap.supportsStateDiffing = settings.SupportStateDiff
 	var err error
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:   settings.ChainConfig,
@@ -141,7 +145,7 @@ func (sap *Service) APIs() []rpc.API {
 	return append(apis, rpc.API{
 		Namespace: eth.APIName,
 		Version:   eth.APIVersion,
-		Service:   eth.NewPublicEthAPI(sap.backend, sap.client),
+		Service:   eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing),
 		Public:    true,
 	})
 }

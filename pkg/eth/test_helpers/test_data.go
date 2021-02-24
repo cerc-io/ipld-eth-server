@@ -20,9 +20,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"math/big"
+
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
-	"math/big"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 

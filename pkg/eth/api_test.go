@@ -189,7 +189,7 @@ var _ = Describe("API", func() {
 		indexAndPublisher := eth2.NewIPLDPublisher(db)
 		backend, err := eth.NewEthBackend(db, &eth.Config{})
 		Expect(err).ToNot(HaveOccurred())
-		api = eth.NewPublicEthAPI(backend, nil)
+		api = eth.NewPublicEthAPI(backend, nil, false)
 		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
 		Expect(err).ToNot(HaveOccurred())
 		err = publishCode(db, test_helpers.ContractCodeHash, test_helpers.ContractCode)

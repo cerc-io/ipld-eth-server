@@ -18,11 +18,14 @@ package eth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum/statediff"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -51,20 +54,22 @@ type PublicEthAPI struct {
 	B *Backend
 
 	// Remote node for forwarding cache misses
-	rpc       *rpc.Client
-	ethClient *ethclient.Client
+	supportsStateDiff bool // Whether or not the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
+	rpc               *rpc.Client
+	ethClient         *ethclient.Client
 }
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
-func NewPublicEthAPI(b *Backend, client *rpc.Client) *PublicEthAPI {
+func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff bool) *PublicEthAPI {
 	var ethClient *ethclient.Client
 	if client != nil {
 		ethClient = ethclient.NewClient(client)
 	}
 	return &PublicEthAPI{
-		B:         b,
-		rpc:       client,
-		ethClient: ethClient,
+		B:                 b,
+		supportsStateDiff: supportsStateDiff,
+		rpc:               client,
+		ethClient:         ethClient,
 	}
 }
 
@@ -84,6 +89,7 @@ func (pea *PublicEthAPI) GetHeaderByNumber(ctx context.Context, number rpc.Block
 	}
 	if pea.ethClient != nil {
 		if header, err := pea.ethClient.HeaderByNumber(ctx, big.NewInt(number.Int64())); header != nil && err == nil {
+			go pea.writeStateDiffAt(number.Int64())
 			return pea.rpcMarshalHeader(header)
 		}
 	}
@@ -100,6 +106,7 @@ func (pea *PublicEthAPI) GetHeaderByHash(ctx context.Context, hash common.Hash) 
 	}
 	if pea.ethClient != nil {
 		if header, err := pea.ethClient.HeaderByHash(ctx, hash); header != nil && err == nil {
+			go pea.writeStateDiffFor(hash)
 			if res, err := pea.rpcMarshalHeader(header); err != nil {
 				return res
 			}
@@ -137,6 +144,7 @@ func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockN
 	}
 	if pea.ethClient != nil {
 		if block, err := pea.ethClient.BlockByNumber(ctx, big.NewInt(number.Int64())); block != nil && err == nil {
+			go pea.writeStateDiffAt(number.Int64())
 			return pea.rpcMarshalBlock(block, true, fullTx)
 		}
 	}
@@ -152,6 +160,7 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 	}
 	if pea.ethClient != nil {
 		if block, err := pea.ethClient.BlockByHash(ctx, hash); block != nil && err == nil {
+			go pea.writeStateDiffFor(hash)
 			return pea.rpcMarshalBlock(block, true, fullTx)
 		}
 	}
@@ -179,6 +188,7 @@ func (pea *PublicEthAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, bloc
 	}
 	if pea.rpc != nil {
 		if uncle, uncleHashes, err := getBlockAndUncleHashes(pea.rpc, ctx, "eth_getUncleByBlockNumberAndIndex", blockNr, index); uncle != nil && err == nil {
+			go pea.writeStateDiffAt(blockNr.Int64())
 			return pea.rpcMarshalBlockWithUncleHashes(uncle, uncleHashes, false, false)
 		}
 	}
@@ -200,6 +210,7 @@ func (pea *PublicEthAPI) GetUncleByBlockHashAndIndex(ctx context.Context, blockH
 	}
 	if pea.rpc != nil {
 		if uncle, uncleHashes, err := getBlockAndUncleHashes(pea.rpc, ctx, "eth_getUncleByBlockHashAndIndex", blockHash, index); uncle != nil && err == nil {
+			go pea.writeStateDiffFor(blockHash)
 			return pea.rpcMarshalBlockWithUncleHashes(uncle, uncleHashes, false, false)
 		}
 	}
@@ -215,6 +226,7 @@ func (pea *PublicEthAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNr
 	if pea.rpc != nil {
 		var num *hexutil.Uint
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getUncleCountByBlockNumber", blockNr); num != nil && err == nil {
+			go pea.writeStateDiffAt(blockNr.Int64())
 			return num
 		}
 	}
@@ -230,6 +242,7 @@ func (pea *PublicEthAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash
 	if pea.rpc != nil {
 		var num *hexutil.Uint
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getUncleCountByBlockHash", blockHash); num != nil && err == nil {
+			go pea.writeStateDiffFor(blockHash)
 			return num
 		}
 	}
@@ -251,6 +264,7 @@ func (pea *PublicEthAPI) GetTransactionCount(ctx context.Context, address common
 	if pea.rpc != nil {
 		var num *hexutil.Uint64
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getTransactionCount", address, blockNrOrHash); num != nil && err == nil {
+			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return num, nil
 		}
 	}
@@ -275,6 +289,7 @@ func (pea *PublicEthAPI) GetBlockTransactionCountByNumber(ctx context.Context, b
 	if pea.rpc != nil {
 		var num *hexutil.Uint
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getBlockTransactionCountByNumber", blockNr); num != nil && err == nil {
+			go pea.writeStateDiffAt(blockNr.Int64())
 			return num
 		}
 	}
@@ -290,6 +305,7 @@ func (pea *PublicEthAPI) GetBlockTransactionCountByHash(ctx context.Context, blo
 	if pea.rpc != nil {
 		var num *hexutil.Uint
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getBlockTransactionCountByHash", blockHash); num != nil && err == nil {
+			go pea.writeStateDiffFor(blockHash)
 			return num
 		}
 	}
@@ -304,6 +320,7 @@ func (pea *PublicEthAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context
 	if pea.rpc != nil {
 		var tx *RPCTransaction
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByBlockNumberAndIndex", blockNr, index); tx != nil && err == nil {
+			go pea.writeStateDiffAt(blockNr.Int64())
 			return tx
 		}
 	}
@@ -318,6 +335,7 @@ func (pea *PublicEthAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, 
 	if pea.rpc != nil {
 		var tx *RPCTransaction
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByBlockHashAndIndex", blockHash, index); tx != nil && err == nil {
+			go pea.writeStateDiffFor(blockHash)
 			return tx
 		}
 	}
@@ -332,6 +350,7 @@ func (pea *PublicEthAPI) GetRawTransactionByBlockNumberAndIndex(ctx context.Cont
 	if pea.rpc != nil {
 		var tx hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByBlockNumberAndIndex", blockNr, index); tx != nil && err == nil {
+			go pea.writeStateDiffAt(blockNr.Int64())
 			return tx
 		}
 	}
@@ -346,6 +365,7 @@ func (pea *PublicEthAPI) GetRawTransactionByBlockHashAndIndex(ctx context.Contex
 	if pea.rpc != nil {
 		var tx hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByBlockHashAndIndex", blockHash, index); tx != nil && err == nil {
+			go pea.writeStateDiffFor(blockHash)
 			return tx
 		}
 	}
@@ -362,6 +382,7 @@ func (pea *PublicEthAPI) GetTransactionByHash(ctx context.Context, hash common.H
 	if pea.rpc != nil {
 		var tx *RPCTransaction
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByHash", hash); tx != nil && err == nil {
+			go pea.writeStateDiffFor(hash)
 			return tx, nil
 		}
 	}
@@ -378,6 +399,7 @@ func (pea *PublicEthAPI) GetRawTransactionByHash(ctx context.Context, hash commo
 	if pea.rpc != nil {
 		var tx hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByHash", hash); tx != nil && err == nil {
+			go pea.writeStateDiffFor(hash)
 			return tx, nil
 		}
 	}
@@ -398,6 +420,7 @@ func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.
 	}
 	if pea.rpc != nil {
 		if receipt := pea.remoteGetTransactionReceipt(ctx, hash); receipt != nil {
+			go pea.writeStateDiffFor(hash)
 			return receipt, nil
 		}
 	}
@@ -489,6 +512,7 @@ func (pea *PublicEthAPI) GetLogs(ctx context.Context, crit ethereum.FilterQuery)
 		if arg, err := toFilterArg(crit); err == nil {
 			var res []*types.Log
 			if err := pea.rpc.CallContext(ctx, &res, "eth_getLogs", arg); err == nil {
+				go pea.writeStateDiffWithCriteria(crit)
 				return res, nil
 			}
 		}
@@ -601,6 +625,7 @@ func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address,
 	if pea.rpc != nil {
 		var res *hexutil.Big
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getBalance", address, blockNrOrHash); res != nil && err == nil {
+			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
 	}
@@ -626,6 +651,7 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 	if pea.rpc != nil {
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
+			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
 	}
@@ -641,6 +667,7 @@ func (pea *PublicEthAPI) GetCode(ctx context.Context, address common.Address, bl
 	if pea.rpc != nil {
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getCode", address, blockNrOrHash); res != nil && err == nil {
+			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
 	}
@@ -656,6 +683,7 @@ func (pea *PublicEthAPI) GetProof(ctx context.Context, address common.Address, s
 	if pea.rpc != nil {
 		var res *AccountResult
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getProof", address, storageKeys, blockNrOrHash); res != nil && err == nil {
+			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
 	}
@@ -726,6 +754,7 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 	if (failed || err != nil) && pea.rpc != nil {
 		var hex hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
+			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return hex, nil
 		}
 	}
@@ -843,6 +872,81 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		return nil, 0, false, fmt.Errorf("execution aborted (timeout = %v)", timeout)
 	}
 	return result.Return(), result.UsedGas, result.Failed(), err
+}
+
+// writeStateDiffAtOrFor calls out to the statediffing geth client to fill in a gap in the index
+func (pea *PublicEthAPI) writeStateDiffAtOrFor(blockNrOrHash rpc.BlockNumberOrHash) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		pea.writeStateDiffAt(blockNr.Int64())
+		return
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		pea.writeStateDiffFor(hash)
+	}
+}
+
+// writeStateDiffWithCriteria calls out to the statediffing geth client to fill in a gap in the index
+func (pea *PublicEthAPI) writeStateDiffWithCriteria(crit ethereum.FilterQuery) {
+	if crit.BlockHash != nil {
+		pea.writeStateDiffFor(*crit.BlockHash)
+		return
+	}
+	var start, end int64
+	if crit.FromBlock != nil {
+		start = crit.FromBlock.Int64()
+	}
+	if crit.ToBlock != nil {
+		end = crit.ToBlock.Int64()
+	} else {
+		end = start
+	}
+	for i := start; i <= end; i++ {
+		pea.writeStateDiffAt(i)
+	}
+}
+
+// writeStateDiffAt calls out to the statediffing geth client to fill in a gap in the index
+func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
+	if !pea.supportsStateDiff {
+		return
+	}
+	// we use a separate context than the one provided by the client
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	var data json.RawMessage
+	params := statediff.Params{
+		IntermediateStateNodes:   true,
+		IntermediateStorageNodes: true,
+		IncludeBlock:             true,
+		IncludeReceipts:          true,
+		IncludeTD:                true,
+		IncludeCode:              true,
+	}
+	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffAt", uint64(height), params); err != nil {
+		logrus.Errorf("writeStateDiffAt %d faild with err %s", height, err.Error())
+	}
+}
+
+// writeStateDiffFor calls out to the statediffing geth client to fill in a gap in the index
+func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
+	if !pea.supportsStateDiff {
+		return
+	}
+	// we use a separate context than the one provided by the client
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	var data json.RawMessage
+	params := statediff.Params{
+		IntermediateStateNodes:   true,
+		IntermediateStorageNodes: true,
+		IncludeBlock:             true,
+		IncludeReceipts:          true,
+		IncludeTD:                true,
+		IncludeCode:              true,
+	}
+	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffFor", blockHash, params); err != nil {
+		logrus.Errorf("writeStateDiffFor %s faild with err %s", blockHash.Hex(), err.Error())
+	}
 }
 
 // rpcMarshalBlock uses the generalized output filler, then adds the total difficulty field
