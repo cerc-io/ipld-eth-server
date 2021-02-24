@@ -51,11 +51,13 @@ CONNECT_STRING=postgresql://$(USER):$(PASSWORD)@$(HOST_NAME):$(PORT)/$(NAME)?ssl
 #Test
 TEST_DB = vulcanize_testing
 TEST_CONNECT_STRING = postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOSTNAME):$(DATABASE_PORT)/$(TEST_DB)?sslmode=disable
+TEST_CONNECT_STRING_LOCAL = postgresql://$(USER)@$(HOST_NAME):$(PORT)/$(TEST_DB)?sslmode=disable
 
 .PHONY: test
 test: | $(GINKGO) $(GOOSE)
 	go vet ./...
 	go fmt ./...
+	export PGPASSWORD=$(DATABASE_PASSWORD)
 	dropdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) --if-exists $(TEST_DB)
 	createdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) $(TEST_DB)
 	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING)" up
@@ -65,10 +67,31 @@ test: | $(GINKGO) $(GOOSE)
 integrationtest: | $(GINKGO) $(GOOSE)
 	go vet ./...
 	go fmt ./...
-	#dropdb -h $(DATABASE_HOSTNAME) -p $(PORT) -U $(USER) -W --if-exists $(TEST_DB)
-	#createdb -h $(HOST_NAME) -p $(PORT) -U $(USER) -W $(TEST_DB)
-	$(GOOSE) -dir db/migrations "$(TEST_CONNECT_STRING)" up
-	$(GOOSE) -dir db/migrations "$(TEST_CONNECT_STRING)" reset
+	export PGPASSWORD=$(DATABASE_PASSWORD)
+	dropdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) --if-exists $(TEST_DB)
+	createdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) $(TEST_DB)
+	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING)" up
+	$(GINKGO) -r integration_test/
+
+.PHONY: test_local
+test_local: | $(GINKGO) $(GOOSE)
+	go vet ./...
+	go fmt ./...
+	dropdb -h $(HOST_NAME) -p $(PORT) -U $(USER) --if-exists $(TEST_DB)
+	createdb -h $(HOST_NAME) -p $(PORT) -U $(USER) $(TEST_DB)
+	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING_LOCAL)" up
+	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING_LOCAL)" reset
+	make migrate NAME=$(TEST_DB)
+	$(GINKGO) -r --skipPackage=integration_tests,integration
+
+.PHONY: integrationtest_local
+integrationtest_local: | $(GINKGO) $(GOOSE)
+	go vet ./...
+	go fmt ./...
+	dropdb -h $(HOST_NAME) -p $(PORT) -U $(USER) --if-exists $(TEST_DB)
+	createdb -h $(HOST_NAME) -p $(PORT) -U $(USER) $(TEST_DB)
+	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING_LOCAL)" up
+	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING_LOCAL)" reset
 	make migrate NAME=$(TEST_DB)
 	$(GINKGO) -r integration_test/
 

@@ -347,7 +347,9 @@ CREATE TABLE eth.receipt_cids (
     topic1s character varying(66)[],
     topic2s character varying(66)[],
     topic3s character varying(66)[],
-    log_contracts character varying(66)[]
+    log_contracts character varying(66)[],
+    post_state character varying(66),
+    post_status integer
 );
 
 
