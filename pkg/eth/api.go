@@ -25,8 +25,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/statediff"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -37,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/sirupsen/logrus"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
@@ -53,7 +52,7 @@ type PublicEthAPI struct {
 	// Local db backend
 	B *Backend
 
-	// Remote node for forwarding cache misses
+	// Proxy node for forwarding cache misses
 	supportsStateDiff bool // Whether or not the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
 	rpc               *rpc.Client
 	ethClient         *ethclient.Client
@@ -874,8 +873,12 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 	return result.Return(), result.UsedGas, result.Failed(), err
 }
 
-// writeStateDiffAtOrFor calls out to the statediffing geth client to fill in a gap in the index
+// writeStateDiffAtOrFor calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffAtOrFor(blockNrOrHash rpc.BlockNumberOrHash) {
+	// short circuit right away if the proxy doesn't support diffing
+	if !pea.supportsStateDiff {
+		return
+	}
 	if blockNr, ok := blockNrOrHash.Number(); ok {
 		pea.writeStateDiffAt(blockNr.Int64())
 		return
@@ -885,8 +888,12 @@ func (pea *PublicEthAPI) writeStateDiffAtOrFor(blockNrOrHash rpc.BlockNumberOrHa
 	}
 }
 
-// writeStateDiffWithCriteria calls out to the statediffing geth client to fill in a gap in the index
+// writeStateDiffWithCriteria calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffWithCriteria(crit ethereum.FilterQuery) {
+	// short circuit right away if the proxy doesn't support diffing
+	if !pea.supportsStateDiff {
+		return
+	}
 	if crit.BlockHash != nil {
 		pea.writeStateDiffFor(*crit.BlockHash)
 		return
@@ -905,7 +912,7 @@ func (pea *PublicEthAPI) writeStateDiffWithCriteria(crit ethereum.FilterQuery) {
 	}
 }
 
-// writeStateDiffAt calls out to the statediffing geth client to fill in a gap in the index
+// writeStateDiffAt calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 	if !pea.supportsStateDiff {
 		return
@@ -927,7 +934,7 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 	}
 }
 
-// writeStateDiffFor calls out to the statediffing geth client to fill in a gap in the index
+// writeStateDiffFor calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 	if !pea.supportsStateDiff {
 		return

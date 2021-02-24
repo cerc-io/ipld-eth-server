@@ -22,11 +22,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/trie"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
@@ -41,8 +38,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/vulcanize/ipfs-ethdb"
+	"github.com/ethereum/go-ethereum/trie"
 
+	"github.com/vulcanize/ipfs-ethdb"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 

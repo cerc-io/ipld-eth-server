@@ -22,8 +22,6 @@ import (
 	"io/ioutil"
 	"math/big"
 
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -39,6 +37,7 @@ import (
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
