@@ -18,6 +18,7 @@ package eth
 
 import (
 	"bytes"
+
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
 	"github.com/ethereum/go-ethereum/common"

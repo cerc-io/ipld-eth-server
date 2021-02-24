@@ -18,6 +18,7 @@ package eth_test
 
 import (
 	"bytes"
+
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
 	. "github.com/onsi/ginkgo"

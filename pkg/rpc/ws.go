@@ -17,12 +17,13 @@
 package rpc
 
 import (
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/node"
 	"net"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/cmd/utils"
+	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 )
 

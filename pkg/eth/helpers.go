@@ -18,6 +18,7 @@ package eth
 
 import (
 	"fmt"
+
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
 	"github.com/ethereum/go-ethereum/params"

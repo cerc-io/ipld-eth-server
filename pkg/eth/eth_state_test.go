@@ -19,7 +19,6 @@ package eth_test
 import (
 	"bytes"
 	"context"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 	"io/ioutil"
 	"math/big"
 
@@ -38,6 +37,7 @@ import (
 
 	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
@@ -83,7 +83,7 @@ var _ = Describe("eth state reading tests", func() {
 			RPCGasCap:   big.NewInt(10000000000),
 		})
 		Expect(err).ToNot(HaveOccurred())
-		api = eth.NewPublicEthAPI(backend, nil)
+		api = eth.NewPublicEthAPI(backend, nil, false)
 
 		// make the test blockchain (and state)
 		blocks, receipts, chain = test_helpers.MakeChain(5, test_helpers.Genesis, test_helpers.TestChainGen)
@@ -153,7 +153,7 @@ var _ = Describe("eth state reading tests", func() {
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
 		indexAndPublisher := eth2.NewIPLDPublisher(db)
-		api = eth.NewPublicEthAPI(backend, nil)
+		api = eth.NewPublicEthAPI(backend, nil, false)
 		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
 		Expect(err).ToNot(HaveOccurred())
 		// The non-canonical header has a child
