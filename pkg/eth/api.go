@@ -918,7 +918,7 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 		return
 	}
 	// we use a separate context than the one provided by the client
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
@@ -940,7 +940,7 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 		return
 	}
 	// we use a separate context than the one provided by the client
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
