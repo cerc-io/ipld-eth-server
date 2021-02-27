@@ -997,6 +997,8 @@ github.com/vulcanize/go-ethereum v1.9.11-statediff-0.0.8 h1:7TK52k55uvSl+1SCKYYF
 github.com/vulcanize/go-ethereum v1.9.11-statediff-0.0.8/go.mod h1:7oC0Ni6dosMv5pxMigm6s0hN8g4haJMBnqmmo0D9YfQ=
 github.com/vulcanize/go-ethereum v1.9.25-statediff-0.0.14 h1:DFN3WmdStbNWfTx5qOGDlZkoUwVxlcs4fGqPwzczE+8=
 github.com/vulcanize/go-ethereum v1.9.25-statediff-0.0.14/go.mod h1:q5X5BpZkLp+OgWByNdZ8NudGkq0Vq4LjdrtmyyICUw4=
+github.com/vulcanize/go-ethereum v1.9.25-statediff-0.0.15 h1:f/frl9tMTKCcu2yh1tOgwXeQn3GJ2+21Zp0lSZzl1v0=
+github.com/vulcanize/go-ethereum v1.9.25-statediff-0.0.15/go.mod h1:q5X5BpZkLp+OgWByNdZ8NudGkq0Vq4LjdrtmyyICUw4=
 github.com/vulcanize/ipfs-ethdb v0.0.2 h1:Ogp9k+OMKIn2xo9Y9VoNTjd5v1kXcjL+k3cDQwqpUPU=
 github.com/vulcanize/ipfs-ethdb v0.0.2/go.mod h1:9yDJ8PCVKK4auwM8KgVLVkGM05Atp2OITJvt6cSvsHs=
 github.com/vulcanize/ipld-eth-indexer v0.7.0-alpha h1:VuvKC2qLajohczJX74lwBrpr/X8ZNSyC23jIdN5Ppxg=
