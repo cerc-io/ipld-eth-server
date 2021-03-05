@@ -16,10 +16,11 @@ require (
 	github.com/onsi/ginkgo v1.15.0
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus/client_golang v1.5.1
-	github.com/sirupsen/logrus v1.6.0
-	github.com/spf13/cobra v1.0.0
+	github.com/sirupsen/logrus v1.7.0
+	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.0
 	github.com/vulcanize/ipld-eth-indexer v0.7.1-alpha
+	github.com/vulcanize/gap-filler v0.3.0
 	github.com/vulcanize/ipfs-ethdb v0.0.2-alpha
 	golang.org/x/sys v0.0.0-20210218155724-8ebf48af031b // indirect
 )
