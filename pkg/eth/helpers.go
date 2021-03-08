@@ -17,7 +17,11 @@
 package eth
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/cmd/utils"
+	log "github.com/sirupsen/logrus"
+	"os"
 
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
@@ -40,7 +44,28 @@ func ResolveToNodeType(nodeType int) sdtypes.NodeType {
 }
 
 // ChainConfig returns the appropriate ethereum chain config for the provided chain id
-func ChainConfig(chainID uint64) (*params.ChainConfig, error) {
+func ChainConfig(chainID uint64, chainConfigPath string) (*params.ChainConfig, error) {
+	if chainConfigPath != "" {
+		file, err := os.Open(chainConfigPath)
+		if err != nil {
+			utils.Fatalf("Failed to read chain config file: %v", err)
+
+			return nil, err
+		}
+		defer file.Close()
+
+		chainConfig := new(params.ChainConfig)
+		if err := json.NewDecoder(file).Decode(chainConfig); err != nil {
+			utils.Fatalf("invalid chain config file: %v", err)
+
+			return nil, err
+		}
+
+		log.Infof("Using chain config from %s file. Content %+v", chainConfigPath, chainConfig)
+
+		return chainConfig, nil
+	}
+
 	switch chainID {
 	case 1:
 		return params.MainnetChainConfig, nil

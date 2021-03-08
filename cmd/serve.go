@@ -137,6 +137,7 @@ func init() {
 	serveCmd.PersistentFlags().String("eth-chain-id", "1", "eth chain id")
 	serveCmd.PersistentFlags().String("eth-default-sender", "", "default sender address")
 	serveCmd.PersistentFlags().String("eth-rpc-gas-cap", "", "rpc gas cap (for eth_Call execution)")
+	serveCmd.PersistentFlags().String("eth-chain-config", "", "json chain config file location")
 
 	// and their bindings
 	viper.BindPFlag("server.graphql", serveCmd.PersistentFlags().Lookup("server-graphql"))
@@ -153,4 +154,5 @@ func init() {
 	viper.BindPFlag("ethereum.chainID", serveCmd.PersistentFlags().Lookup("eth-chain-id"))
 	viper.BindPFlag("ethereum.defaultSender", serveCmd.PersistentFlags().Lookup("eth-default-sender"))
 	viper.BindPFlag("ethereum.rpcGasCap", serveCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
+	viper.BindPFlag("ethereum.chainConfig", serveCmd.PersistentFlags().Lookup("eth-chain-config"))
 }
