@@ -48,6 +48,7 @@ const (
 
 	ETH_DEFAULT_SENDER_ADDR = "ETH_DEFAULT_SENDER_ADDR"
 	ETH_RPC_GAS_CAP         = "ETH_RPC_GAS_CAP"
+	ETH_CHAIN_CONFIG        = "ETH_CHAIN_CONFIG"
 	ETH_SUPPORTS_STATEDIFF  = "ETH_SUPPORTS_STATEDIFF"
 )
 
@@ -76,6 +77,7 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.httpPath", shared.ETH_HTTP_PATH)
 	viper.BindEnv("ethereum.defaultSender", ETH_DEFAULT_SENDER_ADDR)
 	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
+	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
 	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
 
 	c.DBConfig.Init()
@@ -123,7 +125,12 @@ func NewConfig() (*Config, error) {
 			c.RPCGasCap = rpcGasCap
 		}
 	}
-	c.ChainConfig, err = eth.ChainConfig(nodeInfo.ChainID)
+	chainConfigPath := viper.GetString("ethereum.chainConfig")
+	if chainConfigPath != "" {
+		c.ChainConfig, err = eth.LoadConfig(chainConfigPath)
+	} else {
+		c.ChainConfig, err = eth.ChainConfig(nodeInfo.ChainID)
+	}
 	return c, err
 }
 
