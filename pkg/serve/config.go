@@ -108,7 +108,7 @@ func NewConfig() (*Config, error) {
 	}
 	c.HTTPEndpoint = httpPath
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB := utils.LoadPostgres(c.DBConfig, nodeInfo)
+	serveDB := utils.LoadPostgres(c.DBConfig, nodeInfo, false)
 	prom.RegisterDBCollector(c.DBConfig.Name, serveDB.DB)
 	c.DB = &serveDB
 
