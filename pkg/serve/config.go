@@ -125,7 +125,12 @@ func NewConfig() (*Config, error) {
 			c.RPCGasCap = rpcGasCap
 		}
 	}
-	c.ChainConfig, err = eth.ChainConfig(nodeInfo.ChainID, viper.GetString("ethereum.chainConfig"))
+	chainConfigPath := viper.GetString("ethereum.chainConfig")
+	if chainConfigPath != "" {
+		c.ChainConfig, err = eth.LoadConfig(chainConfigPath)
+	} else {
+		c.ChainConfig, err = eth.ChainConfig(nodeInfo.ChainID)
+	}
 	return c, err
 }
 
