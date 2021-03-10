@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vulcanize/gap-filler/pkg/mux"
-	"github.com/vulcanize/gap-filler/pkg/qlservices"
 )
 
 var ErrNoRpcEndpoints = errors.New("no rpc endpoints is available")
@@ -48,19 +47,9 @@ func proxy() {
 		logWithCommand.Fatal(err)
 	}
 
-	rpcBalancer, err := qlservices.NewBalancer(rpcClients)
-	if err != nil {
-		logWithCommand.Fatal(err)
-	}
-
 	tracingClients, err := parseRpcAddresses(viper.GetString("rpc.tracing"))
 	if err != nil {
 		logrus.Error("bad rpc.tracing addresses")
-		logWithCommand.Fatal(err)
-	}
-
-	tracingBalancer, err := qlservices.NewBalancer(tracingClients)
-	if err != nil {
 		logWithCommand.Fatal(err)
 	}
 
@@ -72,8 +61,8 @@ func proxy() {
 			TracingAPI: gqlTracingAPIAddr,
 		},
 		RPC: mux.RPCOptions{
-			DefaultBalancer: rpcBalancer,
-			TracingBalancer: tracingBalancer,
+			DefaultClients: rpcClients,
+			TracingClients: tracingClients,
 		},
 	})
 	if err != nil {
@@ -112,7 +101,7 @@ func init() {
 
 	// flags
 	proxyCmd.PersistentFlags().String("http-host", "127.0.0.1", "http host")
-	proxyCmd.PersistentFlags().String("http-port", "8080", "http port")
+	proxyCmd.PersistentFlags().String("http-port", "8083", "http port")
 	proxyCmd.PersistentFlags().String("http-path", "/", "http base path")
 
 	proxyCmd.PersistentFlags().String("rpc-eth", "http://127.0.0.1:8545", "comma separated ethereum rpc addresses. Example http://127.0.0.1:8545,http://127.0.0.2:8545")

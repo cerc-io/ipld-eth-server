@@ -453,6 +453,8 @@ github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e/go.mod h1:G1C
 github.com/jellevandenhooff/dkim v0.0.0-20150330215556-f50fe3d243e1/go.mod h1:E0B/fFc00Y+Rasa88328GlI/XbtyysCtTHZS8h7IrBU=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
+github.com/jinzhu/copier v0.2.4 h1:dT3tI+8GzU8DjJFCj9mLYtjfRtUmK7edauduQdcZCpI=
+github.com/jinzhu/copier v0.2.4/go.mod h1:24xnZezI2Yqac9J61UC6/dG/k76ttpq0DdJI3QmUvro=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jmoiron/sqlx v1.2.0 h1:41Ip0zITnmWNR/vHV+S4m+VoUivnWY5E4OJfLZjCJMA=
 github.com/jmoiron/sqlx v1.2.0/go.mod h1:1FEQNm3xlJgrMD+FBdI9+xvCksHtbpVBBw5dYhBSsks=
@@ -1005,6 +1007,8 @@ github.com/viant/assertly v0.4.8/go.mod h1:aGifi++jvCrUaklKEKT0BU95igDNaqkvz+49u
 github.com/viant/toolbox v0.24.0/go.mod h1:OxMCG57V0PXuIP2HNQrtJf2CjqdmbrOx5EkMILuUhzM=
 github.com/vulcanize/gap-filler v0.3.0 h1:SaBrOxlxCDPbSA902K/46iELH8yM3BqhvBuXK1ktFDI=
 github.com/vulcanize/gap-filler v0.3.0/go.mod h1:4odsXyckNU1xdXk37qXY2SbxUM6oDpQrpWZtEHfq+0w=
+github.com/vulcanize/gap-filler v0.3.1 h1:N5d+jCJo/VTWFvBSbTD7biRhK/OqDZzi1tgA85SIBKs=
+github.com/vulcanize/gap-filler v0.3.1/go.mod h1:qowG1cgshVpBqMokiWro/1xhh0uypw7oAu8FQ42JMy4=
 github.com/vulcanize/go-ethereum v1.9.11-statediff-0.0.5 h1:U+BqhjRLR22e9OEm8cgWC3Eq3bh8G6azjNpXeenfCG4=
 github.com/vulcanize/go-ethereum v1.9.11-statediff-0.0.5/go.mod h1:7oC0Ni6dosMv5pxMigm6s0hN8g4haJMBnqmmo0D9YfQ=
 github.com/vulcanize/go-ethereum v1.9.11-statediff-0.0.8 h1:7TK52k55uvSl+1SCKYYFelzH1NrpvEcDrpeU9nUDIpI=
