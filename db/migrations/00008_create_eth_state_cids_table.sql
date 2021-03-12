@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE eth.state_cids (
-  id                    SERIAL PRIMARY KEY,
+  id                    BIGSERIAL PRIMARY KEY,
   header_id             INTEGER NOT NULL REFERENCES eth.header_cids (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
   state_leaf_key        VARCHAR(66),
   cid                   TEXT NOT NULL,
