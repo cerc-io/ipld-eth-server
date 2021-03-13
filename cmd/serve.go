@@ -138,6 +138,7 @@ func init() {
 	serveCmd.PersistentFlags().String("eth-default-sender", "", "default sender address")
 	serveCmd.PersistentFlags().String("eth-rpc-gas-cap", "", "rpc gas cap (for eth_Call execution)")
 	serveCmd.PersistentFlags().String("eth-chain-config", "", "json chain config file location")
+	serveCmd.PersistentFlags().Bool("eth-supports-state-diff", false, "whether or not the proxy ethereum client supports statediffing endpoints")
 
 	// and their bindings
 	viper.BindPFlag("server.graphql", serveCmd.PersistentFlags().Lookup("server-graphql"))
@@ -155,4 +156,5 @@ func init() {
 	viper.BindPFlag("ethereum.defaultSender", serveCmd.PersistentFlags().Lookup("eth-default-sender"))
 	viper.BindPFlag("ethereum.rpcGasCap", serveCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
 	viper.BindPFlag("ethereum.chainConfig", serveCmd.PersistentFlags().Lookup("eth-chain-config"))
+	viper.BindPFlag("ethereum.supportsStateDiff", serveCmd.PersistentFlags().Lookup("eth-supports-state-diff"))
 }
