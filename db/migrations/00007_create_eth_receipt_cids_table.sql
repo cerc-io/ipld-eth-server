@@ -11,6 +11,8 @@ CREATE TABLE eth.receipt_cids (
   topic2s               VARCHAR(66)[],
   topic3s               VARCHAR(66)[],
   log_contracts         VARCHAR(66)[],
+  post_state            VARCHAR(66),
+  post_status           INTEGER,
   UNIQUE (tx_id)
 );
 
