@@ -76,6 +76,8 @@ type Service struct {
 	SubscriptionTypes map[common.Hash]eth.SubscriptionSettings
 	// Underlying db
 	db *postgres.DB
+	// db config
+	dbConfig *postgres.Config
 	// wg for syncing serve processes
 	serveWg *sync.WaitGroup
 	// rpc client for forwarding cache misses
@@ -142,10 +144,15 @@ func (sap *Service) APIs() []rpc.API {
 			Public:    true,
 		},
 	}
+	pea, err := eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing)
+	if err != nil {
+		log.Errorf("failed to create a new PublicEthAPI %v", err)
+		return apis
+	}
 	return append(apis, rpc.API{
 		Namespace: eth.APIName,
 		Version:   eth.APIVersion,
-		Service:   eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing),
+		Service:   pea,
 		Public:    true,
 	})
 }

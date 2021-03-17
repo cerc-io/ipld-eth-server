@@ -19,9 +19,10 @@ package eth
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	log "github.com/sirupsen/logrus"
-	"os"
 
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 

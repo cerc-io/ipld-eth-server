@@ -25,6 +25,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/vulcanize/ipld-eth-server/pkg/events"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -52,6 +54,9 @@ type PublicEthAPI struct {
 	// Local db backend
 	B *Backend
 
+	// Event subscription backend
+	events *events.Notifier
+
 	// Proxy node for forwarding cache misses
 	supportsStateDiff bool // Whether or not the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
 	rpc               *rpc.Client
@@ -59,17 +64,22 @@ type PublicEthAPI struct {
 }
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
-func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff bool) *PublicEthAPI {
+func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff bool) (*PublicEthAPI, error) {
 	var ethClient *ethclient.Client
 	if client != nil {
 		ethClient = ethclient.NewClient(client)
 	}
+	notifier, err := events.NewNotifier(b.DB.Config.DbConnectionString(), channelName)
+	if err != nil {
+		return nil, err
+	}
 	return &PublicEthAPI{
 		B:                 b,
+		events:            notifier,
 		supportsStateDiff: supportsStateDiff,
 		rpc:               client,
 		ethClient:         ethClient,
-	}
+	}, nil
 }
 
 /*

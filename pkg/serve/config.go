@@ -22,14 +22,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
-
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/spf13/viper"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 	"github.com/vulcanize/ipld-eth-indexer/utils"
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 
@@ -55,7 +53,6 @@ const (
 // Config struct
 type Config struct {
 	DB               *postgres.DB
-	DBConfig         postgres.Config
 	WSEndpoint       string
 	HTTPEndpoint     string
 	IPCEndpoint      string
@@ -80,7 +77,7 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
 	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
 
-	c.DBConfig.Init()
+	dbConfig := postgres.NewConfig()
 
 	ethHTTP := viper.GetString("ethereum.httpPath")
 	nodeInfo, cli, err := shared.GetEthNodeAndClient(fmt.Sprintf("http://%s", ethHTTP))
@@ -109,9 +106,9 @@ func NewConfig() (*Config, error) {
 		httpPath = "127.0.0.1:8081"
 	}
 	c.HTTPEndpoint = httpPath
-	overrideDBConnConfig(&c.DBConfig)
-	serveDB := utils.LoadPostgres(c.DBConfig, nodeInfo, false)
-	prom.RegisterDBCollector(c.DBConfig.Name, serveDB.DB)
+	overrideDBConnConfig(dbConfig)
+	serveDB := utils.LoadPostgres(dbConfig, nodeInfo, false)
+	prom.RegisterDBCollector(dbConfig.Name, serveDB.DB)
 	c.DB = &serveDB
 
 	defaultSenderStr := viper.GetString("ethereum.defaultSender")

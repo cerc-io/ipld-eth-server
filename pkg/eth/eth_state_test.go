@@ -83,7 +83,8 @@ var _ = Describe("eth state reading tests", func() {
 			RPCGasCap:   big.NewInt(10000000000),
 		})
 		Expect(err).ToNot(HaveOccurred())
-		api = eth.NewPublicEthAPI(backend, nil, false)
+		api, err = eth.NewPublicEthAPI(backend, nil, false)
+		Expect(err).ToNot(HaveOccurred())
 
 		// make the test blockchain (and state)
 		blocks, receipts, chain = test_helpers.MakeChain(5, test_helpers.Genesis, test_helpers.TestChainGen)
@@ -153,7 +154,8 @@ var _ = Describe("eth state reading tests", func() {
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
 		indexAndPublisher := eth2.NewIPLDPublisher(db)
-		api = eth.NewPublicEthAPI(backend, nil, false)
+		api, err = eth.NewPublicEthAPI(backend, nil, false)
+		Expect(err).ToNot(HaveOccurred())
 		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
 		Expect(err).ToNot(HaveOccurred())
 		// The non-canonical header has a child

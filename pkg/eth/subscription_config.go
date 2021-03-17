@@ -72,7 +72,7 @@ type StorageFilter struct {
 	IntermediateNodes bool
 }
 
-// Init is used to initialize a EthSubscription struct with env variables
+// NewEthSubscriptionConfig initializes and returns an EthSubscription struct with env variables
 func NewEthSubscriptionConfig() (*SubscriptionSettings, error) {
 	sc := new(SubscriptionSettings)
 	// Below default to false, which means we do not backfill by default
