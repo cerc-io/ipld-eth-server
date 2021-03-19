@@ -69,7 +69,7 @@ func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff bool) (*P
 	if client != nil {
 		ethClient = ethclient.NewClient(client)
 	}
-	notifier, err := events.NewNotifier(b.DB.Config.DbConnectionString(), channelName)
+	notifier, err := events.NewNotifier(b.DB, channelName)
 	if err != nil {
 		return nil, err
 	}
