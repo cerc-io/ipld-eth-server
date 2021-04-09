@@ -18,7 +18,10 @@ package serve
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/net"
 
 	"github.com/ethereum/go-ethereum/core/vm"
 
@@ -115,7 +118,7 @@ func (sap *Service) Protocols() []p2p.Protocol {
 
 // APIs returns the RPC descriptors the watcher service offers
 func (sap *Service) APIs() []rpc.API {
-	infoAPI := NewInfoAPI()
+	networkID, _ := strconv.ParseUint(sap.db.Node.NetworkID, 10, 64)
 	apis := []rpc.API{
 		{
 			Namespace: APIName,
@@ -124,21 +127,9 @@ func (sap *Service) APIs() []rpc.API {
 			Public:    true,
 		},
 		{
-			Namespace: "rpc",
-			Version:   APIVersion,
-			Service:   infoAPI,
-			Public:    true,
-		},
-		{
-			Namespace: "net",
-			Version:   APIVersion,
-			Service:   infoAPI,
-			Public:    true,
-		},
-		{
-			Namespace: "admin",
-			Version:   APIVersion,
-			Service:   infoAPI,
+			Namespace: net.APIName,
+			Version:   net.APIVersion,
+			Service:   net.NewPublicNetAPI(networkID, sap.client),
 			Public:    true,
 		},
 	}

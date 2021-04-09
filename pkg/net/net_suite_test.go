@@ -1,5 +1,5 @@
 // VulcanizeDB
-// Copyright © 2019 Vulcanize
+// Copyright © 2021 Vulcanize
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package eth_test
+package net_test
 
 import (
 	"io/ioutil"
@@ -25,9 +25,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func TestETHSuite(t *testing.T) {
+func TestNetSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "eth ipld server eth suite test")
+	RunSpecs(t, "eth ipld server net suite test")
 }
 
 var _ = BeforeSuite(func() {

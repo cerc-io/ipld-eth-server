@@ -1,5 +1,5 @@
 // VulcanizeDB
-// Copyright © 2019 Vulcanize
+// Copyright © 2021 Vulcanize
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -14,22 +14,34 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package eth_test
+package net_test
 
 import (
-	"io/ioutil"
-	"testing"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/net"
 )
 
-func TestETHSuite(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "eth ipld server eth suite test")
-}
+var _ = Describe("API", func() {
+	var (
+		api *net.PublicNetAPI
+	)
+	BeforeEach(func() {
+		api = net.NewPublicNetAPI(1, nil)
+	})
+	Describe("net_listening", func() {
+		It("Retrieves whether or not the node is listening to the p2p network", func() {
+			listening := api.Listening()
+			Expect(listening).To(BeFalse())
+		})
+	})
 
-var _ = BeforeSuite(func() {
-	logrus.SetOutput(ioutil.Discard)
+	Describe("net_version", func() {
+		It("Retrieves the network id", func() {
+			version := api.Version()
+			Expect(version).To(Equal("1"))
+		})
+	})
+	// TODO: test PeerCount and proxying
 })

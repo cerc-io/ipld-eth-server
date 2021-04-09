@@ -19,14 +19,12 @@ package serve
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	v "github.com/vulcanize/ipld-eth-server/version"
 )
 
 // APIName is the namespace used for the state diffing service API
@@ -89,33 +87,4 @@ func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionS
 // Chain returns the chain type that this watcher instance supports
 func (api *PublicServerAPI) Chain() shared.ChainType {
 	return shared.Ethereum
-}
-
-// Struct for holding watcher meta data
-type InfoAPI struct{}
-
-// NewInfoAPI creates a new InfoAPI
-func NewInfoAPI() *InfoAPI {
-	return &InfoAPI{}
-}
-
-// Modules returns modules supported by this api
-func (iapi *InfoAPI) Modules() map[string]string {
-	return map[string]string{
-		"vdb": "Stream",
-	}
-}
-
-// NodeInfo gathers and returns a collection of metadata for the watcher
-func (iapi *InfoAPI) NodeInfo() *p2p.NodeInfo {
-	return &p2p.NodeInfo{
-		// TODO: formalize this
-		ID:   "vulcanizeDB",
-		Name: "ipld-eth-server",
-	}
-}
-
-// Version returns the version of the watcher
-func (iapi *InfoAPI) Version() string {
-	return v.VersionWithMeta
 }
