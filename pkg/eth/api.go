@@ -48,6 +48,7 @@ const APIName = "eth"
 // APIVersion is the version of the watcher's eth api
 const APIVersion = "0.0.1"
 
+// PublicEthAPI is the eth namespace API
 type PublicEthAPI struct {
 	// Local db backend
 	B *Backend
