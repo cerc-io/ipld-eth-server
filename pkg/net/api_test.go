@@ -43,5 +43,5 @@ var _ = Describe("API", func() {
 			Expect(version).To(Equal("1"))
 		})
 	})
-	// TODO: test PeerCount and proxying
+	// TODO: test PeerCount with mock proxy node
 })

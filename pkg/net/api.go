@@ -53,15 +53,24 @@ func NewPublicNetAPI(networkID uint64, client *rpc.Client) *PublicNetAPI {
 
 // Listening returns an indication if the node is listening for network connections.
 func (pna *PublicNetAPI) Listening() bool {
-	return false // currently our nodes are never listening on the p2p network
+	// in this case it is actually whether or not the proxied node is listening
+	if pna.rpc != nil {
+		var listening bool
+		if err := pna.rpc.Call(&listening, "net_listening"); err == nil {
+			return listening
+		}
+	}
+	return false
 }
 
 // PeerCount returns the number of connected peers
 func (pna *PublicNetAPI) PeerCount() hexutil.Uint {
-	num := new(hexutil.Uint)
-	// in this case it is actually the peercount of the proxied node
-	if err := pna.rpc.Call(num, "net_peerCount"); num != nil && err == nil {
-		return *num
+	// in this case it is actually the peer count of the proxied node
+	if pna.rpc != nil {
+		var num hexutil.Uint
+		if err := pna.rpc.Call(&num, "net_peerCount"); err == nil {
+			return num
+		}
 	}
 	return hexutil.Uint(0)
 }
@@ -71,9 +80,11 @@ func (pna *PublicNetAPI) Version() string {
 	if pna.networkVersion != 0 {
 		return fmt.Sprintf("%d", pna.networkVersion)
 	}
-	version := new(string)
-	if err := pna.rpc.Call(version, "net_version"); version != nil && err == nil {
-		return *version
+	if pna.rpc != nil {
+		var version string
+		if err := pna.rpc.Call(&version, "net_version"); err == nil {
+			return version
+		}
 	}
 	return ""
 }
