@@ -20,11 +20,11 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	. "github.com/onsi/ginkgo"
@@ -554,7 +554,7 @@ var _ = Describe("API", func() {
 
 	Describe("eth_getLogs", func() {
 		It("Retrieves receipt logs that match the provided topics within the provided range", func() {
-			crit := ethereum.FilterQuery{
+			crit := filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x04"),
@@ -568,7 +568,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x04"),
@@ -583,7 +583,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x04"),
@@ -598,7 +598,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x04"),
@@ -614,7 +614,7 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(0))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x04"),
@@ -631,7 +631,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x05"),
@@ -648,7 +648,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x05"),
@@ -666,7 +666,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
 						common.HexToHash("0x04"),
@@ -685,7 +685,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{},
 					{
@@ -700,7 +700,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{},
 					{
@@ -715,7 +715,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				Topics:    [][]common.Hash{},
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
@@ -728,7 +728,7 @@ var _ = Describe("API", func() {
 
 		It("Uses the provided blockhash if one is provided", func() {
 			hash := test_helpers.MockBlock.Hash()
-			crit := ethereum.FilterQuery{
+			crit := filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
 					{},
@@ -742,7 +742,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
 					{
@@ -758,7 +758,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
 					{},
@@ -772,7 +772,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
 					{
@@ -788,7 +788,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
 					{
@@ -803,7 +803,7 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(0))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
 					{
@@ -820,7 +820,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
 					{
@@ -834,7 +834,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics: [][]common.Hash{
 					{
@@ -852,7 +852,7 @@ var _ = Describe("API", func() {
 			Expect(len(logs)).To(Equal(2))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Topics:    [][]common.Hash{},
 			}
@@ -864,7 +864,7 @@ var _ = Describe("API", func() {
 
 		It("Filters on contract address if any are provided", func() {
 			hash := test_helpers.MockBlock.Hash()
-			crit := ethereum.FilterQuery{
+			crit := filters.FilterCriteria{
 				BlockHash: &hash,
 				Addresses: []common.Address{
 					test_helpers.Address,
@@ -886,7 +886,7 @@ var _ = Describe("API", func() {
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
 
 			hash = test_helpers.MockBlock.Hash()
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Addresses: []common.Address{
 					test_helpers.Address,
@@ -909,7 +909,7 @@ var _ = Describe("API", func() {
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
 
 			hash = test_helpers.MockBlock.Hash()
-			crit = ethereum.FilterQuery{
+			crit = filters.FilterCriteria{
 				BlockHash: &hash,
 				Addresses: []common.Address{
 					test_helpers.Address,
