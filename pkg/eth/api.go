@@ -25,12 +25,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -506,21 +506,19 @@ func (pea *PublicEthAPI) remoteGetTransactionReceipt(ctx context.Context, hash c
 // GetLogs returns logs matching the given argument that are stored within the state.
 //
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getlogs
-func (pea *PublicEthAPI) GetLogs(ctx context.Context, crit ethereum.FilterQuery) ([]*types.Log, error) {
-	logs, err := pea.localGetLogs(ctx, crit)
+func (pea *PublicEthAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) ([]*types.Log, error) {
+	logs, err := pea.localGetLogs(crit)
 	if err != nil && pea.rpc != nil {
-		if arg, err := toFilterArg(crit); err == nil {
-			var res []*types.Log
-			if err := pea.rpc.CallContext(ctx, &res, "eth_getLogs", arg); err == nil {
-				go pea.writeStateDiffWithCriteria(crit)
-				return res, nil
-			}
+		var res []*types.Log
+		if err := pea.rpc.CallContext(ctx, &res, "eth_getLogs", crit); err == nil {
+			go pea.writeStateDiffWithCriteria(crit)
+			return res, nil
 		}
 	}
 	return logs, err
 }
 
-func (pea *PublicEthAPI) localGetLogs(ctx context.Context, crit ethereum.FilterQuery) ([]*types.Log, error) {
+func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log, error) {
 	// TODO: this can be optimized away from using the old cid retriever and ipld fetcher interfaces
 	// Convert FilterQuery into ReceiptFilter
 	addrStrs := make([]string, len(crit.Addresses))
@@ -890,7 +888,7 @@ func (pea *PublicEthAPI) writeStateDiffAtOrFor(blockNrOrHash rpc.BlockNumberOrHa
 }
 
 // writeStateDiffWithCriteria calls out to the proxy statediffing geth client to fill in a gap in the index
-func (pea *PublicEthAPI) writeStateDiffWithCriteria(crit ethereum.FilterQuery) {
+func (pea *PublicEthAPI) writeStateDiffWithCriteria(crit filters.FilterCriteria) {
 	// short circuit right away if the proxy doesn't support diffing
 	if !pea.supportsStateDiff {
 		return
