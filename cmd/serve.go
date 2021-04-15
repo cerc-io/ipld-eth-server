@@ -145,7 +145,22 @@ func startIpldGraphQL(settings *s.Config) error {
 	if settings.IpldGraphqlEnabled {
 		logWithCommand.Info("starting up IPLD GraphQL server")
 
-		gqlDefaultAddr, err := url.Parse(settings.IpldPostgraphileEndpoint)
+		gqlIpldAddr, err := url.Parse(settings.IpldPostgraphileEndpoint)
+		if err != nil {
+			return err
+		}
+
+		gqlTracingAPIAddr, err := url.Parse(settings.TracingPostgraphileEndpoint)
+		if err != nil {
+			return err
+		}
+
+		ethClients, err := parseRpcAddresses(viper.GetString("ethereum.httpPath"))
+		if err != nil {
+			return err
+		}
+
+		tracingClients, err := parseRpcAddresses(viper.GetString("tracing.httpPath"))
 		if err != nil {
 			return err
 		}
@@ -154,20 +169,19 @@ func startIpldGraphQL(settings *s.Config) error {
 			BasePath:       "/",
 			EnableGraphiQL: true,
 			Postgraphile: mux.PostgraphileOptions{
-				Default:    gqlDefaultAddr,
+				Default:    gqlIpldAddr,
 				TracingAPI: gqlTracingAPIAddr,
 			},
 			RPC: mux.RPCOptions{
-				DefaultClients: settings.Client,
+				DefaultClients: ethClients,
 				TracingClients: tracingClients,
 			},
 		})
 		if err != nil {
-			logWithCommand.Fatal(err)
+			return err
 		}
 
-		addr := fmt.Sprintf("%s:%s", viper.GetString("http.host"), viper.GetString("http.port"))
-		if err := http.ListenAndServe(addr, router); err != nil {
+		if err := http.ListenAndServe(settings.IpldGraphqlEndpoint, router); err != nil {
 			logWithCommand.Fatal(err)
 		}
 	} else {
