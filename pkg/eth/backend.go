@@ -174,7 +174,11 @@ func (b *Backend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Bl
 		if header == nil {
 			return nil, errors.New("header for hash not found")
 		}
-		if blockNrOrHash.RequireCanonical && b.GetCanonicalHash(header.Number.Uint64()) != hash {
+		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+		if err != nil {
+			return nil, err
+		}
+		if blockNrOrHash.RequireCanonical && canonicalHash != hash {
 			return nil, errors.New("hash is not currently canonical")
 		}
 		return header, nil
@@ -215,7 +219,11 @@ func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Blo
 		if header == nil {
 			return nil, errors.New("header for hash not found")
 		}
-		if blockNrOrHash.RequireCanonical && b.GetCanonicalHash(header.Number.Uint64()) != hash {
+		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+		if err != nil {
+			return nil, err
+		}
+		if blockNrOrHash.RequireCanonical && canonicalHash != hash {
 			return nil, errors.New("hash is not currently canonical")
 		}
 		block, err := b.BlockByHash(ctx, hash)
@@ -253,7 +261,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		return nil, errNegativeBlockNumber
 	}
 	// Get the canonical hash
-	canonicalHash := b.GetCanonicalHash(uint64(number))
+	canonicalHash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
 		return nil, err
 	}
@@ -475,7 +483,11 @@ func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHas
 		if header == nil {
 			return nil, nil, errors.New("header for hash not found")
 		}
-		if blockNrOrHash.RequireCanonical && b.GetCanonicalHash(header.Number.Uint64()) != hash {
+		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+		if err != nil {
+			return nil, nil, err
+		}
+		if blockNrOrHash.RequireCanonical && canonicalHash != hash {
 			return nil, nil, errors.New("hash is not currently canonical")
 		}
 		stateDb, err := state.New(header.Root, b.StateDatabase, nil)
@@ -503,12 +515,12 @@ func (b *Backend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNu
 }
 
 // GetCanonicalHash gets the canonical hash for the provided number, if there is one
-func (b *Backend) GetCanonicalHash(number uint64) common.Hash {
+func (b *Backend) GetCanonicalHash(number uint64) (common.Hash, error) {
 	var hashResult string
 	if err := b.DB.Get(&hashResult, RetrieveCanonicalBlockHashByNumber, number); err != nil {
-		return common.Hash{}
+		return common.Hash{}, err
 	}
-	return common.HexToHash(hashResult)
+	return common.HexToHash(hashResult), nil
 }
 
 type rowResult struct {
@@ -543,7 +555,10 @@ func (b *Backend) GetAccountByNumberOrHash(ctx context.Context, address common.A
 
 // GetAccountByNumber returns the account object for the provided address at the canonical block at the provided height
 func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address, number uint64) (*state.Account, error) {
-	hash := b.GetCanonicalHash(number)
+	hash, err := b.GetCanonicalHash(number)
+	if err != nil {
+		return nil, err
+	}
 	if hash == (common.Hash{}) {
 		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
 	}
@@ -573,7 +588,10 @@ func (b *Backend) GetCodeByNumberOrHash(ctx context.Context, address common.Addr
 
 // GetCodeByNumber returns the byte code for the contract deployed at the provided address at the canonical block with the provided block number
 func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, number uint64) ([]byte, error) {
-	hash := b.GetCanonicalHash(number)
+	hash, err := b.GetCanonicalHash(number)
+	if err != nil {
+		return nil, err
+	}
 	if hash == (common.Hash{}) {
 		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
 	}
@@ -624,7 +642,10 @@ func (b *Backend) GetStorageByNumberOrHash(ctx context.Context, address common.A
 
 // GetStorageByNumber returns the storage value for the provided contract address an storage key at the block corresponding to the provided number
 func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address, storageLeafKey common.Hash, number uint64) (hexutil.Bytes, error) {
-	hash := b.GetCanonicalHash(number)
+	hash, err := b.GetCanonicalHash(number)
+	if err != nil {
+		return nil, err
+	}
 	if hash == (common.Hash{}) {
 		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
 	}

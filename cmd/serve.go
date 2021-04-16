@@ -16,11 +16,13 @@
 package cmd
 
 import (
+	"errors"
 	"github.com/vulcanize/gap-filler/pkg/mux"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
@@ -36,6 +38,8 @@ import (
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
 	v "github.com/vulcanize/ipld-eth-server/version"
 )
+
+var ErrNoRpcEndpoints = errors.New("no rpc endpoints is available")
 
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
@@ -75,6 +79,11 @@ func serve() {
 		logWithCommand.Fatal(err)
 	}
 	graphQL, err := startEthGraphQL(server, serverConfig)
+	if err != nil {
+		logWithCommand.Fatal(err)
+	}
+
+	err = startIpldGraphQL(serverConfig)
 	if err != nil {
 		logWithCommand.Fatal(err)
 	}
@@ -191,6 +200,27 @@ func startIpldGraphQL(settings *s.Config) error {
 	return nil
 }
 
+func parseRpcAddresses(value string) ([]*rpc.Client, error) {
+	rpcAddresses := strings.Split(value, ",")
+	rpcClients := make([]*rpc.Client, 0, len(rpcAddresses))
+	for _, address := range rpcAddresses {
+		rpcClient, err := rpc.Dial(address)
+		if err != nil {
+			logWithCommand.Errorf("couldn't connect to %s. Error: %s", address, err)
+			continue
+		}
+
+		rpcClients = append(rpcClients, rpcClient)
+	}
+
+	if len(rpcClients) == 0 {
+		logWithCommand.Error(ErrNoRpcEndpoints)
+		return nil, ErrNoRpcEndpoints
+	}
+
+	return rpcClients, nil
+}
+
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
@@ -232,11 +262,11 @@ func init() {
 
 	// and their bindings
 	// database
-	viper.BindPFlag("database.name", rootCmd.PersistentFlags().Lookup("database-name"))
-	viper.BindPFlag("database.port", rootCmd.PersistentFlags().Lookup("database-port"))
-	viper.BindPFlag("database.hostname", rootCmd.PersistentFlags().Lookup("database-hostname"))
-	viper.BindPFlag("database.user", rootCmd.PersistentFlags().Lookup("database-user"))
-	viper.BindPFlag("database.password", rootCmd.PersistentFlags().Lookup("database-password"))
+	viper.BindPFlag("database.name", serveCmd.PersistentFlags().Lookup("database-name"))
+	viper.BindPFlag("database.port", serveCmd.PersistentFlags().Lookup("database-port"))
+	viper.BindPFlag("database.hostname", serveCmd.PersistentFlags().Lookup("database-hostname"))
+	viper.BindPFlag("database.user", serveCmd.PersistentFlags().Lookup("database-user"))
+	viper.BindPFlag("database.password", serveCmd.PersistentFlags().Lookup("database-password"))
 
 	// eth graphql server
 	viper.BindPFlag("eth.server.graphql", serveCmd.PersistentFlags().Lookup("eth-server-graphql"))
