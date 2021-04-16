@@ -164,14 +164,18 @@ func startIpldGraphQL(settings *s.Config) error {
 			return err
 		}
 
-		ethClients, err := parseRpcAddresses(viper.GetString("ethereum.httpPath"))
+		ethClients, err := parseRpcAddresses(settings.EthHttpEndpoint)
 		if err != nil {
 			return err
 		}
 
-		tracingClients, err := parseRpcAddresses(viper.GetString("tracing.httpPath"))
-		if err != nil {
-			return err
+		var tracingClients []*rpc.Client
+		tracingEndpoint := viper.GetString("tracing.httpPath")
+		if tracingEndpoint != "" {
+			tracingClients, err = parseRpcAddresses(tracingEndpoint)
+			if err != nil {
+				return err
+			}
 		}
 
 		router, err := mux.NewServeMux(&mux.Options{
@@ -190,9 +194,7 @@ func startIpldGraphQL(settings *s.Config) error {
 			return err
 		}
 
-		if err := http.ListenAndServe(settings.IpldGraphqlEndpoint, router); err != nil {
-			logWithCommand.Fatal(err)
-		}
+		go http.ListenAndServe(settings.IpldGraphqlEndpoint, router)
 	} else {
 		logWithCommand.Info("IPLD GraphQL server is disabled")
 	}

@@ -79,6 +79,7 @@ type Config struct {
 	ChainConfig      *params.ChainConfig
 	DefaultSender    *common.Address
 	RPCGasCap        *big.Int
+	EthHttpEndpoint  string
 	Client           *rpc.Client
 	SupportStateDiff bool
 }
@@ -97,12 +98,14 @@ func NewConfig() (*Config, error) {
 	c.DBConfig.Init()
 
 	ethHTTP := viper.GetString("ethereum.httpPath")
-	nodeInfo, cli, err := shared.GetEthNodeAndClient(fmt.Sprintf("http://%s", ethHTTP))
+	ethHTTPEndpoint := fmt.Sprintf("http://%s", ethHTTP)
+	nodeInfo, cli, err := shared.GetEthNodeAndClient(ethHTTPEndpoint)
 	if err != nil {
 		return nil, err
 	}
 	c.Client = cli
 	c.SupportStateDiff = viper.GetBool("ethereum.supportsStateDiff")
+	c.EthHttpEndpoint = ethHTTPEndpoint
 
 	// websocket server
 	wsEnabled := viper.GetBool("eth.server.ws")
