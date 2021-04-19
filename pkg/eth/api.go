@@ -167,6 +167,19 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 	return nil, err
 }
 
+// ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
+func (api *PublicEthAPI) ChainId() (hexutil.Uint64, error) {
+	chainID := new(big.Int)
+	block, err := api.B.CurrentBlock()
+	if err != nil {
+		return 0, err
+	}
+	if config := api.B.Config.ChainConfig; config.IsEIP155(block.Number()) {
+		chainID = config.ChainID
+	}
+	return (hexutil.Uint64)(chainID.Uint64()), nil
+}
+
 /*
 
 Uncles

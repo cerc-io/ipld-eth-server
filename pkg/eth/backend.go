@@ -202,9 +202,9 @@ func (b *Backend) GetTd(blockHash common.Hash) (*big.Int, error) {
 }
 
 // CurrentBlock returns the current block
-func (b *Backend) CurrentBlock() *types.Block {
-	block, _ := b.BlockByNumber(context.Background(), rpc.LatestBlockNumber)
-	return block
+func (b *Backend) CurrentBlock() (*types.Block, error) {
+	block, err := b.BlockByNumber(context.Background(), rpc.LatestBlockNumber)
+	return block, err
 }
 
 // BlockByNumberOrHash returns block by number or hash
