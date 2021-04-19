@@ -7,8 +7,8 @@ services:
     build:
       context: ./test/contract
       args:
-        ETH_ADDR: "http://192.168.192.4:8545"
+        ETH_ADDR: "http://dapptools:8545"
     environment:
-      ETH_ADDR: "http://192.168.192.4:8545"
+      ETH_ADDR: "http://dapptools:8545"
     ports:
       - "127.0.0.1:3000:3000"

@@ -33,3 +33,27 @@ jobs:
         run: |
           sleep 10
           PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=password DATABASE_HOSTNAME=127.0.0.1 make test
+
+  integrationtest:
+    name: Run integration tests
+    env:
+      GOPATH: /tmp/go
+    strategy:
+      matrix:
+        go-version: [1.15.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Create GOPATH
+        run: mkdir -p /tmp/go
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - uses: actions/checkout@v2
+      - name: Run database
+        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d db dapptools contract eth-server
+      - name: Test
+        run: |
+          sleep 10
+          make integrationtest
