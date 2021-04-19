@@ -52,6 +52,7 @@ services:
     environment:
       IPLD_SERVER_GRAPHQL: "true"
       IPLD_POSTGRAPHILEPATH: http://graphql:5000
+      ETH_SERVER_HTTPPATH: 0.0.0.0:8081
       VDB_COMMAND: "serve"
       DATABASE_NAME: "vulcanize_public"
       DATABASE_HOSTNAME: "db"
@@ -59,7 +60,7 @@ services:
       DATABASE_USER: "vdbm"
       DATABASE_PASSWORD: "password"
     ports:
-     - "127.0.0.1:8080:8080"
+     - "127.0.0.1:8081:8081"
 
   graphql:
     restart: unless-stopped

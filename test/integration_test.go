@@ -102,14 +102,15 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("Transaction", func() {
-		txHash := "0xdb3d5ef2d4e3260e1b8c1bcbb09b2d8fe7a6423196a20b8a3fa6c09dd9d79073"
-		blockHash := "0xb821ca79bd37174368073e469db92ead75148a95f7c24c49f2435fb7c7797588"
+		contract, contractErr = integration.DeployContract()
 
 		It("Get tx by hash", func() {
-			gethTx, _, err := gethClient.TransactionByHash(ctx, common.HexToHash(txHash))
+			Expect(contractErr).ToNot(HaveOccurred())
+
+			gethTx, _, err := gethClient.TransactionByHash(ctx, common.HexToHash(contract.TransactionHash))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldTx, _, err := ipldClient.TransactionByHash(ctx, common.HexToHash(txHash))
+			ipldTx, _, err := ipldClient.TransactionByHash(ctx, common.HexToHash(contract.TransactionHash))
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(gethTx).To(Equal(ipldTx))
@@ -118,27 +119,28 @@ var _ = Describe("Integration test", func() {
 		})
 
 		It("Get tx by block hash and index", func() {
-			gethTx, err := gethClient.TransactionInBlock(ctx, common.HexToHash(blockHash), 0)
+			gethTx, err := gethClient.TransactionInBlock(ctx, common.HexToHash(contract.BlockHash), 0)
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldTx, err := ipldClient.TransactionInBlock(ctx, common.HexToHash(blockHash), 0)
+			ipldTx, err := ipldClient.TransactionInBlock(ctx, common.HexToHash(contract.BlockHash), 0)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(gethTx).To(Equal(ipldTx))
 
 			Expect(gethTx.Hash()).To(Equal(ipldTx.Hash()))
 		})
-
 	})
 
 	Describe("Receipt", func() {
-		txHash := "0xdb3d5ef2d4e3260e1b8c1bcbb09b2d8fe7a6423196a20b8a3fa6c09dd9d79073"
+		contract, contractErr = integration.DeployContract()
 
 		It("Get tx receipt", func() {
-			gethReceipt, err := gethClient.TransactionReceipt(ctx, common.HexToHash(txHash))
+			Expect(contractErr).ToNot(HaveOccurred())
+
+			gethReceipt, err := gethClient.TransactionReceipt(ctx, common.HexToHash(contract.TransactionHash))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldReceipt, err := ipldClient.TransactionReceipt(ctx, common.HexToHash(txHash))
+			ipldReceipt, err := ipldClient.TransactionReceipt(ctx, common.HexToHash(contract.TransactionHash))
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(gethReceipt).To(Equal(ipldReceipt))
@@ -154,13 +156,12 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("FilterLogs", func() {
-		//txHash := "0xdb3d5ef2d4e3260e1b8c1bcbb09b2d8fe7a6423196a20b8a3fa6c09dd9d79073"
-		//blockHash := "0xb821ca79bd37174368073e469db92ead75148a95f7c24c49f2435fb7c7797588"
-		blockHash := common.HexToHash(
-			"0xb821ca79bd37174368073e469db92ead75148a95f7c24c49f2435fb7c7797588",
-		)
+		contract, contractErr = integration.DeployContract()
 
 		It("with blockhash", func() {
+			Expect(contractErr).ToNot(HaveOccurred())
+
+			blockHash := common.HexToHash(contract.BlockHash)
 			filterQuery := ethereum.FilterQuery{
 				//Addresses: addresses,
 				BlockHash: &blockHash,
@@ -195,7 +196,7 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("Chain ID", func() {
-		FIt("Check chain id", func() {
+		It("Check chain id", func() {
 			gethChainId, err := gethClient.ChainID(ctx)
 			Expect(err).ToNot(HaveOccurred())
 

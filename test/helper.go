@@ -6,10 +6,10 @@ import (
 )
 
 type ContractDeployed struct {
-	Address         string
-	TransactionHash string
-	BlockNumber     int
-	BlockHash       string
+	Address         string `json:"address"`
+	TransactionHash string `json:"txHash"`
+	BlockNumber     int    `json:"blockNumber"`
+	BlockHash       string `json:"blockHash"`
 }
 
 func DeployContract() (*ContractDeployed, error) {
