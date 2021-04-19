@@ -4,7 +4,7 @@ services:
   dapptools:
     restart: unless-stopped
     depends_on:
-      - db
+      - statediff-migrations
     image: vulcanize/dapptools:v0.29.0-v1.10.2-statediff-0.0.19
     environment:
       DB_USER: vdbm
