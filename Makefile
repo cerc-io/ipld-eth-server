@@ -61,7 +61,7 @@ test: | $(GINKGO) $(GOOSE)
 	dropdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) --if-exists $(TEST_DB)
 	createdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) $(TEST_DB)
 	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING)" up
-	$(GINKGO) -r --skipPackage=integration_test,integration
+	$(GINKGO) -r --skipPackage=test
 
 .PHONY: integrationtest
 integrationtest: | $(GINKGO) $(GOOSE)
@@ -82,7 +82,7 @@ test_local: | $(GINKGO) $(GOOSE)
 	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING_LOCAL)" up
 	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING_LOCAL)" reset
 	make migrate NAME=$(TEST_DB)
-	$(GINKGO) -r --skipPackage=integration_test,integration
+	$(GINKGO) -r --skipPackage=test
 
 .PHONY: integrationtest_local
 integrationtest_local: | $(GINKGO) $(GOOSE)

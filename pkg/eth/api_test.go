@@ -271,10 +271,10 @@ var _ = Describe("API", func() {
 				Expect(val).To(Equal(block[key]))
 			}
 		})
-		It("Throws an error if a block cannot be found", func() {
-			_, err := api.GetBlockByNumber(ctx, wrongNumber, false)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		It("Returns `nil` if a block cannot be found", func() {
+			block, err := api.GetBlockByNumber(ctx, wrongNumber, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(block).To(BeNil())
 		})
 	})
 
@@ -303,10 +303,10 @@ var _ = Describe("API", func() {
 				Expect(val).To(Equal(block[key]))
 			}
 		})
-		It("Throws an error if a block cannot be found", func() {
-			_, err := api.GetBlockByHash(ctx, randomHash, false)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		It("Returns `nil` if a block cannot be found", func() {
+			block, err := api.GetBlockByHash(ctx, randomHash, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(block).To(BeZero())
 		})
 	})
 
@@ -325,10 +325,10 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle2).To(Equal(expectedUncle2))
 		})
-		It("Throws an error if an block for blocknumber cannot be found", func() {
-			_, err := api.GetUncleByBlockNumberAndIndex(ctx, wrongNumber, 0)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		It("Returns `nil` if an block for blocknumber cannot be found", func() {
+			block, err := api.GetUncleByBlockNumberAndIndex(ctx, wrongNumber, 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(block).To(BeNil())
 		})
 		It("Returns `nil` if an uncle at the provided index does not exist for the block found for the provided block number", func() {
 			uncle, err := api.GetUncleByBlockNumberAndIndex(ctx, number, 2)
@@ -346,10 +346,10 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle2).To(Equal(expectedUncle2))
 		})
-		It("Throws an error if an block for blockhash cannot be found", func() {
-			_, err := api.GetUncleByBlockHashAndIndex(ctx, randomHash, 0)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+		It("Returns `nil` if a block for blockhash cannot be found", func() {
+			block, err := api.GetUncleByBlockHashAndIndex(ctx, randomHash, 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(block).To(BeNil())
 		})
 		It("Returns `nil` if an uncle at the provided index does not exist for the block with the provided hash", func() {
 			uncle, err := api.GetUncleByBlockHashAndIndex(ctx, blockHash, 2)
