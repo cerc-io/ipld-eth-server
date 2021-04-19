@@ -18,6 +18,7 @@ package eth
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"math/big"
@@ -263,12 +264,18 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	// Get the canonical hash
 	canonicalHash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	// Retrieve all the CIDs for the block
 	// TODO: optimize this by retrieving iplds directly rather than the cids first (this is remanent from when we fetched iplds through ipfs blockservice interface)
 	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(canonicalHash)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -291,6 +298,9 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	// Fetch and decode the header IPLD
 	headerIPLD, err := b.Fetcher.FetchHeader(tx, headerCID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	var header types.Header
@@ -346,6 +356,9 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	// Retrieve all the CIDs for the block
 	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(hash)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -368,6 +381,9 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	// Fetch and decode the header IPLD
 	headerIPLD, err := b.Fetcher.FetchHeader(tx, headerCID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	var header types.Header
@@ -377,6 +393,9 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	// Fetch and decode the uncle IPLDs
 	uncleIPLDs, err := b.Fetcher.FetchUncles(tx, uncleCIDs)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	var uncles []*types.Header
@@ -390,6 +409,9 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	// Fetch and decode the transaction IPLDs
 	txIPLDs, err := b.Fetcher.FetchTrxs(tx, txCIDs)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	var transactions []*types.Transaction
@@ -403,6 +425,9 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	// Fetch and decode the receipt IPLDs
 	rctIPLDs, err := b.Fetcher.FetchRcts(tx, rctCIDs)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
 	var receipts []*types.Receipt

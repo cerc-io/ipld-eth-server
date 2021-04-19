@@ -82,7 +82,7 @@ test_local: | $(GINKGO) $(GOOSE)
 	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING_LOCAL)" up
 	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING_LOCAL)" reset
 	make migrate NAME=$(TEST_DB)
-	$(GINKGO) -r --skipPackage=integration_tests,integration
+	$(GINKGO) -r --skipPackage=integration_test,integration
 
 .PHONY: integrationtest_local
 integrationtest_local: | $(GINKGO) $(GOOSE)
