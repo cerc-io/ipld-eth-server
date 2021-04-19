@@ -11,7 +11,7 @@ jobs:
       - name: Run docker build
         run: make docker-build
   test:
-    name: Run integration tests
+    name: Run unit tests
     env:
       GOPATH: /tmp/go
     strategy:
