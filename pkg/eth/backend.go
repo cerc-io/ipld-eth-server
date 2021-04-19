@@ -41,6 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 
 	"github.com/vulcanize/ipfs-ethdb"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
@@ -281,49 +282,57 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	}()
 
 	// Fetch and decode the header IPLD
-	headerIPLD, err := b.Fetcher.FetchHeader(tx, headerCID)
+	var headerIPLD ipfs.BlockModel
+	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
 	if err != nil {
 		return nil, err
 	}
 	var header types.Header
-	if err := rlp.DecodeBytes(headerIPLD.Data, &header); err != nil {
+	err = rlp.DecodeBytes(headerIPLD.Data, &header)
+	if err != nil {
 		return nil, err
 	}
 	// Fetch and decode the uncle IPLDs
-	uncleIPLDs, err := b.Fetcher.FetchUncles(tx, uncleCIDs)
+	var uncleIPLDs []ipfs.BlockModel
+	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
 	if err != nil {
 		return nil, err
 	}
 	var uncles []*types.Header
 	for _, uncleIPLD := range uncleIPLDs {
 		var uncle types.Header
-		if err := rlp.DecodeBytes(uncleIPLD.Data, &uncle); err != nil {
+		err = rlp.DecodeBytes(uncleIPLD.Data, &uncle)
+		if err != nil {
 			return nil, err
 		}
 		uncles = append(uncles, &uncle)
 	}
 	// Fetch and decode the transaction IPLDs
-	txIPLDs, err := b.Fetcher.FetchTrxs(tx, txCIDs)
+	var txIPLDs []ipfs.BlockModel
+	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
 	if err != nil {
 		return nil, err
 	}
 	var transactions []*types.Transaction
 	for _, txIPLD := range txIPLDs {
 		var transaction types.Transaction
-		if err := rlp.DecodeBytes(txIPLD.Data, &transaction); err != nil {
+		err = rlp.DecodeBytes(txIPLD.Data, &transaction)
+		if err != nil {
 			return nil, err
 		}
 		transactions = append(transactions, &transaction)
 	}
 	// Fetch and decode the receipt IPLDs
-	rctIPLDs, err := b.Fetcher.FetchRcts(tx, rctCIDs)
+	var rctIPLDs []ipfs.BlockModel
+	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
 	if err != nil {
 		return nil, err
 	}
 	var receipts []*types.Receipt
 	for _, rctIPLD := range rctIPLDs {
 		var receipt types.Receipt
-		if err := rlp.DecodeBytes(rctIPLD.Data, &receipt); err != nil {
+		err = rlp.DecodeBytes(rctIPLD.Data, &receipt)
+		if err != nil {
 			return nil, err
 		}
 		receipts = append(receipts, &receipt)
@@ -358,49 +367,57 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	}()
 
 	// Fetch and decode the header IPLD
-	headerIPLD, err := b.Fetcher.FetchHeader(tx, headerCID)
+	var headerIPLD ipfs.BlockModel
+	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
 	if err != nil {
 		return nil, err
 	}
 	var header types.Header
-	if err := rlp.DecodeBytes(headerIPLD.Data, &header); err != nil {
+	err = rlp.DecodeBytes(headerIPLD.Data, &header)
+	if err != nil {
 		return nil, err
 	}
 	// Fetch and decode the uncle IPLDs
-	uncleIPLDs, err := b.Fetcher.FetchUncles(tx, uncleCIDs)
+	var uncleIPLDs []ipfs.BlockModel
+	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
 	if err != nil {
 		return nil, err
 	}
 	var uncles []*types.Header
 	for _, uncleIPLD := range uncleIPLDs {
 		var uncle types.Header
-		if err := rlp.DecodeBytes(uncleIPLD.Data, &uncle); err != nil {
+		err = rlp.DecodeBytes(uncleIPLD.Data, &uncle)
+		if err != nil {
 			return nil, err
 		}
 		uncles = append(uncles, &uncle)
 	}
 	// Fetch and decode the transaction IPLDs
-	txIPLDs, err := b.Fetcher.FetchTrxs(tx, txCIDs)
+	var txIPLDs []ipfs.BlockModel
+	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
 	if err != nil {
 		return nil, err
 	}
 	var transactions []*types.Transaction
 	for _, txIPLD := range txIPLDs {
 		var transaction types.Transaction
-		if err := rlp.DecodeBytes(txIPLD.Data, &transaction); err != nil {
+		err = rlp.DecodeBytes(txIPLD.Data, &transaction)
+		if err != nil {
 			return nil, err
 		}
 		transactions = append(transactions, &transaction)
 	}
 	// Fetch and decode the receipt IPLDs
-	rctIPLDs, err := b.Fetcher.FetchRcts(tx, rctCIDs)
+	var rctIPLDs []ipfs.BlockModel
+	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
 	if err != nil {
 		return nil, err
 	}
 	var receipts []*types.Receipt
 	for _, rctIPLD := range rctIPLDs {
 		var receipt types.Receipt
-		if err := rlp.DecodeBytes(rctIPLD.Data, &receipt); err != nil {
+		err = rlp.DecodeBytes(rctIPLD.Data, &receipt)
+		if err != nil {
 			return nil, err
 		}
 		receipts = append(receipts, &receipt)
@@ -599,10 +616,12 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 			err = tx.Commit()
 		}
 	}()
-	if err := tx.Get(&codeHash, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex()); err != nil {
+	err = tx.Get(&codeHash, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex())
+	if err != nil {
 		return nil, err
 	}
-	mhKey, err := shared2.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
+	var mhKey string
+	mhKey, err = shared2.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
 	if err != nil {
 		return nil, err
 	}
