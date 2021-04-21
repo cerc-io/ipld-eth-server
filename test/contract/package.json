@@ -5,6 +5,7 @@
   "scripts": {
     "compile": "npx hardhat compile",
     "start": "HARDHAT_NETWORK=docker node src/index.js",
+    "start:local": "ETH_ADDR=http://127.0.0.1:8545 npm run start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

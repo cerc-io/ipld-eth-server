@@ -22,18 +22,31 @@ fastify.get('/v1/deployContract', async (req, reply) => {
     }
 });
 
-// fastify.get('/v1/deployContract', async (req, reply) => {
-//     const GLDToken = await hre.ethers.getContractFactory("GLDToken");
-//     const token = await GLDToken.deploy();
-//     await token.deployed();
-//     console.log("GLDToken deployed to:", token.address, token.deployTransaction);
-//
-//     return {
-//         address: token.address,
-//         txHash: token.deployTransaction.hash,
-//         blockNumber: token.deployTransaction.blockNumber,
-//     }
-// });
+fastify.get('/v1/sendEth', async (req, reply) => {
+    const to = req.query.to;
+    const value = req.query.value;
+
+    const [owner] = await hre.ethers.getSigners();
+    const tx = await owner.sendTransaction({
+        to,
+        value: hre.ethers.utils.parseEther(value)
+    });
+    await tx.wait(1)
+
+    // console.log(tx);
+    // const coinbaseBalance = await hre.ethers.provider.getBalance(owner.address);
+    // const receiverBalance = await hre.ethers.provider.getBalance(to);
+    // console.log(coinbaseBalance.toString(), receiverBalance.toString());
+
+    return {
+        from: tx.from,
+        to: tx.to,
+        //value: tx.value.toString(),
+        txHash: tx.hash,
+        blockNumber: tx.blockNumber,
+        blockHash: tx.blockHash,
+    }
+});
 
 async function main() {
     try {

@@ -206,6 +206,14 @@ var _ = Describe("Integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(gethCode).To(Equal(ipldCode))
 		})
+		It("gets code of deployed contract with block number", func() {
+			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldCode, err := ipldClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gethCode).To(Equal(ipldCode))
+		})
 		It("gets code of contract that doesn't exist at this height", func() {
 			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber-1)))
 			Expect(err).ToNot(HaveOccurred())
@@ -215,6 +223,45 @@ var _ = Describe("Integration test", func() {
 
 			Expect(gethCode).To(BeEmpty())
 			Expect(gethCode).To(Equal(ipldCode))
+		})
+	})
+
+	Describe("Get balance", func() {
+		address := "0x1111111111111111111111111111111111111112"
+		tx, txErr := integration.SendEth(address, "0.01")
+
+		It("gets balance for an account with eth without block number", func() {
+			Expect(txErr).ToNot(HaveOccurred())
+
+			gethBalance, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldBalance, err := ipldClient.BalanceAt(ctx, common.HexToAddress(address), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(gethBalance).To(Equal(ipldBalance))
+		})
+		It("gets balance for an account with eth with block number", func() {
+			Expect(txErr).ToNot(HaveOccurred())
+
+			gethBalance, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldBalance, err := ipldClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(gethBalance).To(Equal(ipldBalance))
+		})
+		It("gets historical balance for an account with eth with block number", func() {
+			Expect(txErr).ToNot(HaveOccurred())
+
+			gethBalance, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber-1)))
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldBalance, err := ipldClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber-1)))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(gethBalance).To(Equal(ipldBalance))
 		})
 	})
 
