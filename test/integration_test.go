@@ -2,10 +2,10 @@ package integration_test
 
 import (
 	"context"
-	"fmt"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/ginkgo"
@@ -31,10 +31,16 @@ var _ = Describe("Integration test", func() {
 	ctx := context.Background()
 
 	var contract *integration.ContractDeployed
+	var erc20TotalSupply *big.Int
+	var bigIntResult bool
 	var contractErr error
+	sleepInterval := 2 * time.Second
 
 	Describe("get Block", func() {
-		contract, contractErr = integration.DeployContract()
+		BeforeEach(func() {
+			contract, contractErr = integration.DeployContract()
+			time.Sleep(sleepInterval)
+		})
 
 		It("get not existing block by number", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
@@ -82,9 +88,7 @@ var _ = Describe("Integration test", func() {
 		})
 
 		It("get block by hash", func() {
-
 			gethBlock, err := gethClient.BlockByHash(ctx, common.HexToHash(contract.BlockHash))
-			fmt.Printf("contract info: %+v", contract)
 			Expect(err).ToNot(HaveOccurred())
 
 			ipldBlock, err := ipldClient.BlockByHash(ctx, common.HexToHash(contract.BlockHash))
@@ -103,7 +107,10 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("Transaction", func() {
-		contract, contractErr = integration.DeployContract()
+		BeforeEach(func() {
+			contract, contractErr = integration.DeployContract()
+			time.Sleep(sleepInterval)
+		})
 
 		It("Get tx by hash", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
@@ -133,7 +140,10 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("Receipt", func() {
-		contract, contractErr = integration.DeployContract()
+		BeforeEach(func() {
+			contract, contractErr = integration.DeployContract()
+			time.Sleep(sleepInterval)
+		})
 
 		It("Get tx receipt", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
@@ -157,7 +167,10 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("FilterLogs", func() {
-		contract, contractErr = integration.DeployContract()
+		BeforeEach(func() {
+			contract, contractErr = integration.DeployContract()
+			time.Sleep(sleepInterval)
+		})
 
 		It("with blockhash", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
@@ -183,8 +196,11 @@ var _ = Describe("Integration test", func() {
 		})
 	})
 
-	Describe("CodeAt", func() {
-		contract, contractErr = integration.DeployContract()
+	Describe("", func() {
+		BeforeEach(func() {
+			contract, contractErr = integration.DeployContract()
+			time.Sleep(sleepInterval)
+		})
 
 		It("gets code at non-existing address without block number", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
@@ -266,12 +282,16 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("Get Storage", func() {
-		contract, contractErr = integration.DeployContract()
-		erc20TotalSupply, err := new(big.Int).SetString("1000000000000000000000", 10)
+		BeforeEach(func() {
+			contract, contractErr = integration.DeployContract()
+			erc20TotalSupply, bigIntResult = new(big.Int).SetString("1000000000000000000000", 10)
+
+			time.Sleep(sleepInterval)
+		})
 
 		It("gets ERC20 total supply (without block number)", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
-			Expect(err).ToNot(Equal(false))
+			Expect(bigIntResult).To(Equal(true))
 
 			totalSupplyIndex := "0x2"
 
@@ -283,13 +303,14 @@ var _ = Describe("Integration test", func() {
 
 			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
+
+			ipldTotalSupply := new(big.Int).SetBytes(ipldStorage)
+			Expect(ipldTotalSupply).To(Equal(erc20TotalSupply))
+
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
 
 		It("gets ERC20 total supply (with block number)", func() {
-			Expect(contractErr).ToNot(HaveOccurred())
-			Expect(err).ToNot(Equal(false))
-
 			totalSupplyIndex := "0x2"
 
 			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
@@ -305,12 +326,16 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("eth call", func() {
-		contract, contractErr = integration.DeployContract()
-		erc20TotalSupply, err := new(big.Int).SetString("1000000000000000000000", 10)
+		BeforeEach(func() {
+			contract, contractErr = integration.DeployContract()
+			erc20TotalSupply, bigIntResult = new(big.Int).SetString("1000000000000000000000", 10)
+
+			time.Sleep(sleepInterval)
+		})
 
 		It("calls totalSupply() without block number", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
-			Expect(err).ToNot(Equal(false))
+			Expect(bigIntResult).To(Equal(true))
 
 			contractAddress := common.HexToAddress(contract.Address)
 
