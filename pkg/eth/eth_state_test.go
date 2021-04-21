@@ -409,13 +409,15 @@ var _ = Describe("eth state reading tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
 		})
-		It("Throws an error for an account it cannot find the code for", func() {
-			_, err := api.GetCode(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
-			Expect(err).To(HaveOccurred())
+		It("Returns `nil` for an account it cannot find the code for", func() {
+			code, err := api.GetCode(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(BeEmpty())
 		})
-		It("Throws an error for a contract that doesn't exist at this hieght", func() {
-			_, err := api.GetCode(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(0))
-			Expect(err).To(HaveOccurred())
+		It("Returns `nil`  for a contract that doesn't exist at this height", func() {
+			code, err := api.GetCode(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(0))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(BeEmpty())
 		})
 	})
 

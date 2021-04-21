@@ -204,7 +204,16 @@ var _ = Describe("Integration test", func() {
 
 			ipldCode, err := ipldClient.CodeAt(ctx, common.HexToAddress(contract.Address), nil)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(gethCode).To(Equal(ipldCode))
+		})
+		It("gets code of contract that doesn't exist at this height", func() {
+			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber-1)))
+			Expect(err).ToNot(HaveOccurred())
 
+			ipldCode, err := ipldClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber-1)))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(gethCode).To(BeEmpty())
 			Expect(gethCode).To(Equal(ipldCode))
 		})
 	})

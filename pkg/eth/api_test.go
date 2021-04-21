@@ -965,9 +965,10 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
 		})
-		It("Throws an error for an account it cannot find the code for", func() {
-			_, err := api.GetCode(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blockHash, true))
-			Expect(err).To(HaveOccurred())
+		It("Returns `nil` for an account it cannot find the code for", func() {
+			code, err := api.GetCode(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(code).To(BeEmpty())
 		})
 	})
 })
