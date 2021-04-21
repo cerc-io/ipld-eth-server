@@ -54,7 +54,6 @@ var (
 )
 
 const (
-	RetrieveMaxBlockNumber             = `SELECT max(block_number) FROM eth.header_cids`
 	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
 									WHERE id = (SELECT canonical_header_id($1))`
@@ -549,15 +548,6 @@ func (b *Backend) GetCanonicalHash(number uint64) (common.Hash, error) {
 	return common.HexToHash(hashResult), nil
 }
 
-// GetLastBlockNumber gets the latest block number
-func (b *Backend) GetLastBlockNumber() (uint64, error) {
-	var number uint64
-	if err := b.DB.Get(&number, RetrieveMaxBlockNumber); err != nil {
-		return 0, err
-	}
-	return number, nil
-}
-
 type rowResult struct {
 	CID  string
 	Data []byte
@@ -580,7 +570,7 @@ func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.Sta
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash
 func (b *Backend) GetAccountByNumberOrHash(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*state.Account, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
-		return b.GetAccountByNumber(ctx, address, uint64(blockNr.Int64()))
+		return b.GetAccountByNumber(ctx, address, blockNr)
 	}
 	if hash, ok := blockNrOrHash.Hash(); ok {
 		return b.GetAccountByHash(ctx, address, hash)
@@ -589,8 +579,25 @@ func (b *Backend) GetAccountByNumberOrHash(ctx context.Context, address common.A
 }
 
 // GetAccountByNumber returns the account object for the provided address at the canonical block at the provided height
-func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address, number uint64) (*state.Account, error) {
-	hash, err := b.GetCanonicalHash(number)
+func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address, blockNumber rpc.BlockNumber) (*state.Account, error) {
+	var err error
+	number := blockNumber.Int64()
+	if blockNumber == rpc.LatestBlockNumber {
+		number, err = b.Retriever.RetrieveLastBlockNumber()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if blockNumber == rpc.EarliestBlockNumber {
+		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if blockNumber == rpc.PendingBlockNumber {
+		return nil, errPendingBlockNumber
+	}
+	hash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
 		return nil, err
 	}
@@ -622,17 +629,25 @@ func (b *Backend) GetCodeByNumberOrHash(ctx context.Context, address common.Addr
 }
 
 // GetCodeByNumber returns the byte code for the contract deployed at the provided address at the canonical block with the provided block number
-func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, number rpc.BlockNumber) ([]byte, error) {
-	if number == rpc.LatestBlockNumber {
-		// get latest block number
-		latestBlockNumber, err := b.GetLastBlockNumber()
+func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, blockNumber rpc.BlockNumber) ([]byte, error) {
+	var err error
+	number := blockNumber.Int64()
+	if blockNumber == rpc.LatestBlockNumber {
+		number, err = b.Retriever.RetrieveLastBlockNumber()
 		if err != nil {
 			return nil, err
 		}
-
-		number = rpc.BlockNumber(latestBlockNumber)
 	}
-	hash, err := b.GetCanonicalHash(uint64(number.Int64()))
+	if blockNumber == rpc.EarliestBlockNumber {
+		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if blockNumber == rpc.PendingBlockNumber {
+		return nil, errPendingBlockNumber
+	}
+	hash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
 		return nil, err
 	}
@@ -676,7 +691,7 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 // GetStorageByNumberOrHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided number or hash
 func (b *Backend) GetStorageByNumberOrHash(ctx context.Context, address common.Address, storageLeafKey common.Hash, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
-		return b.GetStorageByNumber(ctx, address, storageLeafKey, uint64(blockNr.Int64()))
+		return b.GetStorageByNumber(ctx, address, storageLeafKey, blockNr)
 	}
 	if hash, ok := blockNrOrHash.Hash(); ok {
 		return b.GetStorageByHash(ctx, address, storageLeafKey, hash)
@@ -685,8 +700,25 @@ func (b *Backend) GetStorageByNumberOrHash(ctx context.Context, address common.A
 }
 
 // GetStorageByNumber returns the storage value for the provided contract address an storage key at the block corresponding to the provided number
-func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address, storageLeafKey common.Hash, number uint64) (hexutil.Bytes, error) {
-	hash, err := b.GetCanonicalHash(number)
+func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address, storageLeafKey common.Hash, blockNumber rpc.BlockNumber) (hexutil.Bytes, error) {
+	var err error
+	number := blockNumber.Int64()
+	if blockNumber == rpc.LatestBlockNumber {
+		number, err = b.Retriever.RetrieveLastBlockNumber()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if blockNumber == rpc.EarliestBlockNumber {
+		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if blockNumber == rpc.PendingBlockNumber {
+		return nil, errPendingBlockNumber
+	}
+	hash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
 		return nil, err
 	}
