@@ -304,6 +304,52 @@ var _ = Describe("Integration test", func() {
 		})
 	})
 
+	Describe("eth call", func() {
+		contract, contractErr = integration.DeployContract()
+		erc20TotalSupply, err := new(big.Int).SetString("1000000000000000000000", 10)
+
+		It("calls totalSupply() without block number", func() {
+			Expect(contractErr).ToNot(HaveOccurred())
+			Expect(err).ToNot(Equal(false))
+
+			contractAddress := common.HexToAddress(contract.Address)
+
+			msg := ethereum.CallMsg{
+				To:   &contractAddress,
+				Data: common.Hex2Bytes("18160ddd"), // totalSupply()
+			}
+			gethResult, err := gethClient.CallContract(ctx, msg, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			gethTotalSupply := new(big.Int).SetBytes(gethResult)
+			Expect(gethTotalSupply).To(Equal(erc20TotalSupply))
+
+			ipldResult, err := ipldClient.CallContract(ctx, msg, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(gethResult).To(Equal(ipldResult))
+		})
+
+		It("calls totalSupply() with block number", func() {
+			contractAddress := common.HexToAddress(contract.Address)
+
+			msg := ethereum.CallMsg{
+				To:   &contractAddress,
+				Data: common.Hex2Bytes("18160ddd"), // totalSupply()
+			}
+			gethResult, err := gethClient.CallContract(ctx, msg, big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+
+			gethTotalSupply := new(big.Int).SetBytes(gethResult)
+			Expect(gethTotalSupply).To(Equal(erc20TotalSupply))
+
+			ipldResult, err := ipldClient.CallContract(ctx, msg, big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(gethResult).To(Equal(ipldResult))
+		})
+	})
+
 	Describe("Chain ID", func() {
 		It("Check chain id", func() {
 			gethChainId, err := gethClient.ChainID(ctx)
