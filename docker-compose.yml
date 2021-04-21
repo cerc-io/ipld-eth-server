@@ -59,6 +59,7 @@ services:
       DATABASE_PORT: 5432
       DATABASE_USER: "vdbm"
       DATABASE_PASSWORD: "password"
+      ETH_CHAIN_ID: 4
     ports:
      - "127.0.0.1:8081:8081"
 

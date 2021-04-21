@@ -16,6 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+const nonExistingBlockHash = "0x111111111111111111111111111111111111111111111111111111111111111"
+const nonExistingAddress = "0x1111111111111111111111111111111111111111"
+
 var _ = Describe("Integration test", func() {
 	gethHttpPath := "http://127.0.0.1:8545"
 	gethClient, err := ethclient.Dial(gethHttpPath)
@@ -48,8 +51,6 @@ var _ = Describe("Integration test", func() {
 		})
 
 		It("get not existing block by hash", func() {
-			nonExistingBlockHash := "0x111111111111111111111111111111111111111111111111111111111111111"
-
 			gethBlock, err := gethClient.BlockByHash(ctx, common.HexToHash(nonExistingBlockHash))
 			Expect(err).To(MatchError(ethereum.NotFound))
 			Expect(gethBlock).To(BeZero())
@@ -183,12 +184,25 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("CodeAt", func() {
-		contractAddress := "0xdEE08501Ef5b68339ca920227d6520A10B72b65b"
-		It("Get code of deployed contract without block number", func() {
-			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(contractAddress), nil)
+		contract, contractErr = integration.DeployContract()
+
+		It("gets code at non-existing address without block number", func() {
+			Expect(contractErr).ToNot(HaveOccurred())
+
+			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(nonExistingAddress), nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldCode, err := ipldClient.CodeAt(ctx, common.HexToAddress(contractAddress), nil)
+			ipldCode, err := ipldClient.CodeAt(ctx, common.HexToAddress(nonExistingAddress), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(gethCode).To(BeEmpty())
+			Expect(gethCode).To(Equal(ipldCode))
+		})
+		It("gets code of deployed contract without block number", func() {
+			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldCode, err := ipldClient.CodeAt(ctx, common.HexToAddress(contract.Address), nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(gethCode).To(Equal(ipldCode))

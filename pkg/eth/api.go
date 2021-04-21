@@ -18,6 +18,7 @@ package eth
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -168,16 +169,18 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
-func (api *PublicEthAPI) ChainId() (hexutil.Uint64, error) {
+func (api *PublicEthAPI) ChainId() hexutil.Uint64 {
 	chainID := new(big.Int)
 	block, err := api.B.CurrentBlock()
 	if err != nil {
-		return 0, err
+		logrus.Errorf("ChainId failed with err %s", err.Error())
+
+		return 0
 	}
 	if config := api.B.Config.ChainConfig; config.IsEIP155(block.Number()) {
 		chainID = config.ChainID
 	}
-	return (hexutil.Uint64)(chainID.Uint64()), nil
+	return (hexutil.Uint64)(chainID.Uint64())
 }
 
 /*
@@ -682,6 +685,10 @@ func (pea *PublicEthAPI) GetCode(ctx context.Context, address common.Address, bl
 			return res, nil
 		}
 	}
+	if err == sql.ErrNoRows {
+		return code, nil
+	}
+
 	return nil, err
 }
 

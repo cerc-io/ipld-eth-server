@@ -54,6 +54,7 @@ var (
 )
 
 const (
+	RetrieveMaxBlockNumber             = `SELECT max(block_number) FROM eth.header_cids`
 	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
 									WHERE id = (SELECT canonical_header_id($1))`
@@ -548,6 +549,15 @@ func (b *Backend) GetCanonicalHash(number uint64) (common.Hash, error) {
 	return common.HexToHash(hashResult), nil
 }
 
+// GetLastBlockNumber gets the latest block number
+func (b *Backend) GetLastBlockNumber() (uint64, error) {
+	var number uint64
+	if err := b.DB.Get(&number, RetrieveMaxBlockNumber); err != nil {
+		return 0, err
+	}
+	return number, nil
+}
+
 type rowResult struct {
 	CID  string
 	Data []byte
@@ -603,7 +613,7 @@ func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, 
 // GetCodeByNumberOrHash returns the byte code for the contract deployed at the provided address at the block with the provided hash or block number
 func (b *Backend) GetCodeByNumberOrHash(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) ([]byte, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
-		return b.GetCodeByNumber(ctx, address, uint64(blockNr.Int64()))
+		return b.GetCodeByNumber(ctx, address, blockNr)
 	}
 	if hash, ok := blockNrOrHash.Hash(); ok {
 		return b.GetCodeByHash(ctx, address, hash)
@@ -612,8 +622,17 @@ func (b *Backend) GetCodeByNumberOrHash(ctx context.Context, address common.Addr
 }
 
 // GetCodeByNumber returns the byte code for the contract deployed at the provided address at the canonical block with the provided block number
-func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, number uint64) ([]byte, error) {
-	hash, err := b.GetCanonicalHash(number)
+func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, number rpc.BlockNumber) ([]byte, error) {
+	if number == rpc.LatestBlockNumber {
+		// get latest block number
+		latestBlockNumber, err := b.GetLastBlockNumber()
+		if err != nil {
+			return nil, err
+		}
+
+		number = rpc.BlockNumber(latestBlockNumber)
+	}
+	hash, err := b.GetCanonicalHash(uint64(number.Int64()))
 	if err != nil {
 		return nil, err
 	}
