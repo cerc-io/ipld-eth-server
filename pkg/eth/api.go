@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"time"
@@ -662,6 +663,9 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 	if storageVal != nil && err == nil {
 		var value common.Hash
 		_, content, _, err := rlp.Split(storageVal)
+		if err == io.ErrUnexpectedEOF {
+			return hexutil.Bytes{}, nil
+		}
 		if err != nil {
 			return nil, err
 		}

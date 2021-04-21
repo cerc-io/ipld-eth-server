@@ -438,22 +438,22 @@ var _ = Describe("eth state reading tests", func() {
 		})
 		It("Retrieves the storage value at the provided contract address and storage leaf key at the block with the provided hash or number", func() {
 			// After deployment
-			val, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(2))
+			val, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithNumber(2))
 			Expect(err).ToNot(HaveOccurred())
-			expectedRes := hexutil.Bytes(common.Hex2Bytes("01"))
+			expectedRes := hexutil.Bytes(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000001"))
 			Expect(val).To(Equal(expectedRes))
 
-			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(3))
+			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithNumber(3))
 			Expect(err).ToNot(HaveOccurred())
-			expectedRes = hexutil.Bytes(common.Hex2Bytes("03"))
+			expectedRes = hexutil.Bytes(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000003"))
 			Expect(val).To(Equal(expectedRes))
 
-			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(4))
+			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithNumber(4))
 			Expect(err).ToNot(HaveOccurred())
-			expectedRes = hexutil.Bytes(common.Hex2Bytes("09"))
+			expectedRes = hexutil.Bytes(common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000009"))
 			Expect(val).To(Equal(expectedRes))
 
-			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(5))
+			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(val).To(Equal(hexutil.Bytes{}))
 		})
