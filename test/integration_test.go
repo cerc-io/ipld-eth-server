@@ -265,6 +265,45 @@ var _ = Describe("Integration test", func() {
 		})
 	})
 
+	Describe("Get Storage", func() {
+		contract, contractErr = integration.DeployContract()
+		erc20TotalSupply, err := new(big.Int).SetString("1000000000000000000000", 10)
+
+		It("gets ERC20 total supply (without block number)", func() {
+			Expect(contractErr).ToNot(HaveOccurred())
+			Expect(err).ToNot(Equal(false))
+
+			totalSupplyIndex := "0x2"
+
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			gethTotalSupply := new(big.Int).SetBytes(gethStorage)
+			Expect(gethTotalSupply).To(Equal(erc20TotalSupply))
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gethStorage).To(Equal(ipldStorage))
+		})
+
+		It("gets ERC20 total supply (with block number)", func() {
+			Expect(contractErr).ToNot(HaveOccurred())
+			Expect(err).ToNot(Equal(false))
+
+			totalSupplyIndex := "0x2"
+
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+
+			gethTotalSupply := new(big.Int).SetBytes(gethStorage)
+			Expect(gethTotalSupply).To(Equal(erc20TotalSupply))
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gethStorage).To(Equal(ipldStorage))
+		})
+	})
+
 	Describe("Chain ID", func() {
 		It("Check chain id", func() {
 			gethChainId, err := gethClient.ChainID(ctx)
