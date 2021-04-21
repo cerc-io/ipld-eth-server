@@ -432,6 +432,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address common.Address, storageLeafKey, hash common.Hash) (string, []byte, error) {
 	storageResult := new(nodeInfo)
 	stateLeafKey := crypto.Keccak256Hash(address.Bytes())
+	storageLeafKey = crypto.Keccak256Hash(storageLeafKey.Bytes())
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageLeafKey.Hex(), hash.Hex()); err != nil {
 		return "", nil, err
 	}
