@@ -39,6 +39,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
+	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -540,36 +541,13 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		Topics:       topicStrSets,
 	}
 
-	// Begin tx
-	tx, err := pea.B.DB.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
-
 	// If we have a blockhash to filter on, fire off single retrieval query
 	if crit.BlockHash != nil {
-		rctCIDs, err := pea.B.Retriever.RetrieveRctCIDs(tx, filter, 0, crit.BlockHash, nil)
+		blocks, topics, err := pea.getLogsForBlockHash(filter, crit.BlockHash)
 		if err != nil {
 			return nil, err
 		}
-		rctIPLDs, err := pea.B.Fetcher.FetchRcts(tx, rctCIDs)
-		if err != nil {
-			return nil, err
-		}
-		if err := tx.Commit(); err != nil {
-			return nil, err
-		}
-		return extractLogsOfInterest(rctIPLDs, filter.Topics)
+		return extractLogsOfInterest(blocks, topics)
 	}
 	// Otherwise, create block range from criteria
 	// nil values are filled in; to request a single block have both ToBlock and FromBlock equal that number
@@ -587,23 +565,69 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	}
 	start := startingBlock.Int64()
 	end := endingBlock.Int64()
-	allRctCIDs := make([]eth.ReceiptModel, 0)
-	for i := start; i <= end; i++ {
-		rctCIDs, err := pea.B.Retriever.RetrieveRctCIDs(tx, filter, i, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-		allRctCIDs = append(allRctCIDs, rctCIDs...)
-	}
-	rctIPLDs, err := pea.B.Fetcher.FetchRcts(tx, allRctCIDs)
+	blocks, topics, err := pea.getLogsForBlockRange(filter, start, end)
 	if err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
+	return extractLogsOfInterest(blocks, topics)
+}
+
+func (pea *PublicEthAPI) getLogsForBlockRange(filter ReceiptFilter, start, end int64) ([]ipfs.BlockModel, [][]string, error) {
+	tx, err := pea.B.DB.Beginx()
+	if err != nil {
+		return nil, nil, err
 	}
-	logs, err := extractLogsOfInterest(rctIPLDs, filter.Topics)
-	return logs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	allRctCIDs := make([]eth.ReceiptModel, 0)
+	for i := start; i <= end; i++ {
+		var rctCIDs []eth.ReceiptModel
+		rctCIDs, err = pea.B.Retriever.RetrieveRctCIDs(tx, filter, i, nil, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		allRctCIDs = append(allRctCIDs, rctCIDs...)
+	}
+	var rctIPLDs []ipfs.BlockModel
+	rctIPLDs, err = pea.B.Fetcher.FetchRcts(tx, allRctCIDs)
+
+	return rctIPLDs, filter.Topics, err
+}
+
+func (pea *PublicEthAPI) getLogsForBlockHash(filter ReceiptFilter, blockHash *common.Hash) ([]ipfs.BlockModel, [][]string, error) {
+	tx, err := pea.B.DB.Beginx()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	var rctCIDs []eth.ReceiptModel
+	rctCIDs, err = pea.B.Retriever.RetrieveRctCIDs(tx, filter, 0, blockHash, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	var rctIPLDs []ipfs.BlockModel
+	rctIPLDs, err = pea.B.Fetcher.FetchRcts(tx, rctCIDs)
+
+	return rctIPLDs, filter.Topics, err
 }
 
 /*
