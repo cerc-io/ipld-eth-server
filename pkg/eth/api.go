@@ -644,6 +644,10 @@ func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address,
 			return res, nil
 		}
 	}
+	if err == sql.ErrNoRows {
+		return (*hexutil.Big)(big.NewInt(0)), nil
+	}
+
 	return nil, err
 }
 
@@ -679,6 +683,9 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
+	}
+	if err == sql.ErrNoRows {
+		return make([]byte, 32), nil
 	}
 	return nil, err
 }

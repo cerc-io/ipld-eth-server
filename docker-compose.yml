@@ -54,12 +54,17 @@ services:
       IPLD_POSTGRAPHILEPATH: http://graphql:5000
       ETH_SERVER_HTTPPATH: 0.0.0.0:8081
       VDB_COMMAND: "serve"
+      ETH_CHAIN_CONFIG: "/tmp/chain.json"
       DATABASE_NAME: "vulcanize_public"
       DATABASE_HOSTNAME: "db"
       DATABASE_PORT: 5432
       DATABASE_USER: "vdbm"
       DATABASE_PASSWORD: "password"
       ETH_CHAIN_ID: 4
+    volumes:
+    - type: bind
+      source: ./chain.json
+      target: /tmp/chain.json
     ports:
      - "127.0.0.1:8081:8081"
 
