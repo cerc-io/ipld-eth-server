@@ -97,8 +97,7 @@ var _ = Describe("Integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// check headers are equals
-			Expect(gethBlock).To(Equal(ipldBlock))
-			Expect(gethBlock.Header()).To(Equal(ipldBlock.Header()))
+			compareBlocks(gethBlock, ipldBlock)
 
 			gethTxs := gethBlock.Transactions()
 			ipldTxs := ipldBlock.Transactions()
@@ -123,7 +122,7 @@ var _ = Describe("Integration test", func() {
 			ipldTx, _, err := ipldClient.TransactionByHash(ctx, common.HexToHash(contract.TransactionHash))
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(gethTx).To(Equal(ipldTx))
+			compareTxs(gethTx, ipldTx)
 
 			Expect(gethTx.Hash()).To(Equal(ipldTx.Hash()))
 		})
@@ -135,9 +134,7 @@ var _ = Describe("Integration test", func() {
 			ipldTx, err := ipldClient.TransactionInBlock(ctx, common.HexToHash(contract.BlockHash), 0)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(gethTx).To(Equal(ipldTx))
-
-			Expect(gethTx.Hash()).To(Equal(ipldTx.Hash()))
+			compareTxs(gethTx, ipldTx)
 		})
 	})
 
@@ -414,3 +411,32 @@ var _ = Describe("Integration test", func() {
 		})
 	})
 })
+
+func compareBlocks(block1 *types.Block, block2 *types.Block) {
+	Expect(block1.Header()).To(Equal(block2.Header()))
+	Expect(block1.Uncles()).To(Equal(block2.Uncles()))
+
+	txs1 := block1.Transactions()
+	txs2 := block2.Transactions()
+
+	Expect(len(txs1)).To(Equal(len(txs2)))
+	for i, tx := range txs1 {
+		compareTxs(tx, txs2[i])
+	}
+}
+
+func compareTxs(tx1 *types.Transaction, tx2 *types.Transaction) {
+	Expect(tx1.Data()).To(Equal(tx2.Data()))
+	Expect(tx1.Hash()).To(Equal(tx2.Hash()))
+	Expect(tx1.Size()).To(Equal(tx2.Size()))
+
+	signer := types.NewEIP155Signer(big.NewInt(4))
+
+	gethSender, err := types.Sender(signer, tx1)
+	Expect(err).ToNot(HaveOccurred())
+
+	ipldSender, err := types.Sender(signer, tx2)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(gethSender).To(Equal(ipldSender))
+}

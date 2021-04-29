@@ -170,15 +170,15 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
-func (api *PublicEthAPI) ChainId() hexutil.Uint64 {
+func (pea *PublicEthAPI) ChainId() hexutil.Uint64 {
 	chainID := new(big.Int)
-	block, err := api.B.CurrentBlock()
+	block, err := pea.B.CurrentBlock()
 	if err != nil {
 		logrus.Errorf("ChainId failed with err %s", err.Error())
 
 		return 0
 	}
-	if config := api.B.Config.ChainConfig; config.IsEIP155(block.Number()) {
+	if config := pea.B.Config.ChainConfig; config.IsEIP155(block.Number()) {
 		chainID = config.ChainID
 	}
 	return (hexutil.Uint64)(chainID.Uint64())
@@ -457,6 +457,14 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	if err != nil {
 		return nil, err
 	}
+	block, err := pea.B.BlockByHash(ctx, blockHash)
+	if err != nil {
+		return nil, err
+	}
+	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.Transactions())
+	if err != nil {
+		return nil, err
+	}
 	if len(receipts) <= int(index) {
 		return nil, nil
 	}
@@ -586,7 +594,11 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		if err := tx.Commit(); err != nil {
 			return nil, err
 		}
-		return extractLogsOfInterest(rctIPLDs, filter.Topics)
+		block, err := pea.B.BlockByHash(context.Background(), *crit.BlockHash)
+		if err != nil {
+			return nil, err
+		}
+		return extractLogsOfInterest(pea.B.Config.ChainConfig, *crit.BlockHash, block.NumberU64(), block.Transactions(), rctIPLDs, filter.Topics)
 	}
 	// Otherwise, create block range from criteria
 	// nil values are filled in; to request a single block have both ToBlock and FromBlock equal that number
@@ -619,7 +631,8 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	logs, err := extractLogsOfInterest(rctIPLDs, filter.Topics)
+	// @TODO refactor this and pass actual block hash and block number
+	logs, err := extractLogsOfInterest(pea.B.Config.ChainConfig, common.Hash{}, 0, types.Transactions{}, rctIPLDs, filter.Topics)
 	return logs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
 }
 

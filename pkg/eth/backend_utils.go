@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/params"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -244,20 +245,31 @@ func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransacti
 }
 
 // extractLogsOfInterest returns logs from the receipt IPLD
-func extractLogsOfInterest(rctIPLDs []ipfs.BlockModel, wantedTopics [][]string) ([]*types.Log, error) {
+func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, blockNumber uint64, txs types.Transactions, rctIPLDs []ipfs.BlockModel, wantedTopics [][]string) ([]*types.Log, error) {
 	var logs []*types.Log
-	for _, rctIPLD := range rctIPLDs {
-		rctRLP := rctIPLD
-		var rct types.Receipt
-		if err := rlp.DecodeBytes(rctRLP.Data, &rct); err != nil {
+	receipts := make(types.Receipts, len(rctIPLDs))
+
+	for i, rctBytes := range rctIPLDs {
+		rct := new(types.Receipt)
+		if err := rlp.DecodeBytes(rctBytes.Data, rct); err != nil {
 			return nil, err
 		}
-		for _, log := range rct.Logs {
+		receipts[i] = rct
+	}
+
+	err := receipts.DeriveFields(config, blockHash, blockNumber, txs)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, receipt := range receipts {
+		for _, log := range receipt.Logs {
 			if wanted := wantedLog(wantedTopics, log.Topics); wanted == true {
 				logs = append(logs, log)
 			}
 		}
 	}
+
 	return logs, nil
 }
 
