@@ -66,6 +66,12 @@ const schema string = `
         data: Bytes!
         # Transaction is the transaction that generated this log entry.
         transaction: Transaction!
+
+        # CID for the Receipt IPLD block this Log exists in.
+        cid: String!
+
+        # IPLD block data for the Receipt this Log exists in.
+        ipldBlock: Bytes!
     }
 
     # Transaction is an Ethereum transaction.
