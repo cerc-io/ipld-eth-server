@@ -91,6 +91,8 @@ type Log struct {
 	backend     *eth.Backend
 	transaction *Transaction
 	log         *types.Log
+	cid         string
+	ipldBlock   []byte
 }
 
 func (l *Log) Transaction(ctx context.Context) *Transaction {
@@ -115,6 +117,14 @@ func (l *Log) Topics(ctx context.Context) []common.Hash {
 
 func (l *Log) Data(ctx context.Context) hexutil.Bytes {
 	return hexutil.Bytes(l.log.Data)
+}
+
+func (l *Log) Cid(ctx context.Context) string {
+	return l.cid
+}
+
+func (l *Log) IpldBlock(ctx context.Context) hexutil.Bytes {
+	return hexutil.Bytes(l.ipldBlock)
 }
 
 // Transaction represents an Ethereum transaction.

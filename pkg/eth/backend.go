@@ -41,7 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
 
-	"github.com/vulcanize/ipfs-ethdb"
+	ipfsethdb "github.com/vulcanize/ipfs-ethdb"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
@@ -59,10 +59,10 @@ var (
 const (
 	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE id = (SELECT canonical_header_id($1))`
+									WHERE id = (SELECT public.canonical_header($1))`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE id = (SELECT canonical_header_id($1))`
+									WHERE id = (SELECT public.canonical_header($1))`
 	RetrieveTD = `SELECT td FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
 	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, block_number, index FROM public.blocks, eth.transaction_cids, eth.header_cids
@@ -76,7 +76,7 @@ const (
 											AND block_number <= (SELECT block_number
 																FROM eth.header_cids
 																WHERE block_hash = $2)
-											AND header_cids.id = (SELECT canonical_header_id(block_number))
+											AND header_cids.id = (SELECT public.canonical_header(block_number))
 											ORDER BY block_number DESC
 											LIMIT 1`
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
@@ -509,6 +509,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log
 		if err := rlp.DecodeBytes(rctBytes, &rct); err != nil {
 			return nil, err
 		}
+
 		logs[i] = rct.Logs
 	}
 	return logs, nil
