@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/filters"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -953,4 +954,49 @@ func (r *Resolver) Logs(ctx context.Context, args struct{ Filter FilterCriteria 
 	// Construct the range filter
 	filter := filters.NewRangeFilter(filters.Backend(r.backend), begin, end, addresses, topics)
 	return runFilter(ctx, r.backend, filter)
+}
+
+func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
+	BlockHash common.Hash
+	Contract  common.Address
+	Slot      common.Hash
+}) (*common.Hash, error) {
+	ret := common.BytesToHash([]byte{})
+
+	return &ret, nil
+}
+
+func (r *Resolver) GetLogs(ctx context.Context, args struct {
+	BlockHash common.Hash
+	Contract  common.Address
+}) (*[]*Log, error) {
+	ret := make([]*Log, 0, 10)
+
+	receiptCIDs, receiptsBytes, err := r.backend.IPLDRetriever.RetrieveReceiptsByBlockHash(args.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	receipts := make(types.Receipts, len(receiptsBytes))
+	for index, receiptBytes := range receiptsBytes {
+		receiptCID := receiptCIDs[index]
+		receipt := new(types.Receipt)
+		if err := rlp.DecodeBytes(receiptBytes, receipt); err != nil {
+			return nil, err
+		}
+
+		receipts[index] = receipt
+		for _, log := range receipt.Logs {
+			if log.Address == args.Contract {
+				ret = append(ret, &Log{
+					backend:   r.backend,
+					log:       log,
+					cid:       receiptCID,
+					ipldBlock: receiptBytes,
+				})
+			}
+		}
+	}
+
+	return &ret, nil
 }
