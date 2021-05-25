@@ -65,7 +65,7 @@ const schema string = `
         # Data is unindexed data for this log.
         data: Bytes!
         # Transaction is the transaction that generated this log entry.
-        transaction: Transaction!
+        transaction: Transaction
 
         # CID for the Receipt IPLD block this Log exists in.
         cid: String!
@@ -269,12 +269,21 @@ const schema string = `
         # Block fetches an Ethereum block by number or by hash. If neither is
         # supplied, the most recent known block is returned.
         block(number: Long, hash: Bytes32): Block
+
         # Blocks returns all the blocks between two numbers, inclusive. If
         # to is not supplied, it defaults to the most recent known block.
         blocks(from: Long!, to: Long): [Block!]!
+
         # Transaction returns a transaction specified by its hash.
         transaction(hash: Bytes32!): Transaction
+
         # Logs returns log entries matching the provided filter.
         logs(filter: FilterCriteria!): [Log!]!
+
+        # Get storage slot by block hash and contract address.
+        getStorageAt(blockHash: Bytes32!, contract: Address!, slot: Bytes32!): Bytes32
+
+        # Get contract logs by block hash and contract address.
+        getLogs(blockHash: Bytes32!, contract: Address!): [Log!]
     }
 `
