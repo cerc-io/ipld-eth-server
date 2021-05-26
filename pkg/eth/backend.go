@@ -653,7 +653,7 @@ func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address
 
 // GetStorageByHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided hash
 func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, storageLeafKey, hash common.Hash) (hexutil.Bytes, error) {
-	_, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address, storageLeafKey, hash)
+	_, _, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address, storageLeafKey, hash)
 	return storageRlp, err
 }
 

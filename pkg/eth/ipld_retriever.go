@@ -29,15 +29,15 @@ import (
 
 const (
 	RetrieveHeadersByHashesPgStr = `SELECT cid, data
-								FROM eth.header_cids 
+								FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
 	RetrieveHeadersByBlockNumberPgStr = `SELECT cid, data
-								FROM eth.header_cids 
+								FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
 								WHERE block_number = $1`
 	RetrieveHeaderByHashPgStr = `SELECT cid, data
-								FROM eth.header_cids 
+								FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
 								WHERE block_hash = $1`
 	RetrieveUnclesByHashesPgStr = `SELECT cid, data
@@ -429,24 +429,24 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 }
 
 // RetrieveStorageAtByAddressAndStorageKeyAndBlockHash returns the cid and rlp bytes for the storage value corresponding to the provided address, storage key, and block hash
-func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address common.Address, storageLeafKey, hash common.Hash) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address common.Address, storageLeafKey, hash common.Hash) (string, []byte, []byte, error) {
 	storageResult := new(nodeInfo)
 	stateLeafKey := crypto.Keccak256Hash(address.Bytes())
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageLeafKey.Hex(), hash.Hex()); err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	if storageResult.Removed {
-		return "", []byte{}, nil
+		return "", []byte{}, []byte{}, nil
 	}
 	var i []interface{}
 	if err := rlp.DecodeBytes(storageResult.Data, &i); err != nil {
 		err = fmt.Errorf("error decoding storage leaf node rlp: %s", err.Error())
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	if len(i) != 2 {
-		return "", nil, fmt.Errorf("eth IPLDRetriever expected storage leaf node rlp to decode into two elements")
+		return "", nil, nil, fmt.Errorf("eth IPLDRetriever expected storage leaf node rlp to decode into two elements")
 	}
-	return storageResult.CID, i[1].([]byte), nil
+	return storageResult.CID, storageResult.Data, i[1].([]byte), nil
 }
 
 // RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber returns the cid and rlp bytes for the storage value corresponding to the provided address, storage key, and block number

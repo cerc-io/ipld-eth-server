@@ -265,6 +265,17 @@ const schema string = `
         topics: [[Bytes32!]!]
     }
 
+    # Storage trie value with IPLD data.
+    type StorageResult {
+        value: Bytes32!
+
+        # CID for the storage trie IPLD block.
+        cid: String!
+
+        # Storage trie IPLD block.
+        ipldBlock: Bytes!
+    }
+
     type Query {
         # Block fetches an Ethereum block by number or by hash. If neither is
         # supplied, the most recent known block is returned.
@@ -281,7 +292,7 @@ const schema string = `
         logs(filter: FilterCriteria!): [Log!]!
 
         # Get storage slot by block hash and contract address.
-        getStorageAt(blockHash: Bytes32!, contract: Address!, slot: Bytes32!): Bytes32
+        getStorageAt(blockHash: Bytes32!, contract: Address!, slot: Bytes32!): StorageResult
 
         # Get contract logs by block hash and contract address.
         getLogs(blockHash: Bytes32!, contract: Address!): [Log!]
