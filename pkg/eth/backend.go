@@ -767,7 +767,7 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 		return nil, err
 	}
 
-	_, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
+	_, _, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
 	return storageRlp, err
 }
 

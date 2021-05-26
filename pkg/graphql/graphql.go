@@ -956,12 +956,47 @@ func (r *Resolver) Logs(ctx context.Context, args struct{ Filter FilterCriteria 
 	return runFilter(ctx, r.backend, filter)
 }
 
+// StorageResult represents a storage slot value. All arguments are mandatory.
+type StorageResult struct {
+	value     []byte
+	cid       string
+	ipldBlock []byte
+}
+
+func (s *StorageResult) Value(ctx context.Context) common.Hash {
+	return common.BytesToHash(s.value)
+}
+
+func (s *StorageResult) Cid(ctx context.Context) string {
+	return s.cid
+}
+
+func (s *StorageResult) IpldBlock(ctx context.Context) hexutil.Bytes {
+	return hexutil.Bytes(s.ipldBlock)
+}
+
 func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 	BlockHash common.Hash
 	Contract  common.Address
 	Slot      common.Hash
-}) (*common.Hash, error) {
-	ret := common.BytesToHash([]byte{})
+}) (*StorageResult, error) {
+	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(args.Contract, args.Slot, args.BlockHash)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var value interface{}
+	err = rlp.DecodeBytes(rlpValue, &value)
+	if err != nil {
+		return nil, err
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	ret := StorageResult{value: value.([]byte), cid: cid, ipldBlock: ipldBlock}
 
 	return &ret, nil
 }
