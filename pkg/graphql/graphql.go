@@ -19,6 +19,7 @@ package graphql
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -985,6 +986,12 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(args.Contract, storageLeafKey, args.BlockHash)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			ret := StorageResult{value: ([]byte{}), cid: "", ipldBlock: ([]byte{})}
+
+			return &ret, nil
+		}
+
 		return nil, err
 	}
 
