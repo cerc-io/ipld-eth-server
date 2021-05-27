@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -980,7 +981,8 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 	Contract  common.Address
 	Slot      common.Hash
 }) (*StorageResult, error) {
-	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(args.Contract, args.Slot, args.BlockHash)
+	storageLeafKey := crypto.Keccak256Hash(args.Slot.Bytes())
+	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(args.Contract, storageLeafKey, args.BlockHash)
 
 	if err != nil {
 		return nil, err
