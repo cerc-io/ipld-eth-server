@@ -698,7 +698,7 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 		}
 	}
 	if err == sql.ErrNoRows {
-		return make([]byte, 32), nil
+		return hexutil.Bytes{}, errors.New("header not found")
 	}
 	return nil, err
 }

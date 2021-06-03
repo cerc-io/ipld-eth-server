@@ -51,6 +51,7 @@ import (
 var (
 	errPendingBlockNumber  = errors.New("pending block number not supported")
 	errNegativeBlockNumber = errors.New("negative block number not supported")
+	errInvalidBlockNumber  = errors.New("invalid block number")
 )
 
 const (
@@ -598,21 +599,27 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 		return nil, errPendingBlockNumber
 	}
 	hash, err := b.GetCanonicalHash(uint64(number))
-	if err != nil {
+	if err == sql.ErrNoRows || hash == (common.Hash{}) {
+		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
+	} else if err != nil {
 		return nil, err
 	}
-	if hash == (common.Hash{}) {
-		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
-	}
+
 	return b.GetAccountByHash(ctx, address, hash)
 }
 
 // GetAccountByHash returns the account object for the provided address at the block with the provided hash
 func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, hash common.Hash) (*state.Account, error) {
+	_, err := b.HeaderByHash(context.Background(), hash)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("no canoncial block found for provided hash (%s)", hash)
+	}
+
 	_, accountRlp, err := b.IPLDRetriever.RetrieveAccountByAddressAndBlockHash(address, hash)
 	if err != nil {
 		return nil, err
 	}
+
 	acct := new(state.Account)
 	return acct, rlp.DecodeBytes(accountRlp, acct)
 }

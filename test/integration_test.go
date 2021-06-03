@@ -2,16 +2,17 @@ package integration_test
 
 import (
 	"context"
+	"math/big"
+	"time"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	integration "github.com/vulcanize/ipld-eth-server/test"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 )

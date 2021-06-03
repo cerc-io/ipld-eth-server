@@ -18,13 +18,16 @@ package eth_test
 
 import (
 	"context"
+	"math/big"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	. "github.com/onsi/ginkgo"
@@ -168,7 +171,7 @@ var (
 		"to":                expectedTransaction3.To,
 		"gasUsed":           hexutil.Uint64(test_helpers.MockReceipts[2].GasUsed),
 		"cumulativeGasUsed": hexutil.Uint64(test_helpers.MockReceipts[2].CumulativeGasUsed),
-		"contractAddress":   nil,
+		"contractAddress":   test_helpers.ContractAddress,
 		"logs":              test_helpers.MockReceipts[2].Logs,
 		"logsBloom":         test_helpers.MockReceipts[2].Bloom,
 		"root":              hexutil.Bytes(test_helpers.MockReceipts[2].PostState),
@@ -177,8 +180,9 @@ var (
 
 var _ = Describe("API", func() {
 	var (
-		db  *postgres.DB
-		api *eth.PublicEthAPI
+		db          *postgres.DB
+		api         *eth.PublicEthAPI
+		chainConfig = params.TestChainConfig
 	)
 	// Test db setup, rather than using BeforeEach we only need to setup once since the tests do not mutate the database
 	// Note: if you focus one of the tests be sure to focus this and the defered It()
@@ -187,7 +191,11 @@ var _ = Describe("API", func() {
 		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
 		indexAndPublisher := eth2.NewIPLDPublisher(db)
-		backend, err := eth.NewEthBackend(db, &eth.Config{})
+		backend, err := eth.NewEthBackend(db, &eth.Config{
+			ChainConfig: chainConfig,
+			VmConfig:    vm.Config{},
+			RPCGasCap:   big.NewInt(10000000000),
+		})
 		Expect(err).ToNot(HaveOccurred())
 		api = eth.NewPublicEthAPI(backend, nil, false)
 		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
@@ -361,6 +369,7 @@ var _ = Describe("API", func() {
 	Describe("eth_getUncleCountByBlockNumber", func() {
 		It("Retrieves the number of uncles for the canonical block with the provided number", func() {
 			count := api.GetUncleCountByBlockNumber(ctx, number)
+			Expect(*count).NotTo(Equal(nil))
 			Expect(uint64(*count)).To(Equal(uint64(2)))
 		})
 	})
@@ -368,6 +377,7 @@ var _ = Describe("API", func() {
 	Describe("eth_getUncleCountByBlockHash", func() {
 		It("Retrieves the number of uncles for the block with the provided hash", func() {
 			count := api.GetUncleCountByBlockHash(ctx, blockHash)
+			Expect(*count).NotTo(Equal(nil))
 			Expect(uint64(*count)).To(Equal(uint64(2)))
 		})
 	})
@@ -948,8 +958,17 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
 		})
-		It("Throws an error for an account it cannot find the balance for", func() {
-			_, err := api.GetBalance(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blockHash, true))
+		It("Retrieves the eth balance for the non-existing account address at the block with the provided hash", func() {
+			bal, err := api.GetBalance(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blockHash, true))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+		})
+		It("Throws an error for an account of a non-existing block hash", func() {
+			_, err := api.GetBalance(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithHash(randomHash, true))
+			Expect(err).To(HaveOccurred())
+		})
+		It("Throws an error for an account of a non-existing block number", func() {
+			_, err := api.GetBalance(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithNumber(wrongNumber))
 			Expect(err).To(HaveOccurred())
 		})
 	})
