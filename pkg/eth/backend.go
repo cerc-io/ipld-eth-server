@@ -51,7 +51,6 @@ import (
 var (
 	errPendingBlockNumber  = errors.New("pending block number not supported")
 	errNegativeBlockNumber = errors.New("negative block number not supported")
-	errInvalidBlockNumber  = errors.New("invalid block number")
 )
 
 const (

@@ -40,7 +40,6 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -550,9 +549,11 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	for i, addr := range crit.Addresses {
 		addrStrs[i] = addr.String()
 	}
-	topicStrSets := make([][]string, 4)
+
+	topicStrSets := make([][]string, len(crit.Topics))
 	for i, topicSet := range crit.Topics {
 		if i > 3 {
+			topicStrSets = topicStrSets[:4]
 			// don't allow more than 4 topics
 			break
 		}
@@ -598,8 +599,9 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		if err != nil {
 			return nil, err
 		}
-		return extractLogsOfInterest(pea.B.Config.ChainConfig, *crit.BlockHash, block.NumberU64(), block.Transactions(), rctIPLDs, filter.Topics)
+		return extractLogsOfInterest(pea.B.Config.ChainConfig, *crit.BlockHash, block.NumberU64(), block.Transactions(), rctIPLDs, filter)
 	}
+
 	// Otherwise, create block range from criteria
 	// nil values are filled in; to request a single block have both ToBlock and FromBlock equal that number
 	startingBlock := crit.FromBlock
@@ -607,6 +609,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	if startingBlock == nil {
 		startingBlock = common.Big0
 	}
+
 	if endingBlock == nil {
 		endingBlockInt, err := pea.B.Retriever.RetrieveLastBlockNumber()
 		if err != nil {
@@ -614,25 +617,38 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		}
 		endingBlock = big.NewInt(endingBlockInt)
 	}
+
 	start := startingBlock.Int64()
 	end := endingBlock.Int64()
-	allRctCIDs := make([]eth.ReceiptModel, 0)
+	var logs []*types.Log
 	for i := start; i <= end; i++ {
 		rctCIDs, err := pea.B.Retriever.RetrieveRctCIDs(tx, filter, i, nil, nil)
 		if err != nil {
 			return nil, err
 		}
-		allRctCIDs = append(allRctCIDs, rctCIDs...)
+
+		block, err := pea.B.BlockByNumber(context.Background(), rpc.BlockNumber(i))
+		if err != nil {
+			return nil, err
+		}
+
+		rctIPLDs, err := pea.B.Fetcher.FetchRcts(tx, rctCIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		log, err := extractLogsOfInterest(pea.B.Config.ChainConfig, block.Hash(), uint64(i), block.Transactions(), rctIPLDs, filter)
+		if err != nil {
+			return nil, err
+		}
+
+		logs = append(logs, log...)
 	}
-	rctIPLDs, err := pea.B.Fetcher.FetchRcts(tx, allRctCIDs)
-	if err != nil {
-		return nil, err
-	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	// @TODO refactor this and pass actual block hash and block number
-	logs, err := extractLogsOfInterest(pea.B.Config.ChainConfig, common.Hash{}, 0, types.Transactions{}, rctIPLDs, filter.Topics)
+
 	return logs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
 }
 

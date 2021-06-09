@@ -20,8 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/params"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -245,8 +246,8 @@ func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransacti
 }
 
 // extractLogsOfInterest returns logs from the receipt IPLD
-func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, blockNumber uint64, txs types.Transactions, rctIPLDs []ipfs.BlockModel, wantedTopics [][]string) ([]*types.Log, error) {
-	var logs []*types.Log
+func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, blockNumber uint64,
+	txs types.Transactions, rctIPLDs []ipfs.BlockModel, filter ReceiptFilter) ([]*types.Log, error) {
 	receipts := make(types.Receipts, len(rctIPLDs))
 
 	for i, rctBytes := range rctIPLDs {
@@ -262,15 +263,72 @@ func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, bl
 		return nil, err
 	}
 
+	var unfilteredLogs []*types.Log
 	for _, receipt := range receipts {
-		for _, log := range receipt.Logs {
-			if wanted := wantedLog(wantedTopics, log.Topics); wanted == true {
-				logs = append(logs, log)
-			}
+		unfilteredLogs = append(unfilteredLogs, receipt.Logs...)
+	}
+
+	adders := make([]common.Address, len(filter.LogAddresses))
+	for i, addr := range filter.LogAddresses {
+		adders[i] = common.HexToAddress(addr)
+	}
+
+	topics := make([][]common.Hash, len(filter.Topics))
+	for i, v := range filter.Topics {
+		topics[i] = make([]common.Hash, len(v))
+		for j, topic := range v {
+			topics[i][j] = common.HexToHash(topic)
 		}
 	}
 
+	logs := filterLogs(unfilteredLogs, nil, nil, adders, topics)
 	return logs, nil
+}
+
+func includes(addresses []common.Address, a common.Address) bool {
+	for _, addr := range addresses {
+		if addr == a {
+			return true
+		}
+	}
+
+	return false
+}
+
+// filterLogs creates a slice of logs matching the given criteria.
+func filterLogs(logs []*types.Log, fromBlock, toBlock *big.Int, addresses []common.Address, topics [][]common.Hash) []*types.Log {
+	var ret []*types.Log
+Logs:
+	for _, log := range logs {
+		if fromBlock != nil && fromBlock.Int64() >= 0 && fromBlock.Uint64() > log.BlockNumber {
+			continue
+		}
+		if toBlock != nil && toBlock.Int64() >= 0 && toBlock.Uint64() < log.BlockNumber {
+			continue
+		}
+
+		if len(addresses) > 0 && !includes(addresses, log.Address) {
+			continue
+		}
+		// If the to filtered topics is greater than the amount of topics in logs, skip.
+		if len(topics) > len(log.Topics) {
+			continue Logs
+		}
+		for i, sub := range topics {
+			match := len(sub) == 0 // empty rule set == wildcard
+			for _, topic := range sub {
+				if log.Topics[i] == topic {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue Logs
+			}
+		}
+		ret = append(ret, log)
+	}
+	return ret
 }
 
 // returns true if the log matches on the filter
