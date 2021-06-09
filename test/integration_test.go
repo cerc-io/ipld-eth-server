@@ -293,6 +293,17 @@ var _ = Describe("Integration test", func() {
 
 			Expect(gethBalance).To(Equal(ipldBalance))
 		})
+		It("gets balance for an non-existing block number", func() {
+			Expect(txErr).ToNot(HaveOccurred())
+
+			gethBalance, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber+3)))
+			Expect(err).To(MatchError("header not found"))
+
+			ipldBalance, err := ipldClient.BalanceAt(ctx, common.HexToAddress(nonExistingAddress), big.NewInt(int64(tx.BlockNumber+3)))
+			Expect(err).To(MatchError("header not found"))
+
+			Expect(gethBalance).To(Equal(ipldBalance))
+		})
 	})
 
 	Describe("Get Storage", func() {

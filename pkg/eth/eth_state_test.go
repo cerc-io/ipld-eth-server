@@ -79,7 +79,7 @@ var _ = Describe("eth state reading tests", func() {
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
-			RPCGasCap:   big.NewInt(10000000000),
+			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
 		})
 		Expect(err).ToNot(HaveOccurred())
 		api = eth.NewPublicEthAPI(backend, nil, false)
@@ -456,19 +456,19 @@ var _ = Describe("eth state reading tests", func() {
 	})
 
 	Describe("eth_getStorageAt", func() {
-		It("Throws an error if it tries to access a contract which does not exist", func() {
-			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(0))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("header not found"))
+		It("Returns empty slice if it tries to access a contract which does not exist", func() {
+			storage, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(0))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storage).To(Equal(hexutil.Bytes(make([]byte, 32))))
 
-			_, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(1))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("header not found"))
+			storage, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(1))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storage).To(Equal(hexutil.Bytes(make([]byte, 32))))
 		})
-		It("Throws an error if it tries to access a contract slot which does not exist", func() {
-			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, randomHash.Hex(), rpc.BlockNumberOrHashWithNumber(2))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("header not found"))
+		It("Returns empty slice if it tries to access a contract slot which does not exist", func() {
+			storage, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, randomHash.Hex(), rpc.BlockNumberOrHashWithNumber(2))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(storage).To(Equal(hexutil.Bytes(make([]byte, 32))))
 		})
 		It("Retrieves the storage value at the provided contract address and storage leaf key at the block with the provided hash or number", func() {
 			// After deployment

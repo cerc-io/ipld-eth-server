@@ -333,7 +333,7 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uncle2).To(Equal(expectedUncle2))
 		})
-		It("Returns `nil` if an block for blocknumber cannot be found", func() {
+		It("Returns `nil` if an block for block number cannot be found", func() {
 			block, err := api.GetUncleByBlockNumberAndIndex(ctx, wrongNumber, 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block).To(BeNil())

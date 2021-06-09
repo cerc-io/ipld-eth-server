@@ -598,8 +598,8 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 		return nil, errPendingBlockNumber
 	}
 	hash, err := b.GetCanonicalHash(uint64(number))
-	if err == sql.ErrNoRows || hash == (common.Hash{}) {
-		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("header not found")
 	} else if err != nil {
 		return nil, err
 	}
