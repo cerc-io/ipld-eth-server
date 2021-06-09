@@ -67,10 +67,10 @@ test: | $(GINKGO) $(GOOSE)
 integrationtest: | $(GINKGO) $(GOOSE)
 	go vet ./...
 	go fmt ./...
-	export PGPASSWORD=$(DATABASE_PASSWORD)
-	dropdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) --if-exists $(TEST_DB)
-	createdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) $(TEST_DB)
-	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING)" up
+	#export PGPASSWORD=$(DATABASE_PASSWORD)
+	#dropdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) --if-exists $(TEST_DB)
+	#createdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) $(TEST_DB)
+	#$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING)" up
 	$(GINKGO) -r test/ -v
 
 .PHONY: test_local
