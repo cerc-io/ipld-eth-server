@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -19,6 +19,11 @@ import (
 
 const nonExistingBlockHash = "0x111111111111111111111111111111111111111111111111111111111111111"
 const nonExistingAddress = "0x1111111111111111111111111111111111111111"
+
+var (
+	randomAddr = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
+	randomHash = crypto.Keccak256Hash(randomAddr.Bytes())
+)
 
 var _ = Describe("Integration test", func() {
 	gethHttpPath := "http://127.0.0.1:8545"
@@ -355,7 +360,23 @@ var _ = Describe("Integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(nonExistingAddress), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gethStorage).To(Equal(ipldStorage))
+		})
+		It("gets storage for non-existing contract slot", func() {
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), randomHash, big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
 
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), randomHash, big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gethStorage).To(Equal(ipldStorage))
+		})
+		It("gets storage for non-existing contract", func() {
+			totalSupplyIndex := "0x2"
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(0))
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(0))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
