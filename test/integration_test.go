@@ -380,6 +380,17 @@ var _ = Describe("Integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
+		It("gets storage for non-existing block number", func() {
+			blockNum := contract.BlockNumber + 100
+			totalSupplyIndex := "0x2"
+
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(int64(blockNum)))
+			Expect(err).To(MatchError("header not found"))
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(int64(blockNum)))
+			Expect(err).To(MatchError("header not found"))
+			Expect(gethStorage).To(Equal(ipldStorage))
+		})
 	})
 
 	Describe("eth call", func() {

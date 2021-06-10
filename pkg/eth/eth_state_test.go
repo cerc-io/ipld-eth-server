@@ -59,6 +59,7 @@ func init() {
 }
 
 var _ = Describe("eth state reading tests", func() {
+	const chainLength = 5
 	var (
 		blocks                  []*types.Block
 		receipts                []types.Receipts
@@ -85,7 +86,7 @@ var _ = Describe("eth state reading tests", func() {
 		api = eth.NewPublicEthAPI(backend, nil, false)
 
 		// make the test blockchain (and state)
-		blocks, receipts, chain = test_helpers.MakeChain(5, test_helpers.Genesis, test_helpers.TestChainGen)
+		blocks, receipts, chain = test_helpers.MakeChain(chainLength, test_helpers.Genesis, test_helpers.TestChainGen)
 		params := statediff.Params{
 			IntermediateStateNodes:   true,
 			IntermediateStorageNodes: true,
@@ -490,6 +491,16 @@ var _ = Describe("eth state reading tests", func() {
 			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(val).To(Equal(hexutil.Bytes{}))
+		})
+		It("Throws an error for a non-existing block hash", func() {
+			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithHash(randomHash, true))
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("header for hash not found"))
+		})
+		It("Throws an error for a non-existing block number", func() {
+			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithNumber(chainLength+1))
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("header not found"))
 		})
 	})
 

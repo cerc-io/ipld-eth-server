@@ -51,6 +51,8 @@ import (
 var (
 	errPendingBlockNumber  = errors.New("pending block number not supported")
 	errNegativeBlockNumber = errors.New("negative block number not supported")
+	errHeaderHashNotFound  = errors.New("header for hash not found")
+	errHeaderNotFound      = errors.New("header not found")
 )
 
 const (
@@ -599,7 +601,7 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 	}
 	hash, err := b.GetCanonicalHash(uint64(number))
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("header not found")
+		return nil, errHeaderNotFound
 	} else if err != nil {
 		return nil, err
 	}
@@ -611,7 +613,9 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, hash common.Hash) (*state.Account, error) {
 	_, err := b.HeaderByHash(context.Background(), hash)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("no canoncial block found for provided hash (%s)", hash)
+		return nil, errHeaderHashNotFound
+	} else if err != nil {
+		return nil, err
 	}
 
 	_, accountRlp, err := b.IPLDRetriever.RetrieveAccountByAddressAndBlockHash(address, hash)
@@ -725,17 +729,24 @@ func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address
 		return nil, errPendingBlockNumber
 	}
 	hash, err := b.GetCanonicalHash(uint64(number))
-	if err != nil {
+	if err == sql.ErrNoRows {
+		return nil, errHeaderNotFound
+	} else if err != nil {
 		return nil, err
 	}
-	if hash == (common.Hash{}) {
-		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
-	}
+
 	return b.GetStorageByHash(ctx, address, storageLeafKey, hash)
 }
 
 // GetStorageByHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided hash
 func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, storageLeafKey, hash common.Hash) (hexutil.Bytes, error) {
+	_, err := b.HeaderByHash(context.Background(), hash)
+	if err == sql.ErrNoRows {
+		return nil, errHeaderHashNotFound
+	} else if err != nil {
+		return nil, err
+	}
+
 	_, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address, storageLeafKey, hash)
 	return storageRlp, err
 }
