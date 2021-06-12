@@ -18,6 +18,7 @@ package eth_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -202,7 +203,7 @@ var _ = Describe("API", func() {
 		expectedBlock["uncles"] = uncleHashes
 	})
 	// Single test db tear down at end of all tests
-	defer It("test teardown", func() { eth.TearDownDB(db) })
+	//defer It("test teardown", func() { eth.TearDownDB(db) })
 	/*
 
 	   Headers and blocks
@@ -594,6 +595,9 @@ var _ = Describe("API", func() {
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err = api.GetLogs(ctx, crit)
+			fmt.Println("bhash", test_helpers.MockBlock.Hash())
+			fmt.Println("Contract Address: ", test_helpers.ContractAddress)
+
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
