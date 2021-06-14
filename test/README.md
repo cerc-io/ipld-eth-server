@@ -9,7 +9,7 @@ Running unit tests:
 make test_local
 ```
 
-Running intrgration test:
+Running integration test:
 ```bash
 make integrationtest_local
 ```
