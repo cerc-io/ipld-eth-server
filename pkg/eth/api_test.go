@@ -194,7 +194,7 @@ var _ = Describe("API", func() {
 		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
-			RPCGasCap:   big.NewInt(10000000000),
+			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
 		})
 		Expect(err).ToNot(HaveOccurred())
 		api = eth.NewPublicEthAPI(backend, nil, false)
