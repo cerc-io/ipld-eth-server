@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"errors"
-	"github.com/vulcanize/gap-filler/pkg/mux"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,15 +24,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
-
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/vulcanize/gap-filler/pkg/mux"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-
+	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
 	srpc "github.com/vulcanize/ipld-eth-server/pkg/rpc"
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
 	v "github.com/vulcanize/ipld-eth-server/version"
