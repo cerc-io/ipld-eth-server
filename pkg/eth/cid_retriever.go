@@ -86,7 +86,8 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 	}()
 
 	// Retrieve cached header CIDs at this block height
-	headers, err := ecr.RetrieveHeaderCIDs(tx, blockNumber)
+	var headers []eth.HeaderModel
+	headers, err = ecr.RetrieveHeaderCIDs(tx, blockNumber)
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return nil, true, err
@@ -101,7 +102,8 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 			empty = false
 			if filter.HeaderFilter.Uncles {
 				// Retrieve uncle cids for this header id
-				uncleCIDs, err := ecr.RetrieveUncleCIDsByHeaderID(tx, header.ID)
+				var uncleCIDs []eth.UncleModel
+				uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(tx, header.ID)
 				if err != nil {
 					log.Error("uncle cid retrieval error")
 					return nil, true, err
@@ -472,17 +474,20 @@ func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (eth.HeaderM
 		}
 	}()
 
-	headerCID, err := ecr.RetrieveHeaderCIDByHash(tx, blockHash)
+	var headerCID eth.HeaderModel
+	headerCID, err = ecr.RetrieveHeaderCIDByHash(tx, blockHash)
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return eth.HeaderModel{}, nil, nil, nil, err
 	}
-	uncleCIDs, err := ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID.ID)
+	var uncleCIDs []eth.UncleModel
+	uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID.ID)
 	if err != nil {
 		log.Error("uncle cid retrieval error")
 		return eth.HeaderModel{}, nil, nil, nil, err
 	}
-	txCIDs, err := ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.ID)
+	var txCIDs []eth.TxModel
+	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.ID)
 	if err != nil {
 		log.Error("tx cid retrieval error")
 		return eth.HeaderModel{}, nil, nil, nil, err
@@ -491,7 +496,8 @@ func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (eth.HeaderM
 	for i, txCID := range txCIDs {
 		txIDs[i] = txCID.ID
 	}
-	rctCIDs, err := ecr.RetrieveReceiptCIDsByTxIDs(tx, txIDs)
+	var rctCIDs []eth.ReceiptModel
+	rctCIDs, err = ecr.RetrieveReceiptCIDsByTxIDs(tx, txIDs)
 	if err != nil {
 		log.Error("rct cid retrieval error")
 	}
@@ -518,7 +524,8 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (eth.HeaderMod
 		}
 	}()
 
-	headerCID, err := ecr.RetrieveHeaderCIDs(tx, blockNumber)
+	var headerCID []eth.HeaderModel
+	headerCID, err = ecr.RetrieveHeaderCIDs(tx, blockNumber)
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return eth.HeaderModel{}, nil, nil, nil, err
@@ -526,12 +533,14 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (eth.HeaderMod
 	if len(headerCID) < 1 {
 		return eth.HeaderModel{}, nil, nil, nil, fmt.Errorf("header cid retrieval error, no header CIDs found at block %d", blockNumber)
 	}
-	uncleCIDs, err := ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID[0].ID)
+	var uncleCIDs []eth.UncleModel
+	uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID[0].ID)
 	if err != nil {
 		log.Error("uncle cid retrieval error")
 		return eth.HeaderModel{}, nil, nil, nil, err
 	}
-	txCIDs, err := ecr.RetrieveTxCIDsByHeaderID(tx, headerCID[0].ID)
+	var txCIDs []eth.TxModel
+	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID[0].ID)
 	if err != nil {
 		log.Error("tx cid retrieval error")
 		return eth.HeaderModel{}, nil, nil, nil, err
@@ -540,7 +549,8 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (eth.HeaderMod
 	for i, txCID := range txCIDs {
 		txIDs[i] = txCID.ID
 	}
-	rctCIDs, err := ecr.RetrieveReceiptCIDsByTxIDs(tx, txIDs)
+	var rctCIDs []eth.ReceiptModel
+	rctCIDs, err = ecr.RetrieveReceiptCIDsByTxIDs(tx, txIDs)
 	if err != nil {
 		log.Error("rct cid retrieval error")
 	}
