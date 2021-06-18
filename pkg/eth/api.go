@@ -18,9 +18,11 @@ package eth
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"time"
@@ -38,7 +40,6 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -165,6 +166,21 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 		}
 	}
 	return nil, err
+}
+
+// ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
+func (pea *PublicEthAPI) ChainId() hexutil.Uint64 {
+	chainID := new(big.Int)
+	block, err := pea.B.CurrentBlock()
+	if err != nil {
+		logrus.Errorf("ChainId failed with err %s", err.Error())
+
+		return 0
+	}
+	if config := pea.B.Config.ChainConfig; config.IsEIP155(block.Number()) {
+		chainID = config.ChainID
+	}
+	return (hexutil.Uint64)(chainID.Uint64())
 }
 
 /*
@@ -440,6 +456,14 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	if err != nil {
 		return nil, err
 	}
+	block, err := pea.B.BlockByHash(ctx, blockHash)
+	if err != nil {
+		return nil, err
+	}
+	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.Transactions())
+	if err != nil {
+		return nil, err
+	}
 	if len(receipts) <= int(index) {
 		return nil, nil
 	}
@@ -525,9 +549,11 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	for i, addr := range crit.Addresses {
 		addrStrs[i] = addr.String()
 	}
-	topicStrSets := make([][]string, 4)
+
+	topicStrSets := make([][]string, len(crit.Topics))
 	for i, topicSet := range crit.Topics {
 		if i > 3 {
+			topicStrSets = topicStrSets[:4]
 			// don't allow more than 4 topics
 			break
 		}
@@ -569,8 +595,13 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		if err := tx.Commit(); err != nil {
 			return nil, err
 		}
-		return extractLogsOfInterest(rctIPLDs, filter.Topics)
+		block, err := pea.B.BlockByHash(context.Background(), *crit.BlockHash)
+		if err != nil {
+			return nil, err
+		}
+		return extractLogsOfInterest(pea.B.Config.ChainConfig, *crit.BlockHash, block.NumberU64(), block.Transactions(), rctIPLDs, filter)
 	}
+
 	// Otherwise, create block range from criteria
 	// nil values are filled in; to request a single block have both ToBlock and FromBlock equal that number
 	startingBlock := crit.FromBlock
@@ -578,6 +609,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	if startingBlock == nil {
 		startingBlock = common.Big0
 	}
+
 	if endingBlock == nil {
 		endingBlockInt, err := pea.B.Retriever.RetrieveLastBlockNumber()
 		if err != nil {
@@ -585,24 +617,38 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		}
 		endingBlock = big.NewInt(endingBlockInt)
 	}
+
 	start := startingBlock.Int64()
 	end := endingBlock.Int64()
-	allRctCIDs := make([]eth.ReceiptModel, 0)
+	var logs []*types.Log
 	for i := start; i <= end; i++ {
 		rctCIDs, err := pea.B.Retriever.RetrieveRctCIDs(tx, filter, i, nil, nil)
 		if err != nil {
 			return nil, err
 		}
-		allRctCIDs = append(allRctCIDs, rctCIDs...)
+
+		block, err := pea.B.BlockByNumber(context.Background(), rpc.BlockNumber(i))
+		if err != nil {
+			return nil, err
+		}
+
+		rctIPLDs, err := pea.B.Fetcher.FetchRcts(tx, rctCIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		log, err := extractLogsOfInterest(pea.B.Config.ChainConfig, block.Hash(), uint64(i), block.Transactions(), rctIPLDs, filter)
+		if err != nil {
+			return nil, err
+		}
+
+		logs = append(logs, log...)
 	}
-	rctIPLDs, err := pea.B.Fetcher.FetchRcts(tx, allRctCIDs)
-	if err != nil {
-		return nil, err
-	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	logs, err := extractLogsOfInterest(rctIPLDs, filter.Topics)
+
 	return logs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
 }
 
@@ -627,6 +673,10 @@ func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address,
 			return res, nil
 		}
 	}
+	if err == sql.ErrNoRows {
+		return (*hexutil.Big)(big.NewInt(0)), nil
+	}
+
 	return nil, err
 }
 
@@ -644,7 +694,17 @@ func (pea *PublicEthAPI) localGetBalance(ctx context.Context, address common.Add
 func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Address, key string, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
 	storageVal, err := pea.B.GetStorageByNumberOrHash(ctx, address, common.HexToHash(key), blockNrOrHash)
 	if storageVal != nil && err == nil {
-		return storageVal, nil
+		var value common.Hash
+		_, content, _, err := rlp.Split(storageVal)
+		if err == io.ErrUnexpectedEOF {
+			return hexutil.Bytes{}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		value.SetBytes(content)
+
+		return value[:], nil
 	}
 	if pea.rpc != nil {
 		var res hexutil.Bytes
@@ -652,6 +712,9 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
+	}
+	if err == sql.ErrNoRows {
+		return make([]byte, 32), nil
 	}
 	return nil, err
 }
@@ -669,6 +732,10 @@ func (pea *PublicEthAPI) GetCode(ctx context.Context, address common.Address, bl
 			return res, nil
 		}
 	}
+	if err == sql.ErrNoRows {
+		return code, nil
+	}
+
 	return nil, err
 }
 

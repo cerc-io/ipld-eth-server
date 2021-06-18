@@ -20,7 +20,7 @@ services:
     restart: on-failure
     depends_on:
       - db
-    image: vulcanize/statediff-migrations:v0.3.0
+    image: vulcanize/statediff-migrations:v0.4.0
     environment:
       DATABASE_USER: vdbm
       DATABASE_NAME: vulcanize_public
@@ -41,6 +41,7 @@ services:
      - "127.0.0.1:8077:5432"
 
   eth-server:
+    restart: unless-stopped
     depends_on:
       - db
     build:
@@ -49,16 +50,22 @@ services:
        - alpine:latest
        - golang:1.13-alpine
     environment:
+      IPLD_SERVER_GRAPHQL: "true"
+      IPLD_POSTGRAPHILEPATH: http://graphql:5000
+      ETH_SERVER_HTTPPATH: 0.0.0.0:8081
       VDB_COMMAND: "serve"
+      ETH_CHAIN_CONFIG: "/tmp/chain.json"
       DATABASE_NAME: "vulcanize_public"
       DATABASE_HOSTNAME: "db"
       DATABASE_PORT: 5432
       DATABASE_USER: "vdbm"
       DATABASE_PASSWORD: "password"
-      SERVER_WS_PATH: "0.0.0.0:8081"
-      SERVER_HTTP_PATH: "0.0.0.0:8082"
+      ETH_CHAIN_ID: 4
+    volumes:
+    - type: bind
+      source: ./chain.json
+      target: /tmp/chain.json
     ports:
-     - "127.0.0.1:8080:8080"
      - "127.0.0.1:8081:8081"
 
   graphql:

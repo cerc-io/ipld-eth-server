@@ -135,9 +135,9 @@ TODO: Add the rest of the standard endpoints and unique endpoints (e.g. getSlice
 | `eth-server-graphql`          | `ETH_SERVER_GRAPHQL`          | false            | If `true` enable Eth GraphQL Server |
 | `eth-server-graphql-path` | `ETH_SERVER_GRAPHQLPATH` |                  | If `eth-server-graphql` set to true, endpoint url for graphql server (host:port)                               |
 | `eth-server-http`          | `ETH_SERVER_HTTP`          | true            | If `true` enable Eth HTTP JSON-RPC Server |
-| `eth-server-http-path`          | `ETH_SERVER_HTTP_PATH`          |             | If `eth-server-http` set to `true`, endpoint url for Eth HTTP JSON-RPC server (host:port)  |
+| `eth-server-http-path`          | `ETH_SERVER_HTTPPATH`          |             | If `eth-server-http` set to `true`, endpoint url for Eth HTTP JSON-RPC server (host:port)  |
 | `eth-server-ws`          | `ETH_SERVER_WS`          | false            | If `true` enable Eth WS JSON-RPC Server |
-| `eth-server-ws-path`          | `ETH_SERVER_WS_PATH`          |             | If `eth-server-ws` set to `true`, endpoint url for Eth WS JSON-RPC server (host:port)  |
+| `eth-server-ws-path`          | `ETH_SERVER_WSPATH`          |             | If `eth-server-ws` set to `true`, endpoint url for Eth WS JSON-RPC server (host:port)  |
 | `eth-server-ipc`          | `ETH_SERVER_IPC`          | false            | If `true` enable Eth IPC JSON-RPC Server |
 | `eth-server-ipc-path`          | `ETH_SERVER_IPC_PATH`          |             | If `eth-server-ws` set to `true`, path for Eth IPC JSON-RPC server |
 | `ipld-server-graphql`          | `IPLD_SERVER_GRAPHQL`          | false            | If `true` enable IPLD GraphQL Server |
