@@ -699,18 +699,18 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 }
 
 // GetStorageByNumberOrHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided number or hash
-func (b *Backend) GetStorageByNumberOrHash(ctx context.Context, address common.Address, storageLeafKey common.Hash, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+func (b *Backend) GetStorageByNumberOrHash(ctx context.Context, address common.Address, key common.Hash, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
-		return b.GetStorageByNumber(ctx, address, storageLeafKey, blockNr)
+		return b.GetStorageByNumber(ctx, address, key, blockNr)
 	}
 	if hash, ok := blockNrOrHash.Hash(); ok {
-		return b.GetStorageByHash(ctx, address, storageLeafKey, hash)
+		return b.GetStorageByHash(ctx, address, key, hash)
 	}
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
 // GetStorageByNumber returns the storage value for the provided contract address an storage key at the block corresponding to the provided number
-func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address, storageLeafKey common.Hash, blockNumber rpc.BlockNumber) (hexutil.Bytes, error) {
+func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address, key common.Hash, blockNumber rpc.BlockNumber) (hexutil.Bytes, error) {
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
@@ -735,11 +735,11 @@ func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address
 		return nil, err
 	}
 
-	return b.GetStorageByHash(ctx, address, storageLeafKey, hash)
+	return b.GetStorageByHash(ctx, address, key, hash)
 }
 
 // GetStorageByHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided hash
-func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, storageLeafKey, hash common.Hash) (hexutil.Bytes, error) {
+func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, key, hash common.Hash) (hexutil.Bytes, error) {
 	_, err := b.HeaderByHash(context.Background(), hash)
 	if err == sql.ErrNoRows {
 		return nil, errHeaderHashNotFound
@@ -747,7 +747,7 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 		return nil, err
 	}
 
-	_, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageKeyAndBlockHash(address, storageLeafKey, hash)
+	_, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
 	return storageRlp, err
 }
 
