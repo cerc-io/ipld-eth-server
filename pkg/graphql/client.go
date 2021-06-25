@@ -79,7 +79,7 @@ func (c *Client) GetStorageAt(ctx context.Context, hash common.Hash, address com
 				ipldBlock
 			}
 		}
-	`, hash.String(), address.String(), slot)
+	`, hash.String(), address.String(), common.HexToHash(slot))
 
 	req := gqlclient.NewRequest(getLogsQuery)
 	req.Header.Set("Cache-Control", "no-cache")

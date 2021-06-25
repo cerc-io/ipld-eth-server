@@ -62,7 +62,6 @@ var _ = Describe("GraphQL", func() {
 		ctx             = context.Background()
 		blockHash       common.Hash
 		contractAddress common.Address
-		slot            string
 	)
 
 	It("test init", func() {
@@ -129,7 +128,6 @@ var _ = Describe("GraphQL", func() {
 		indexAndPublisher := eth2.NewIPLDPublisher(db)
 		blockHash = test_helpers.MockBlock.Hash()
 		contractAddress = test_helpers.ContractAddr
-		slot = test_helpers.ContractSlotKeyHash.Hex()
 
 		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
 		Expect(err).ToNot(HaveOccurred())
@@ -177,30 +175,30 @@ var _ = Describe("GraphQL", func() {
 
 	Describe("eth_getStorageAt", func() {
 		It("Retrieves the storage value at the provided contract address and storage leaf key at the block with the provided hash", func() {
-			storageRes, err := client.GetStorageAt(ctx, blockHashes[2], contractAddress, slot)
+			storageRes, err := client.GetStorageAt(ctx, blockHashes[2], contractAddress, test_helpers.IndexOne)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(storageRes.Value).To(Equal(hexutil.Bytes(common.Hex2Bytes("01"))))
 
-			storageRes, err = client.GetStorageAt(ctx, blockHashes[3], contractAddress, slot)
+			storageRes, err = client.GetStorageAt(ctx, blockHashes[3], contractAddress, test_helpers.IndexOne)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(storageRes.Value).To(Equal(hexutil.Bytes(common.Hex2Bytes("03"))))
 
-			storageRes, err = client.GetStorageAt(ctx, blockHashes[4], contractAddress, slot)
+			storageRes, err = client.GetStorageAt(ctx, blockHashes[4], contractAddress, test_helpers.IndexOne)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(storageRes.Value).To(Equal(hexutil.Bytes(common.Hex2Bytes("09"))))
 
-			storageRes, err = client.GetStorageAt(ctx, blockHashes[5], contractAddress, slot)
+			storageRes, err = client.GetStorageAt(ctx, blockHashes[5], contractAddress, test_helpers.IndexOne)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(storageRes.Value).To(Equal(hexutil.Bytes{}))
 
 		})
 
 		It("Retrieves empty data if it tries to access a contract at the blockHash which does not exist", func() {
-			storageRes, err := client.GetStorageAt(ctx, blockHashes[0], contractAddress, slot)
+			storageRes, err := client.GetStorageAt(ctx, blockHashes[0], contractAddress, test_helpers.IndexOne)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(storageRes.Value).To(Equal(hexutil.Bytes{}))
 
-			storageRes, err = client.GetStorageAt(ctx, blockHashes[1], contractAddress, slot)
+			storageRes, err = client.GetStorageAt(ctx, blockHashes[1], contractAddress, test_helpers.IndexOne)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(storageRes.Value).To(Equal(hexutil.Bytes{}))
 		})
