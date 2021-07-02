@@ -985,7 +985,7 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			ret := StorageResult{value: ([]byte{}), cid: "", ipldBlock: ([]byte{})}
+			ret := StorageResult{value: []byte{}, cid: "", ipldBlock: []byte{}}
 
 			return &ret, nil
 		}
@@ -999,12 +999,7 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
 	ret := StorageResult{value: value.([]byte), cid: cid, ipldBlock: ipldBlock}
-
 	return &ret, nil
 }
 

@@ -12,6 +12,7 @@ require (
 	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lib/pq v1.8.0
+	github.com/machinebox/graphql v0.2.2 // indirect
 	github.com/multiformats/go-multihash v0.0.14
 	github.com/onsi/ginkgo v1.15.0
 	github.com/onsi/gomega v1.10.1
