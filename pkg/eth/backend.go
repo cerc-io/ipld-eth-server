@@ -41,7 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
 
-	"github.com/vulcanize/ipfs-ethdb"
+	ipfsethdb "github.com/vulcanize/ipfs-ethdb"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
@@ -509,6 +509,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log
 		if err := rlp.DecodeBytes(rctBytes, &rct); err != nil {
 			return nil, err
 		}
+
 		logs[i] = rct.Logs
 	}
 	return logs, nil
@@ -766,7 +767,7 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 		return nil, err
 	}
 
-	_, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
+	_, _, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
 	return storageRlp, err
 }
 

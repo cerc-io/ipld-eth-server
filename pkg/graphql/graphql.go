@@ -19,6 +19,7 @@ package graphql
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/filters"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -91,6 +93,8 @@ type Log struct {
 	backend     *eth.Backend
 	transaction *Transaction
 	log         *types.Log
+	cid         string
+	ipldBlock   []byte
 }
 
 func (l *Log) Transaction(ctx context.Context) *Transaction {
@@ -115,6 +119,14 @@ func (l *Log) Topics(ctx context.Context) []common.Hash {
 
 func (l *Log) Data(ctx context.Context) hexutil.Bytes {
 	return hexutil.Bytes(l.log.Data)
+}
+
+func (l *Log) Cid(ctx context.Context) string {
+	return l.cid
+}
+
+func (l *Log) IpldBlock(ctx context.Context) hexutil.Bytes {
+	return hexutil.Bytes(l.ipldBlock)
 }
 
 // Transaction represents an Ethereum transaction.
@@ -943,4 +955,85 @@ func (r *Resolver) Logs(ctx context.Context, args struct{ Filter FilterCriteria 
 	// Construct the range filter
 	filter := filters.NewRangeFilter(filters.Backend(r.backend), begin, end, addresses, topics)
 	return runFilter(ctx, r.backend, filter)
+}
+
+// StorageResult represents a storage slot value. All arguments are mandatory.
+type StorageResult struct {
+	value     []byte
+	cid       string
+	ipldBlock []byte
+}
+
+func (s *StorageResult) Value(ctx context.Context) common.Hash {
+	return common.BytesToHash(s.value)
+}
+
+func (s *StorageResult) Cid(ctx context.Context) string {
+	return s.cid
+}
+
+func (s *StorageResult) IpldBlock(ctx context.Context) hexutil.Bytes {
+	return hexutil.Bytes(s.ipldBlock)
+}
+
+func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
+	BlockHash common.Hash
+	Contract  common.Address
+	Slot      common.Hash
+}) (*StorageResult, error) {
+	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(args.Contract, args.Slot, args.BlockHash)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ret := StorageResult{value: []byte{}, cid: "", ipldBlock: []byte{}}
+
+			return &ret, nil
+		}
+
+		return nil, err
+	}
+
+	var value interface{}
+	err = rlp.DecodeBytes(rlpValue, &value)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := StorageResult{value: value.([]byte), cid: cid, ipldBlock: ipldBlock}
+	return &ret, nil
+}
+
+func (r *Resolver) GetLogs(ctx context.Context, args struct {
+	BlockHash common.Hash
+	Contract  common.Address
+}) (*[]*Log, error) {
+	ret := make([]*Log, 0, 10)
+
+	receiptCIDs, receiptsBytes, err := r.backend.IPLDRetriever.RetrieveReceiptsByBlockHash(args.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	receipts := make(types.Receipts, len(receiptsBytes))
+	for index, receiptBytes := range receiptsBytes {
+		receiptCID := receiptCIDs[index]
+		receipt := new(types.Receipt)
+		if err := rlp.DecodeBytes(receiptBytes, receipt); err != nil {
+			return nil, err
+		}
+
+		receipts[index] = receipt
+		for _, log := range receipt.Logs {
+			if log.Address == args.Contract {
+				ret = append(ret, &Log{
+					backend:   r.backend,
+					log:       log,
+					cid:       receiptCID,
+					ipldBlock: receiptBytes,
+				})
+			}
+		}
+	}
+
+	return &ret, nil
 }
