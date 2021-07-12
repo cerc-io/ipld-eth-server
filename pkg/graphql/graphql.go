@@ -1005,11 +1005,11 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 
 func (r *Resolver) GetLogs(ctx context.Context, args struct {
 	BlockHash common.Hash
-	Contract  common.Address
+	Contract  *common.Address
 }) (*[]*Log, error) {
 	ret := make([]*Log, 0, 10)
 
-	receiptCIDs, receiptsBytes, err := r.backend.IPLDRetriever.RetrieveReceiptsByBlockHash(args.BlockHash)
+	receiptCIDs, receiptsBytes, txs, err := r.backend.IPLDRetriever.RetrieveReceiptsByBlockHash(args.BlockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -1024,12 +1024,15 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 
 		receipts[index] = receipt
 		for _, log := range receipt.Logs {
-			if log.Address == args.Contract {
+			if args.Contract == nil || *args.Contract == log.Address {
 				ret = append(ret, &Log{
 					backend:   r.backend,
 					log:       log,
 					cid:       receiptCID,
 					ipldBlock: receiptBytes,
+					transaction: &Transaction{
+						hash: common.HexToHash(txs[index]),
+					},
 				})
 			}
 		}
