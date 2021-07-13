@@ -1014,6 +1014,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	var logIndexInBlock uint = 0
 	receipts := make(types.Receipts, len(receiptsBytes))
 	for index, receiptBytes := range receiptsBytes {
 		receiptCID := receiptCIDs[index]
@@ -1024,6 +1025,9 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 
 		receipts[index] = receipt
 		for _, log := range receipt.Logs {
+			log.Index = logIndexInBlock
+			logIndexInBlock++
+
 			if args.Contract == nil || *args.Contract == log.Address {
 				ret = append(ret, &Log{
 					backend:   r.backend,
