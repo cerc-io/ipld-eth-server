@@ -21,8 +21,13 @@ type GetStorageAt struct {
 }
 
 type LogResponse struct {
-	Topics []common.Hash `json:"topics"`
-	Data   hexutil.Bytes `json:"data"`
+	Topics      []common.Hash   `json:"topics"`
+	Data        hexutil.Bytes   `json:"data"`
+	Transaction TransactionResp `json:"transaction"`
+}
+
+type TransactionResp struct {
+	Hash common.Hash `json:"hash"`
 }
 
 type GetLogs struct {
@@ -44,6 +49,9 @@ func (c *Client) GetLogs(ctx context.Context, hash common.Hash, address common.A
 			getLogs(blockHash: "%s", contract: "%s") {
 				data
 				topics
+				transaction {
+					hash
+				}
 			}
 		}
 	`, hash.String(), address.String())
