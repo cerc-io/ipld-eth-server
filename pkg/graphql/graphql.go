@@ -1035,7 +1035,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 					cid:       receiptCID,
 					ipldBlock: receiptBytes,
 					transaction: &Transaction{
-						hash: common.HexToHash(txs[index]),
+						hash: txs[index],
 					},
 				})
 			}

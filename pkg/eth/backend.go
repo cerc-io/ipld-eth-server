@@ -492,7 +492,7 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 		if err := rlp.DecodeBytes(rctBytes, rct); err != nil {
 			return nil, err
 		}
-		rct.TxHash = common.HexToHash(txs[i])
+		rct.TxHash = txs[i]
 		rcts[i] = rct
 	}
 	return rcts, nil
@@ -512,7 +512,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log
 		}
 
 		for _, log := range rct.Logs {
-			log.TxHash = common.HexToHash(txs[i])
+			log.TxHash = txs[i]
 		}
 
 		logs[i] = rct.Logs

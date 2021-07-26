@@ -347,19 +347,19 @@ func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]stri
 }
 
 // RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash
-func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string, [][]byte, []string, error) {
+func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
 	rctResults := make([]ipldResult, 0)
 	if err := r.db.Select(&rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, nil, err
 	}
 	cids := make([]string, len(rctResults))
 	rcts := make([][]byte, len(rctResults))
-	txs := make([]string, len(rctResults))
+	txs := make([]common.Hash, len(rctResults))
 
 	for i, res := range rctResults {
 		cids[i] = res.CID
 		rcts[i] = res.Data
-		txs[i] = res.TxHash
+		txs[i] = common.HexToHash(res.TxHash)
 	}
 
 	return cids, rcts, txs, nil
