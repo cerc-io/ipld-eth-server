@@ -42,13 +42,16 @@ import (
 )
 
 var (
-	randomAddr    = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
-	randomHash    = crypto.Keccak256Hash(randomAddr.Bytes())
-	number        = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
-	wrongNumber   = rpc.BlockNumber(number + 1)
-	blockHash     = test_helpers.MockBlock.Header().Hash()
-	ctx           = context.Background()
-	expectedBlock = map[string]interface{}{
+	randomAddr      = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
+	randomHash      = crypto.Keccak256Hash(randomAddr.Bytes())
+	number          = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
+	londonBlockNum  = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
+	wrongNumber     = rpc.BlockNumber(number + 1)
+	blockHash       = test_helpers.MockBlock.Header().Hash()
+	londonBlockHash = test_helpers.MockLondonBlock.Header().Hash()
+	baseFee         = test_helpers.MockLondonBlock.BaseFee()
+	ctx             = context.Background()
+	expectedBlock   = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
 		"hash":             test_helpers.MockBlock.Hash(),
 		"parentHash":       test_helpers.MockBlock.ParentHash(),
@@ -128,13 +131,14 @@ var (
 		"receiptsRoot":     test_helpers.MockUncles[1].ReceiptHash,
 		"uncles":           []common.Hash{},
 	}
-	expectedTransaction  = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0)
-	expectedTransaction2 = eth.NewRPCTransaction(test_helpers.MockTransactions[1], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 1)
-	expectedTransaction3 = eth.NewRPCTransaction(test_helpers.MockTransactions[2], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 2)
-	expectRawTx, _       = rlp.EncodeToBytes(test_helpers.MockTransactions[0])
-	expectRawTx2, _      = rlp.EncodeToBytes(test_helpers.MockTransactions[1])
-	expectRawTx3, _      = rlp.EncodeToBytes(test_helpers.MockTransactions[2])
-	expectedReceipt      = map[string]interface{}{
+	expectedTransaction       = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0, test_helpers.MockBlock.BaseFee())
+	expectedTransaction2      = eth.NewRPCTransaction(test_helpers.MockTransactions[1], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 1, test_helpers.MockBlock.BaseFee())
+	expectedTransaction3      = eth.NewRPCTransaction(test_helpers.MockTransactions[2], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 2, test_helpers.MockBlock.BaseFee())
+	expectedLondonTransaction = eth.NewRPCTransaction(test_helpers.MockLondonTransactions[0], test_helpers.MockLondonBlock.Hash(), test_helpers.MockLondonBlock.NumberU64(), 0, test_helpers.MockLondonBlock.BaseFee())
+	expectRawTx, _            = rlp.EncodeToBytes(test_helpers.MockTransactions[0])
+	expectRawTx2, _           = rlp.EncodeToBytes(test_helpers.MockTransactions[1])
+	expectRawTx3, _           = rlp.EncodeToBytes(test_helpers.MockTransactions[2])
+	expectedReceipt           = map[string]interface{}{
 		"blockHash":         blockHash,
 		"blockNumber":       hexutil.Uint64(uint64(number.Int64())),
 		"transactionHash":   expectedTransaction.Hash,
@@ -208,7 +212,11 @@ var _ = Describe("API", func() {
 			uncleHashes[i] = uncle.Hash()
 		}
 		expectedBlock["uncles"] = uncleHashes
+
+		err = indexAndPublisher.Publish(test_helpers.MockConvertedLondonPayload)
+		Expect(err).ToNot(HaveOccurred())
 	})
+
 	// Single test db tear down at end of all tests
 	defer It("test teardown", func() { eth.TearDownDB(db) })
 	/*
@@ -250,7 +258,7 @@ var _ = Describe("API", func() {
 			bn := api.BlockNumber()
 			ubn := (uint64)(bn)
 			subn := strconv.FormatUint(ubn, 10)
-			Expect(subn).To(Equal(test_helpers.BlockNumber.String()))
+			Expect(subn).To(Equal(test_helpers.LondonBlockNum.String()))
 		})
 	})
 
@@ -284,6 +292,16 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block).To(BeNil())
 		})
+		It("Fetch BaseFee from london block by block number, returns `nil` for legacy block", func() {
+			block, err := api.GetBlockByNumber(ctx, number, false)
+			Expect(err).ToNot(HaveOccurred())
+			_, ok := block["baseFee"]
+			Expect(ok).To(Equal(false))
+
+			block, err = api.GetBlockByNumber(ctx, londonBlockNum, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
+		})
 	})
 
 	Describe("eth_getBlockByHash", func() {
@@ -315,6 +333,16 @@ var _ = Describe("API", func() {
 			block, err := api.GetBlockByHash(ctx, randomHash, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block).To(BeZero())
+		})
+		It("Fetch BaseFee from london block by block hash, returns `nil` for legacy block", func() {
+			block, err := api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), true)
+			Expect(err).ToNot(HaveOccurred())
+			_, ok := block["baseFee"]
+			Expect(ok).To(Equal(false))
+
+			block, err = api.GetBlockByHash(ctx, londonBlockHash, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
 		})
 	})
 
@@ -437,6 +465,13 @@ var _ = Describe("API", func() {
 			Expect(tx).ToNot(BeNil())
 			Expect(tx).To(Equal(expectedTransaction3))
 		})
+		It("Retrieves the GasFeeCap and GasTipCap for dynamic transaction from the london block hash", func() {
+			tx := api.GetTransactionByBlockNumberAndIndex(ctx, londonBlockNum, 0)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx.GasFeeCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasFeeCap())))
+			Expect(tx.GasTipCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasTipCap())))
+			Expect(tx).To(Equal(expectedLondonTransaction))
+		})
 	})
 
 	Describe("eth_getTransactionByBlockHashAndIndex", func() {
@@ -452,6 +487,14 @@ var _ = Describe("API", func() {
 			tx = api.GetTransactionByBlockHashAndIndex(ctx, blockHash, 2)
 			Expect(tx).ToNot(BeNil())
 			Expect(tx).To(Equal(expectedTransaction3))
+		})
+
+		It("Retrieves the GasFeeCap and GasTipCap for dynamic transaction from the london block hash", func() {
+			tx := api.GetTransactionByBlockHashAndIndex(ctx, londonBlockHash, 0)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx.GasFeeCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasFeeCap())))
+			Expect(tx.GasTipCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasTipCap())))
+			Expect(tx).To(Equal(expectedLondonTransaction))
 		})
 	})
 

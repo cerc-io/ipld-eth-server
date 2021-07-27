@@ -8,7 +8,7 @@ SELECT exists(SELECT 1
                        INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
                        INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
               WHERE storage_path = path
-                AND block_number > height
+                AND block_number >= height
                 AND block_number <= (SELECT block_number
                                      FROM eth.header_cids
                                      WHERE block_hash = hash)

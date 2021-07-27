@@ -336,7 +336,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	var transactions []*types.Transaction
 	for _, txIPLD := range txIPLDs {
 		var transaction types.Transaction
-		err = rlp.DecodeBytes(txIPLD.Data, &transaction)
+		err = transaction.UnmarshalBinary(txIPLD.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -351,7 +351,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	var receipts []*types.Receipt
 	for _, rctIPLD := range rctIPLDs {
 		var receipt types.Receipt
-		err = rlp.DecodeBytes(rctIPLD.Data, &receipt)
+		err = receipt.UnmarshalBinary(rctIPLD.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -433,7 +433,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var transactions []*types.Transaction
 	for _, txIPLD := range txIPLDs {
 		var transaction types.Transaction
-		err = rlp.DecodeBytes(txIPLD.Data, &transaction)
+		err = transaction.UnmarshalBinary(txIPLD.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -451,7 +451,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var receipts []*types.Receipt
 	for _, rctIPLD := range rctIPLDs {
 		var receipt types.Receipt
-		err = rlp.DecodeBytes(rctIPLD.Data, &receipt)
+		err = receipt.UnmarshalBinary(rctIPLD.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -474,7 +474,7 @@ func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*type
 		return nil, common.Hash{}, 0, 0, err
 	}
 	var transaction types.Transaction
-	if err := rlp.DecodeBytes(tempTxStruct.Data, &transaction); err != nil {
+	if err := transaction.UnmarshalBinary(tempTxStruct.Data); err != nil {
 		return nil, common.Hash{}, 0, 0, err
 	}
 	return &transaction, common.HexToHash(tempTxStruct.BlockHash), tempTxStruct.BlockNumber, tempTxStruct.Index, nil
@@ -489,7 +489,7 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 	rcts := make(types.Receipts, len(receiptBytes))
 	for i, rctBytes := range receiptBytes {
 		rct := new(types.Receipt)
-		if err := rlp.DecodeBytes(rctBytes, rct); err != nil {
+		if err := rct.UnmarshalBinary(rctBytes); err != nil {
 			return nil, err
 		}
 		rcts[i] = rct
