@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -36,7 +37,7 @@ import (
 // RPCMarshalHeader converts the given header to the RPC output.
 // This function is eth/internal so we have to make our own version here...
 func RPCMarshalHeader(head *types.Header) map[string]interface{} {
-	return map[string]interface{}{
+	headerMap := map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
 		"hash":             head.Hash(),
 		"parentHash":       head.ParentHash,
@@ -55,6 +56,11 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 		"transactionsRoot": head.TxHash,
 		"receiptsRoot":     head.ReceiptHash,
 	}
+
+	if head.BaseFee != nil {
+		headerMap["baseFee"] = head.BaseFee
+	}
+	return headerMap
 }
 
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
@@ -134,14 +140,15 @@ func NewRPCTransactionFromBlockHash(b *types.Block, hash common.Hash) *RPCTransa
 
 // NewRPCTransaction returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
-func NewRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
-	var signer types.Signer = types.FrontierSigner{}
+func NewRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64, baseFee *big.Int) *RPCTransaction {
+	var signer types.Signer
 	if tx.Protected() {
-		signer = types.NewEIP155Signer(tx.ChainId())
+		signer = types.LatestSignerForChainID(tx.ChainId())
+	} else {
+		signer = types.HomesteadSigner{}
 	}
 	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
-
 	result := &RPCTransaction{
 		From:     from,
 		Gas:      hexutil.Uint64(tx.Gas()),
@@ -151,6 +158,7 @@ func NewRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		Nonce:    hexutil.Uint64(tx.Nonce()),
 		To:       tx.To(),
 		Value:    (*hexutil.Big)(tx.Value()),
+		Type:     hexutil.Uint64(tx.Type()),
 		V:        (*hexutil.Big)(v),
 		R:        (*hexutil.Big)(r),
 		S:        (*hexutil.Big)(s),
@@ -159,6 +167,26 @@ func NewRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.BlockHash = &blockHash
 		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
+	}
+	switch tx.Type() {
+	case types.AccessListTxType:
+		al := tx.AccessList()
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+	case types.DynamicFeeTxType:
+		al := tx.AccessList()
+		result.Accesses = &al
+		result.ChainID = (*hexutil.Big)(tx.ChainId())
+		result.GasFeeCap = (*hexutil.Big)(tx.GasFeeCap())
+		result.GasTipCap = (*hexutil.Big)(tx.GasTipCap())
+		// if the transaction has been mined, compute the effective gas price
+		if baseFee != nil && blockHash != (common.Hash{}) {
+			// price = min(tip, gasFeeCap - baseFee) + baseFee
+			price := math.BigMin(new(big.Int).Add(tx.GasTipCap(), baseFee), tx.GasFeeCap())
+			result.GasPrice = (*hexutil.Big)(price)
+		} else {
+			result.GasPrice = nil
+		}
 	}
 	return result
 }
@@ -240,7 +268,7 @@ func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransacti
 	if index >= uint64(len(txs)) {
 		return nil
 	}
-	return NewRPCTransaction(txs[index], b.Hash(), b.NumberU64(), index)
+	return NewRPCTransaction(txs[index], b.Hash(), b.NumberU64(), index, b.BaseFee())
 }
 
 // extractLogsOfInterest returns logs from the receipt IPLD
@@ -250,7 +278,7 @@ func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, bl
 
 	for i, rctBytes := range rctIPLDs {
 		rct := new(types.Receipt)
-		if err := rlp.DecodeBytes(rctBytes.Data, rct); err != nil {
+		if err := rct.UnmarshalBinary(rctBytes.Data); err != nil {
 			return nil, err
 		}
 		receipts[i] = rct

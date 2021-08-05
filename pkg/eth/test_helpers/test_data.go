@@ -17,6 +17,7 @@
 package test_helpers
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -58,7 +59,7 @@ var (
 		Difficulty:  big.NewInt(5000000),
 		Extra:       []byte{},
 	}
-	MockTransactions, MockReceipts, SenderAddr = createTransactionsAndReceipts()
+	MockTransactions, MockReceipts, SenderAddr = createLegacyTransactionsAndReceipts()
 	MockUncles                                 = []*types.Header{
 		{
 			Time:        1,
@@ -120,19 +121,27 @@ var (
 		Index:       1,
 	}
 
+	Tx1 = GetTxnRlp(0, MockTransactions)
+	Tx2 = GetTxnRlp(1, MockTransactions)
+	Tx3 = GetTxnRlp(2, MockTransactions)
+
+	Rct1 = GetRctRlp(0, MockReceipts)
+	Rct2 = GetRctRlp(1, MockReceipts)
+	Rct3 = GetRctRlp(2, MockReceipts)
+
 	HeaderCID, _  = ipld.RawdataToCid(ipld.MEthHeader, MockHeaderRlp, multihash.KECCAK_256)
 	HeaderMhKey   = shared.MultihashKeyFromCID(HeaderCID)
-	Trx1CID, _    = ipld.RawdataToCid(ipld.MEthTx, MockTransactions.GetRlp(0), multihash.KECCAK_256)
+	Trx1CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx1, multihash.KECCAK_256)
 	Trx1MhKey     = shared.MultihashKeyFromCID(Trx1CID)
-	Trx2CID, _    = ipld.RawdataToCid(ipld.MEthTx, MockTransactions.GetRlp(1), multihash.KECCAK_256)
+	Trx2CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx2, multihash.KECCAK_256)
 	Trx2MhKey     = shared.MultihashKeyFromCID(Trx2CID)
-	Trx3CID, _    = ipld.RawdataToCid(ipld.MEthTx, MockTransactions.GetRlp(2), multihash.KECCAK_256)
+	Trx3CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx3, multihash.KECCAK_256)
 	Trx3MhKey     = shared.MultihashKeyFromCID(Trx3CID)
-	Rct1CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, MockReceipts.GetRlp(0), multihash.KECCAK_256)
+	Rct1CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct1, multihash.KECCAK_256)
 	Rct1MhKey     = shared.MultihashKeyFromCID(Rct1CID)
-	Rct2CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, MockReceipts.GetRlp(1), multihash.KECCAK_256)
+	Rct2CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct2, multihash.KECCAK_256)
 	Rct2MhKey     = shared.MultihashKeyFromCID(Rct2CID)
-	Rct3CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, MockReceipts.GetRlp(2), multihash.KECCAK_256)
+	Rct3CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct3, multihash.KECCAK_256)
 	Rct3MhKey     = shared.MultihashKeyFromCID(Rct3CID)
 	State1CID, _  = ipld.RawdataToCid(ipld.MEthStateTrie, ContractLeafNode, multihash.KECCAK_256)
 	State1MhKey   = shared.MultihashKeyFromCID(State1CID)
@@ -419,12 +428,12 @@ var (
 	}
 
 	HeaderIPLD, _  = blocks.NewBlockWithCid(MockHeaderRlp, HeaderCID)
-	Trx1IPLD, _    = blocks.NewBlockWithCid(MockTransactions.GetRlp(0), Trx1CID)
-	Trx2IPLD, _    = blocks.NewBlockWithCid(MockTransactions.GetRlp(1), Trx2CID)
-	Trx3IPLD, _    = blocks.NewBlockWithCid(MockTransactions.GetRlp(2), Trx3CID)
-	Rct1IPLD, _    = blocks.NewBlockWithCid(MockReceipts.GetRlp(0), Rct1CID)
-	Rct2IPLD, _    = blocks.NewBlockWithCid(MockReceipts.GetRlp(1), Rct2CID)
-	Rct3IPLD, _    = blocks.NewBlockWithCid(MockReceipts.GetRlp(2), Rct3CID)
+	Trx1IPLD, _    = blocks.NewBlockWithCid(Tx1, Trx1CID)
+	Trx2IPLD, _    = blocks.NewBlockWithCid(Tx2, Trx2CID)
+	Trx3IPLD, _    = blocks.NewBlockWithCid(Tx3, Trx3CID)
+	Rct1IPLD, _    = blocks.NewBlockWithCid(Rct1, Rct1CID)
+	Rct2IPLD, _    = blocks.NewBlockWithCid(Rct2, Rct2CID)
+	Rct3IPLD, _    = blocks.NewBlockWithCid(Rct3, Rct3CID)
 	State1IPLD, _  = blocks.NewBlockWithCid(ContractLeafNode, State1CID)
 	State2IPLD, _  = blocks.NewBlockWithCid(AccountLeafNode, State2CID)
 	StorageIPLD, _ = blocks.NewBlockWithCid(StorageLeafNode, StorageCID)
@@ -496,9 +505,60 @@ var (
 			},
 		},
 	}
+
+	LondonBlockNum   = new(big.Int).Add(BlockNumber, big.NewInt(2))
+	MockLondonHeader = types.Header{
+		Time:       0,
+		Number:     LondonBlockNum,
+		Root:       common.HexToHash("0x00"),
+		Difficulty: big.NewInt(5000000),
+		Extra:      []byte{},
+		BaseFee:    big.NewInt(params.InitialBaseFee),
+	}
+
+	MockLondonTransactions, MockLondonReceipts, SenderAdd = createDynamicTransactionsAndReceipts(LondonBlockNum)
+	MockLondonBlock                                       = createNewBlock(&MockLondonHeader, MockLondonTransactions, nil, MockLondonReceipts, new(trie.Trie))
+	MockLondonTrxMeta                                     = []eth.TxModel{
+		{
+			CID:    "", // This is empty until we go to publish to ipfs
+			MhKey:  "",
+			Src:    SenderAdd.Hex(),
+			Dst:    Address.String(),
+			Index:  0,
+			TxHash: MockLondonTransactions[0].Hash().String(),
+			Data:   []byte{},
+		},
+	}
+	MockLondonRctMeta = []eth.ReceiptModel{
+		{
+			CID:   "",
+			MhKey: "",
+			Topic0s: []string{
+				mockTopic11.String(),
+			},
+			Topic1s: []string{
+				mockTopic12.String(),
+			},
+			Contract:     "",
+			ContractHash: "",
+			LogContracts: []string{
+				Address.String(),
+			},
+		},
+	}
+
+	MockConvertedLondonPayload = eth.ConvertedPayload{
+		TotalDifficulty: MockLondonBlock.Difficulty(),
+		Block:           MockLondonBlock,
+		Receipts:        MockLondonReceipts,
+		TxMetaData:      MockLondonTrxMeta,
+		ReceiptMetaData: MockLondonRctMeta,
+		StorageNodes:    MockStorageNodes,
+		StateNodes:      MockStateNodes,
+	}
 )
 
-func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, hasher types.Hasher) *types.Block {
+func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, hasher types.TrieHasher) *types.Block {
 	block := types.NewBlock(header, txs, uncles, receipts, hasher)
 	bHash := block.Hash()
 	for _, r := range receipts {
@@ -509,8 +569,55 @@ func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*ty
 	return block
 }
 
-// createTransactionsAndReceipts is a helper function to generate signed mock transactions and mock receipts with mock logs
-func createTransactionsAndReceipts() (types.Transactions, types.Receipts, common.Address) {
+// createDynamicTransactionsAndReceipts is a helper function to generate signed mock transactions and mock receipts with mock logs
+func createDynamicTransactionsAndReceipts(blockNumber *big.Int) (types.Transactions, types.Receipts, common.Address) {
+	// make transactions
+	config := params.TestChainConfig
+	config.LondonBlock = blockNumber
+	trx1 := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   config.ChainID,
+		Nonce:     1,
+		GasTipCap: big.NewInt(50),
+		GasFeeCap: big.NewInt(100),
+		Gas:       50,
+		To:        &Address,
+		Value:     big.NewInt(1000),
+		Data:      []byte{},
+	})
+
+	transactionSigner := types.MakeSigner(config, blockNumber)
+	mockCurve := elliptic.P256()
+	mockPrvKey, err := ecdsa.GenerateKey(mockCurve, rand.Reader)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	signedTrx1, err := types.SignTx(trx1, transactionSigner, mockPrvKey)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	senderAddr, err := types.Sender(transactionSigner, signedTrx1) // same for both trx
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	// make receipts
+	// TODO: Change the receipt type to DynamicFeeTxType once this PR is merged.
+	// https://github.com/ethereum/go-ethereum/pull/22806
+	mockReceipt1 := &types.Receipt{
+		Type:              types.AccessListTxType,
+		PostState:         common.HexToHash("0x1").Bytes(),
+		Status:            types.ReceiptStatusSuccessful,
+		CumulativeGasUsed: 50,
+		Logs:              []*types.Log{},
+		TxHash:            signedTrx1.Hash(),
+	}
+
+	return types.Transactions{signedTrx1}, types.Receipts{mockReceipt1}, senderAddr
+}
+
+// createLegacyTransactionsAndReceipts is a helper function to generate signed mock transactions and mock receipts with mock logs
+func createLegacyTransactionsAndReceipts() (types.Transactions, types.Receipts, common.Address) {
 	// make transactions
 	trx1 := types.NewTransaction(0, Address, big.NewInt(1000), 50, big.NewInt(100), []byte{})
 	trx2 := types.NewTransaction(1, AnotherAddress, big.NewInt(2000), 100, big.NewInt(200), []byte{})
@@ -561,4 +668,22 @@ func createTransactionsAndReceipts() (types.Transactions, types.Receipts, common
 	mockReceipt3.GasUsed = mockReceipt3.CumulativeGasUsed - mockReceipt2.CumulativeGasUsed
 
 	return types.Transactions{signedTrx1, signedTrx2, signedTrx3}, types.Receipts{mockReceipt1, mockReceipt2, mockReceipt3}, SenderAddr
+}
+
+func GetTxnRlp(num int, txs types.Transactions) []byte {
+	buf := new(bytes.Buffer)
+	txs.EncodeIndex(num, buf)
+	tx := make([]byte, buf.Len())
+	copy(tx, buf.Bytes())
+	buf.Reset()
+	return tx
+}
+
+func GetRctRlp(num int, rcts types.Receipts) []byte {
+	buf := new(bytes.Buffer)
+	rcts.EncodeIndex(num, buf)
+	rct := make([]byte, buf.Len())
+	copy(rct, buf.Bytes())
+	buf.Reset()
+	return rct
 }

@@ -23,18 +23,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
@@ -393,7 +392,12 @@ func (pea *PublicEthAPI) GetRawTransactionByBlockHashAndIndex(ctx context.Contex
 func (pea *PublicEthAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) (*RPCTransaction, error) {
 	tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
 	if tx != nil && err == nil {
-		return NewRPCTransaction(tx, blockHash, blockNumber, index), nil
+		header, err := pea.B.HeaderByHash(ctx, blockHash)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewRPCTransaction(tx, blockHash, blockNumber, index, header.BaseFee), nil
 	}
 	if pea.rpc != nil {
 		var tx *RPCTransaction
@@ -879,13 +883,47 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 	if args.Gas != nil {
 		gas = uint64(*args.Gas)
 	}
+
 	if globalGasCap != nil && globalGasCap.Uint64() < gas {
 		logrus.Warnf("Caller gas above allowance, capping; requested: %d, cap: %d", gas, globalGasCap)
 		gas = globalGasCap.Uint64()
 	}
-	gasPrice := new(big.Int).SetUint64(params.GWei)
-	if args.GasPrice != nil {
-		gasPrice = args.GasPrice.ToInt()
+
+	var (
+		gasPrice  *big.Int
+		gasFeeCap *big.Int
+		gasTipCap *big.Int
+	)
+
+	if header.BaseFee == nil {
+		// If there's no basefee, then it must be a non-1559 execution
+		gasPrice = new(big.Int)
+		if args.GasPrice != nil {
+			gasPrice = args.GasPrice.ToInt()
+		}
+		gasFeeCap, gasTipCap = gasPrice, gasPrice
+	} else {
+		// A basefee is provided, necessitating 1559-type execution
+		if args.GasPrice != nil {
+			// User specified the legacy gas field, convert to 1559 gas typing
+			gasPrice = args.GasPrice.ToInt()
+			gasFeeCap, gasTipCap = gasPrice, gasPrice
+		} else {
+			// User specified 1559 gas feilds (or none), use those
+			gasFeeCap = new(big.Int)
+			if args.MaxFeePerGas != nil {
+				gasFeeCap = args.MaxFeePerGas.ToInt()
+			}
+			gasTipCap = new(big.Int)
+			if args.MaxPriorityFeePerGas != nil {
+				gasTipCap = args.MaxPriorityFeePerGas.ToInt()
+			}
+			// Backfill the legacy gasPrice for EVM execution, unless we're all zeroes
+			gasPrice = new(big.Int)
+			if gasFeeCap.BitLen() > 0 || gasTipCap.BitLen() > 0 {
+				gasPrice = math.BigMin(new(big.Int).Add(gasTipCap, header.BaseFee), gasFeeCap)
+			}
+		}
 	}
 
 	value := new(big.Int)
@@ -894,12 +932,19 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 	}
 
 	var data []byte
-	if args.Data != nil {
-		data = []byte(*args.Data)
+	if args.Input != nil {
+		data = *args.Input
+	} else if args.Data != nil {
+		data = *args.Data
+	}
+
+	var accessList types.AccessList
+	if args.AccessList != nil {
+		accessList = *args.AccessList
 	}
 
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false)
+	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, false)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.

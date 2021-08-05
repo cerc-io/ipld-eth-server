@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
--- returns if a storage node at the provided path was removed in the range > the provided height and <= the provided block hash
+-- returns if a storage node at the provided path was removed in the range >= the provided height and <= the provided block hash
 CREATE OR REPLACE FUNCTION was_storage_removed(path BYTEA, height BIGINT, hash VARCHAR(66)) RETURNS BOOLEAN
 AS $$
 SELECT exists(SELECT 1
@@ -8,7 +8,7 @@ SELECT exists(SELECT 1
                        INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
                        INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
               WHERE storage_path = path
-                AND block_number > height
+                AND block_number >= height
                 AND block_number <= (SELECT block_number
                                      FROM eth.header_cids
                                      WHERE block_hash = hash)
