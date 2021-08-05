@@ -1400,6 +1400,8 @@ github.com/vulcanize/ipld-eth-indexer v0.7.0-alpha h1:VuvKC2qLajohczJX74lwBrpr/X
 github.com/vulcanize/ipld-eth-indexer v0.7.0-alpha/go.mod h1:LYN2c28N9ceDf66tppc+TpaLqs4UcUlLTvUvg3Awccc=
 github.com/vulcanize/ipld-eth-indexer v0.7.1-alpha h1:By8Yyt8IjneVhL+xne/V6VLumKcUx06iE5Kq2rFphzA=
 github.com/vulcanize/ipld-eth-indexer v0.7.1-alpha/go.mod h1:LYN2c28N9ceDf66tppc+TpaLqs4UcUlLTvUvg3Awccc=
+github.com/vulcanize/ipld-eth-indexer v0.7.1-alpha.0.20210805022537-b4692fa49849 h1:LJpkIcz1z/i1zaDYVjbAebZa8EEAH7vwBl+7OCrXDgY=
+github.com/vulcanize/ipld-eth-indexer v0.7.1-alpha.0.20210805022537-b4692fa49849/go.mod h1:KhQC8imuGZkSPhibfjBKTxttTYiVDYhCrdyth+DlKJ0=
 github.com/vulcanize/pg-ipfs-ethdb v0.0.2-alpha h1:wvhpjrRuxjudAael5zhNwGymce/ggvOhHo1q9VJ0NjU=
 github.com/vulcanize/pg-ipfs-ethdb v0.0.2-alpha/go.mod h1:WIceyu15uxQ4JanLxzKXn4iAyJJSmHAJNWux7qYXGEQ=
 github.com/wangjia184/sortedset v0.0.0-20160527075905-f5d03557ba30/go.mod h1:YkocrP2K2tcw938x9gCOmT5G5eCD6jsTz0SZuyAqwIE=

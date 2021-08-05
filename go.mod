@@ -24,11 +24,9 @@ require (
 	github.com/tklauser/go-sysconf v0.3.6 // indirect
 	github.com/vulcanize/gap-filler v0.3.1
 	github.com/vulcanize/ipfs-ethdb v0.0.2-alpha
-	github.com/vulcanize/ipld-eth-indexer v0.7.1-alpha
+	github.com/vulcanize/ipld-eth-indexer v0.7.1-alpha.0.20210805022537-b4692fa49849
 )
 
 replace github.com/ethereum/go-ethereum v1.9.25 => github.com/vulcanize/go-ethereum v1.10.4-statediff-0.0.25
 
 replace github.com/vulcanize/ipfs-ethdb v0.0.2-alpha => github.com/vulcanize/pg-ipfs-ethdb v0.0.2-alpha
-
-replace github.com/vulcanize/ipld-eth-indexer v0.7.1-alpha => /Users/arijitdas/go/src/github.com/Vulcanize/ipld-eth-indexer
