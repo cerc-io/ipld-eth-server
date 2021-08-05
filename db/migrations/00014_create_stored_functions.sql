@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
--- returns if a storage node at the provided path was removed in the range > the provided height and <= the provided block hash
+-- returns if a storage node at the provided path was removed in the range >= the provided height and <= the provided block hash
 CREATE OR REPLACE FUNCTION was_storage_removed(path BYTEA, height BIGINT, hash VARCHAR(66)) RETURNS BOOLEAN
 AS $$
 SELECT exists(SELECT 1
