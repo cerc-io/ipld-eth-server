@@ -19,6 +19,7 @@ package eth
 import (
 	"bytes"
 
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,14 +28,12 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/multiformats/go-multihash"
 
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs/ipld"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 )
 
 // Filterer interface for substituing mocks in tests
 type Filterer interface {
-	Filter(filter SubscriptionSettings, payload eth.ConvertedPayload) (*IPLDs, error)
+	Filter(filter SubscriptionSettings, payload ConvertedPayload) (*IPLDs, error)
 }
 
 // ResponseFilterer satisfies the ResponseFilterer interface for ethereum
@@ -46,7 +45,7 @@ func NewResponseFilterer() *ResponseFilterer {
 }
 
 // Filter is used to filter through eth data to extract and package requested data into a Payload
-func (s *ResponseFilterer) Filter(filter SubscriptionSettings, payload eth.ConvertedPayload) (*IPLDs, error) {
+func (s *ResponseFilterer) Filter(filter SubscriptionSettings, payload ConvertedPayload) (*IPLDs, error) {
 	if checkRange(filter.Start.Int64(), filter.End.Int64(), payload.Block.Number().Int64()) {
 		response := new(IPLDs)
 		response.TotalDifficulty = payload.TotalDifficulty
@@ -73,7 +72,7 @@ func (s *ResponseFilterer) Filter(filter SubscriptionSettings, payload eth.Conve
 	return nil, nil
 }
 
-func (s *ResponseFilterer) filterHeaders(headerFilter HeaderFilter, response *IPLDs, payload eth.ConvertedPayload) error {
+func (s *ResponseFilterer) filterHeaders(headerFilter HeaderFilter, response *IPLDs, payload ConvertedPayload) error {
 	if !headerFilter.Off {
 		headerRLP, err := rlp.EncodeToBytes(payload.Block.Header())
 		if err != nil {
@@ -115,7 +114,7 @@ func checkRange(start, end, actual int64) bool {
 	return false
 }
 
-func (s *ResponseFilterer) filterTransactions(trxFilter TxFilter, response *IPLDs, payload eth.ConvertedPayload) ([]common.Hash, error) {
+func (s *ResponseFilterer) filterTransactions(trxFilter TxFilter, response *IPLDs, payload ConvertedPayload) ([]common.Hash, error) {
 	var trxHashes []common.Hash
 	if !trxFilter.Off {
 		trxLen := len(payload.Block.Body().Transactions)
@@ -163,7 +162,7 @@ func checkTransactionAddrs(wantedSrc, wantedDst []string, actualSrc, actualDst s
 	return false
 }
 
-func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *IPLDs, payload eth.ConvertedPayload, trxHashes []common.Hash) error {
+func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *IPLDs, payload ConvertedPayload, trxHashes []common.Hash) error {
 	if !receiptFilter.Off {
 		response.Receipts = make([]ipfs.BlockModel, 0, len(payload.Receipts))
 		for i, receipt := range payload.Receipts {
@@ -253,7 +252,7 @@ func slicesShareString(slice1, slice2 []string) int {
 }
 
 // filterStateAndStorage filters state and storage nodes into the response according to the provided filters
-func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storageFilter StorageFilter, response *IPLDs, payload eth.ConvertedPayload) error {
+func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storageFilter StorageFilter, response *IPLDs, payload ConvertedPayload) error {
 	response.StateNodes = make([]StateNode, 0, len(payload.StateNodes))
 	response.StorageNodes = make([]StorageNode, 0)
 	stateAddressFilters := make([]common.Hash, len(stateFilter.Addresses))
@@ -270,37 +269,37 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 	}
 	for _, stateNode := range payload.StateNodes {
 		if !stateFilter.Off && checkNodeKeys(stateAddressFilters, stateNode.LeafKey) {
-			if stateNode.Type == sdtypes.Leaf || stateFilter.IntermediateNodes {
-				cid, err := ipld.RawdataToCid(ipld.MEthStateTrie, stateNode.Value, multihash.KECCAK_256)
+			if stateNode.NodeType == sdtypes.Leaf || stateFilter.IntermediateNodes {
+				cid, err := ipld.RawdataToCid(ipld.MEthStateTrie, stateNode.NodeValue, multihash.KECCAK_256)
 				if err != nil {
 					return err
 				}
 				response.StateNodes = append(response.StateNodes, StateNode{
-					StateLeafKey: stateNode.LeafKey,
+					StateLeafKey: common.BytesToHash(stateNode.LeafKey),
 					Path:         stateNode.Path,
 					IPLD: ipfs.BlockModel{
-						Data: stateNode.Value,
+						Data: stateNode.NodeValue,
 						CID:  cid.String(),
 					},
-					Type: stateNode.Type,
+					Type: stateNode.NodeType,
 				})
 			}
 		}
 		if !storageFilter.Off && checkNodeKeys(storageAddressFilters, stateNode.LeafKey) {
 			for _, storageNode := range payload.StorageNodes[common.Bytes2Hex(stateNode.Path)] {
 				if checkNodeKeys(storageKeyFilters, storageNode.LeafKey) {
-					cid, err := ipld.RawdataToCid(ipld.MEthStorageTrie, storageNode.Value, multihash.KECCAK_256)
+					cid, err := ipld.RawdataToCid(ipld.MEthStorageTrie, storageNode.NodeValue, multihash.KECCAK_256)
 					if err != nil {
 						return err
 					}
 					response.StorageNodes = append(response.StorageNodes, StorageNode{
-						StateLeafKey:   stateNode.LeafKey,
-						StorageLeafKey: storageNode.LeafKey,
+						StateLeafKey:   common.BytesToHash(stateNode.LeafKey),
+						StorageLeafKey: common.BytesToHash(storageNode.LeafKey),
 						IPLD: ipfs.BlockModel{
-							Data: storageNode.Value,
+							Data: storageNode.NodeValue,
 							CID:  cid.String(),
 						},
-						Type: storageNode.Type,
+						Type: storageNode.NodeType,
 						Path: storageNode.Path,
 					})
 				}
@@ -310,13 +309,13 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 	return nil
 }
 
-func checkNodeKeys(wantedKeys []common.Hash, actualKey common.Hash) bool {
+func checkNodeKeys(wantedKeys []common.Hash, actualKey []byte) bool {
 	// If we aren't filtering for any specific keys, all nodes are a go
 	if len(wantedKeys) == 0 {
 		return true
 	}
 	for _, key := range wantedKeys {
-		if bytes.Equal(key.Bytes(), actualKey.Bytes()) {
+		if bytes.Equal(key.Bytes(), actualKey) {
 			return true
 		}
 	}

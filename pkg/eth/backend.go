@@ -39,14 +39,12 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/ethereum/go-ethereum/trie"
 
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	ipfsethdb "github.com/vulcanize/ipfs-ethdb"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
-	shared2 "github.com/vulcanize/ipld-eth-indexer/pkg/shared"
-
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -714,7 +712,7 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 		return nil, err
 	}
 	var mhKey string
-	mhKey, err = shared2.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
+	mhKey, err = shared.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
 	if err != nil {
 		return nil, err
 	}

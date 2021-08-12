@@ -17,12 +17,11 @@
 package eth_test
 
 import (
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/statediff/indexer"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
-
-	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
@@ -31,18 +30,28 @@ import (
 var _ = Describe("IPLDFetcher", func() {
 	var (
 		db            *postgres.DB
-		pubAndIndexer *eth2.IPLDPublisher
+		pubAndIndexer *indexer.StateDiffIndexer
 		fetcher       *eth.IPLDFetcher
 	)
 	Describe("Fetch", func() {
 		BeforeEach(func() {
-			var err error
-			db, err = shared.SetupDB()
+			var (
+				err error
+				tx  *indexer.BlockTx
+			)
+			db, err = SetupDB()
 			Expect(err).ToNot(HaveOccurred())
-			pubAndIndexer = eth2.NewIPLDPublisher(db)
-			err = pubAndIndexer.Publish(test_helpers.MockConvertedPayload)
+			pubAndIndexer = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
+			tx, err = pubAndIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+			for _, node := range test_helpers.MockStateNodes {
+				err = pubAndIndexer.PushStateNode(tx, node)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			err = tx.Close(err)
 			Expect(err).ToNot(HaveOccurred())
 			fetcher = eth.NewIPLDFetcher(db)
+
 		})
 		AfterEach(func() {
 			eth.TearDownDB(db)

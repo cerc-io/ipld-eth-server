@@ -19,16 +19,16 @@ package eth_test
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/statediff/indexer"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
@@ -211,15 +211,15 @@ var (
 
 var _ = Describe("Retriever", func() {
 	var (
-		db        *postgres.DB
-		repo      *eth2.IPLDPublisher
-		retriever *eth.CIDRetriever
+		db          *postgres.DB
+		diffIndexer *indexer.StateDiffIndexer
+		retriever   *eth.CIDRetriever
 	)
 	BeforeEach(func() {
 		var err error
-		db, err = shared.SetupDB()
+		db, err = SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		repo = eth2.NewIPLDPublisher(db)
+		diffIndexer = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
 		retriever = eth.NewCIDRetriever(db)
 	})
 	AfterEach(func() {
@@ -228,7 +228,14 @@ var _ = Describe("Retriever", func() {
 
 	Describe("Retrieve", func() {
 		BeforeEach(func() {
-			err := repo.Publish(test_helpers.MockConvertedPayload)
+			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+			Expect(err).ToNot(HaveOccurred())
+			for _, node := range test_helpers.MockStateNodes {
+				err = diffIndexer.PushStateNode(tx, node)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			err = tx.Close(err)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("Retrieves all CIDs for the given blocknumber when provided an open filter", func() {
@@ -277,7 +284,7 @@ var _ = Describe("Retriever", func() {
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids1)).To(Equal(1))
 			Expect(cids1[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
-			Expect(cids1[0].Header).To(Equal(eth2.HeaderModel{}))
+			Expect(cids1[0].Header).To(Equal(models.HeaderModel{}))
 			Expect(len(cids1[0].Transactions)).To(Equal(0))
 			Expect(len(cids1[0].StateNodes)).To(Equal(0))
 			Expect(len(cids1[0].StorageNodes)).To(Equal(0))
@@ -292,7 +299,7 @@ var _ = Describe("Retriever", func() {
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids2)).To(Equal(1))
 			Expect(cids2[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
-			Expect(cids2[0].Header).To(Equal(eth2.HeaderModel{}))
+			Expect(cids2[0].Header).To(Equal(models.HeaderModel{}))
 			Expect(len(cids2[0].Transactions)).To(Equal(0))
 			Expect(len(cids2[0].StateNodes)).To(Equal(0))
 			Expect(len(cids2[0].StorageNodes)).To(Equal(0))
@@ -307,7 +314,7 @@ var _ = Describe("Retriever", func() {
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids3)).To(Equal(1))
 			Expect(cids3[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
-			Expect(cids3[0].Header).To(Equal(eth2.HeaderModel{}))
+			Expect(cids3[0].Header).To(Equal(models.HeaderModel{}))
 			Expect(len(cids3[0].Transactions)).To(Equal(0))
 			Expect(len(cids3[0].StateNodes)).To(Equal(0))
 			Expect(len(cids3[0].StorageNodes)).To(Equal(0))
@@ -322,7 +329,7 @@ var _ = Describe("Retriever", func() {
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids4)).To(Equal(1))
 			Expect(cids4[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
-			Expect(cids4[0].Header).To(Equal(eth2.HeaderModel{}))
+			Expect(cids4[0].Header).To(Equal(models.HeaderModel{}))
 			Expect(len(cids4[0].Transactions)).To(Equal(0))
 			Expect(len(cids4[0].StateNodes)).To(Equal(0))
 			Expect(len(cids4[0].StorageNodes)).To(Equal(0))
@@ -337,7 +344,7 @@ var _ = Describe("Retriever", func() {
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids5)).To(Equal(1))
 			Expect(cids5[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
-			Expect(cids5[0].Header).To(Equal(eth2.HeaderModel{}))
+			Expect(cids5[0].Header).To(Equal(models.HeaderModel{}))
 			Expect(len(cids5[0].Transactions)).To(Equal(3))
 			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, test_helpers.Trx1CID.String())).To(BeTrue())
 			Expect(eth.TxModelsContainsCID(cids5[0].Transactions, test_helpers.Trx2CID.String())).To(BeTrue())
@@ -354,7 +361,7 @@ var _ = Describe("Retriever", func() {
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids6)).To(Equal(1))
 			Expect(cids6[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
-			Expect(cids6[0].Header).To(Equal(eth2.HeaderModel{}))
+			Expect(cids6[0].Header).To(Equal(models.HeaderModel{}))
 			Expect(len(cids6[0].Transactions)).To(Equal(1))
 			expectedTxCID := test_helpers.MockCIDWrapper.Transactions[1]
 			expectedTxCID.ID = cids6[0].Transactions[0].ID
@@ -373,12 +380,12 @@ var _ = Describe("Retriever", func() {
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids7)).To(Equal(1))
 			Expect(cids7[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
-			Expect(cids7[0].Header).To(Equal(eth2.HeaderModel{}))
+			Expect(cids7[0].Header).To(Equal(models.HeaderModel{}))
 			Expect(len(cids7[0].Transactions)).To(Equal(0))
 			Expect(len(cids7[0].Receipts)).To(Equal(0))
 			Expect(len(cids7[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids7[0].StateNodes)).To(Equal(1))
-			Expect(cids7[0].StateNodes[0]).To(Equal(eth2.StateNodeModel{
+			Expect(cids7[0].StateNodes[0]).To(Equal(models.StateNodeModel{
 				ID:       cids7[0].StateNodes[0].ID,
 				HeaderID: cids7[0].StateNodes[0].HeaderID,
 				NodeType: 2,
@@ -400,8 +407,12 @@ var _ = Describe("Retriever", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Gets the number of the first block that has data in the database", func() {
-			err := repo.Publish(test_helpers.MockConvertedPayload)
+			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
+
+			err = tx.Close(err)
+			Expect(err).ToNot(HaveOccurred())
+
 			num, err := retriever.RetrieveFirstBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(num).To(Equal(int64(1)))
@@ -410,8 +421,12 @@ var _ = Describe("Retriever", func() {
 		It("Gets the number of the first block that has data in the database", func() {
 			payload := test_helpers.MockConvertedPayload
 			payload.Block = newMockBlock(1010101)
-			err := repo.Publish(payload)
+			tx, err := diffIndexer.PushBlock(payload.Block, payload.Receipts, payload.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
+
+			err = tx.Close(err)
+			Expect(err).ToNot(HaveOccurred())
+
 			num, err := retriever.RetrieveFirstBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(num).To(Equal(int64(1010101)))
@@ -422,10 +437,16 @@ var _ = Describe("Retriever", func() {
 			payload1.Block = newMockBlock(1010101)
 			payload2 := payload1
 			payload2.Block = newMockBlock(5)
-			err := repo.Publish(payload1)
+			tx, err := diffIndexer.PushBlock(payload1.Block, payload1.Receipts, payload1.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = repo.Publish(payload2)
+			err = tx.Close(err)
 			Expect(err).ToNot(HaveOccurred())
+
+			tx, err = diffIndexer.PushBlock(payload2.Block, payload2.Receipts, payload2.Block.Difficulty())
+			Expect(err).ToNot(HaveOccurred())
+			err = tx.Close(err)
+			Expect(err).ToNot(HaveOccurred())
+
 			num, err := retriever.RetrieveFirstBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(num).To(Equal(int64(5)))
@@ -438,8 +459,11 @@ var _ = Describe("Retriever", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Gets the number of the latest block that has data in the database", func() {
-			err := repo.Publish(test_helpers.MockConvertedPayload)
+			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
+			err = tx.Close(err)
+			Expect(err).ToNot(HaveOccurred())
+
 			num, err := retriever.RetrieveLastBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(num).To(Equal(int64(1)))
@@ -448,8 +472,12 @@ var _ = Describe("Retriever", func() {
 		It("Gets the number of the latest block that has data in the database", func() {
 			payload := test_helpers.MockConvertedPayload
 			payload.Block = newMockBlock(1010101)
-			err := repo.Publish(payload)
+			tx, err := diffIndexer.PushBlock(payload.Block, payload.Receipts, payload.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
+
+			err = tx.Close(err)
+			Expect(err).ToNot(HaveOccurred())
+
 			num, err := retriever.RetrieveLastBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(num).To(Equal(int64(1010101)))
@@ -460,10 +488,16 @@ var _ = Describe("Retriever", func() {
 			payload1.Block = newMockBlock(1010101)
 			payload2 := payload1
 			payload2.Block = newMockBlock(5)
-			err := repo.Publish(payload1)
+			tx, err := diffIndexer.PushBlock(payload1.Block, payload1.Receipts, payload1.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = repo.Publish(payload2)
+			err = tx.Close(err)
 			Expect(err).ToNot(HaveOccurred())
+
+			tx, err = diffIndexer.PushBlock(payload2.Block, payload2.Receipts, payload2.Block.Difficulty())
+			Expect(err).ToNot(HaveOccurred())
+			err = tx.Close(err)
+			Expect(err).ToNot(HaveOccurred())
+
 			num, err := retriever.RetrieveLastBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(num).To(Equal(int64(1010101)))

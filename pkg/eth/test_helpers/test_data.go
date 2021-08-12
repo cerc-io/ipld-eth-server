@@ -23,10 +23,13 @@ import (
 	"crypto/rand"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/statediff/indexer"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -39,11 +42,7 @@ import (
 	"github.com/multiformats/go-multihash"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs/ipld"
-
-	eth2 "github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 )
 
 // Test variables
@@ -149,7 +148,7 @@ var (
 	State2MhKey   = shared.MultihashKeyFromCID(State2CID)
 	StorageCID, _ = ipld.RawdataToCid(ipld.MEthStorageTrie, StorageLeafNode, multihash.KECCAK_256)
 	StorageMhKey  = shared.MultihashKeyFromCID(StorageCID)
-	MockTrxMeta   = []eth.TxModel{
+	MockTrxMeta   = []models.TxModel{
 		{
 			CID:    "", // This is empty until we go to publish to ipfs
 			MhKey:  "",
@@ -178,7 +177,7 @@ var (
 			Data:   MockContractByteCode,
 		},
 	}
-	MockTrxMetaPostPublsh = []eth.TxModel{
+	MockTrxMetaPostPublsh = []models.TxModel{
 		{
 			CID:    Trx1CID.String(), // This is empty until we go to publish to ipfs
 			MhKey:  Trx1MhKey,
@@ -207,7 +206,7 @@ var (
 			Data:   MockContractByteCode,
 		},
 	}
-	MockRctMeta = []eth.ReceiptModel{
+	MockRctMeta = []models.ReceiptModel{
 		{
 			CID:   "",
 			MhKey: "",
@@ -246,7 +245,7 @@ var (
 			LogContracts: []string{},
 		},
 	}
-	MockRctMetaPostPublish = []eth.ReceiptModel{
+	MockRctMetaPostPublish = []models.ReceiptModel{
 		{
 			CID:   Rct1CID.String(),
 			MhKey: Rct1MhKey,
@@ -331,21 +330,30 @@ var (
 		Account,
 	})
 
-	MockStateNodes = []eth.TrieNode{
+	MockStateNodes = []sdtypes.StateNode{
 		{
-			LeafKey: common.BytesToHash(ContractLeafKey),
-			Path:    []byte{'\x06'},
-			Value:   ContractLeafNode,
-			Type:    sdtypes.Leaf,
+			LeafKey:   ContractLeafKey,
+			Path:      []byte{'\x06'},
+			NodeValue: ContractLeafNode,
+			NodeType:  sdtypes.Leaf,
+			StorageNodes: []sdtypes.StorageNode{
+				{
+					Path:      []byte{},
+					NodeType:  sdtypes.Leaf,
+					LeafKey:   StorageLeafKey,
+					NodeValue: StorageLeafNode,
+				},
+			},
 		},
 		{
-			LeafKey: common.BytesToHash(AccountLeafKey),
-			Path:    []byte{'\x0c'},
-			Value:   AccountLeafNode,
-			Type:    sdtypes.Leaf,
+			LeafKey:      AccountLeafKey,
+			Path:         []byte{'\x0c'},
+			NodeValue:    AccountLeafNode,
+			NodeType:     sdtypes.Leaf,
+			StorageNodes: []sdtypes.StorageNode{},
 		},
 	}
-	MockStateMetaPostPublish = []eth.StateNodeModel{
+	MockStateMetaPostPublish = []models.StateNodeModel{
 		{
 			CID:      State1CID.String(),
 			MhKey:    State1MhKey,
@@ -361,13 +369,13 @@ var (
 			StateKey: common.BytesToHash(AccountLeafKey).Hex(),
 		},
 	}
-	MockStorageNodes = map[string][]eth.TrieNode{
+	MockStorageNodes = map[string][]sdtypes.StorageNode{
 		contractPath: {
 			{
-				LeafKey: common.BytesToHash(StorageLeafKey),
-				Value:   StorageLeafNode,
-				Type:    sdtypes.Leaf,
-				Path:    []byte{},
+				LeafKey:   StorageLeafKey,
+				NodeValue: StorageLeafNode,
+				NodeType:  sdtypes.Leaf,
+				Path:      []byte{},
 			},
 		},
 	}
@@ -391,11 +399,11 @@ var (
 		StateNodes:      MockStateNodes,
 	}
 
-	Reward = eth.CalcEthBlockReward(MockBlock.Header(), MockBlock.Uncles(), MockBlock.Transactions(), MockReceipts)
+	Reward = indexer.CalcEthBlockReward(MockBlock.Header(), MockBlock.Uncles(), MockBlock.Transactions(), MockReceipts)
 
-	MockCIDWrapper = &eth2.CIDWrapper{
+	MockCIDWrapper = &eth.CIDWrapper{
 		BlockNumber: new(big.Int).Set(BlockNumber),
-		Header: eth.HeaderModel{
+		Header: models.HeaderModel{
 			BlockNumber:     "1",
 			BlockHash:       MockBlock.Hash().String(),
 			ParentHash:      "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -413,9 +421,9 @@ var (
 		},
 		Transactions: MockTrxMetaPostPublsh,
 		Receipts:     MockRctMetaPostPublish,
-		Uncles:       []eth.UncleModel{},
+		Uncles:       []models.UncleModel{},
 		StateNodes:   MockStateMetaPostPublish,
-		StorageNodes: []eth.StorageNodeWithStateKeyModel{
+		StorageNodes: []models.StorageNodeWithStateKeyModel{
 			{
 				Path:       []byte{},
 				CID:        StorageCID.String(),
@@ -438,7 +446,7 @@ var (
 	State2IPLD, _  = blocks.NewBlockWithCid(AccountLeafNode, State2CID)
 	StorageIPLD, _ = blocks.NewBlockWithCid(StorageLeafNode, StorageCID)
 
-	MockIPLDs = eth2.IPLDs{
+	MockIPLDs = eth.IPLDs{
 		BlockNumber: new(big.Int).Set(BlockNumber),
 		Header: ipfs.BlockModel{
 			Data: HeaderIPLD.RawData(),
@@ -472,7 +480,7 @@ var (
 				CID:  Rct3IPLD.Cid().String(),
 			},
 		},
-		StateNodes: []eth2.StateNode{
+		StateNodes: []eth.StateNode{
 			{
 				StateLeafKey: common.BytesToHash(ContractLeafKey),
 				Type:         sdtypes.Leaf,
@@ -492,7 +500,7 @@ var (
 				Path: []byte{'\x0c'},
 			},
 		},
-		StorageNodes: []eth2.StorageNode{
+		StorageNodes: []eth.StorageNode{
 			{
 				StateLeafKey:   common.BytesToHash(ContractLeafKey),
 				StorageLeafKey: common.BytesToHash(StorageLeafKey),
@@ -518,7 +526,7 @@ var (
 
 	MockLondonTransactions, MockLondonReceipts, SenderAdd = createDynamicTransactionsAndReceipts(LondonBlockNum)
 	MockLondonBlock                                       = createNewBlock(&MockLondonHeader, MockLondonTransactions, nil, MockLondonReceipts, new(trie.Trie))
-	MockLondonTrxMeta                                     = []eth.TxModel{
+	MockLondonTrxMeta                                     = []models.TxModel{
 		{
 			CID:    "", // This is empty until we go to publish to ipfs
 			MhKey:  "",
@@ -529,7 +537,7 @@ var (
 			Data:   []byte{},
 		},
 	}
-	MockLondonRctMeta = []eth.ReceiptModel{
+	MockLondonRctMeta = []models.ReceiptModel{
 		{
 			CID:   "",
 			MhKey: "",
@@ -605,7 +613,7 @@ func createDynamicTransactionsAndReceipts(blockNumber *big.Int) (types.Transacti
 	// TODO: Change the receipt type to DynamicFeeTxType once this PR is merged.
 	// https://github.com/ethereum/go-ethereum/pull/22806
 	mockReceipt1 := &types.Receipt{
-		Type:              types.AccessListTxType,
+		Type:              types.DynamicFeeTxType,
 		PostState:         common.HexToHash("0x1").Bytes(),
 		Status:            types.ReceiptStatusSuccessful,
 		CumulativeGasUsed: 50,

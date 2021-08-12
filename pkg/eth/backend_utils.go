@@ -30,8 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 )
 
 // RPCMarshalHeader converts the given header to the RPC output.

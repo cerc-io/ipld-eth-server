@@ -20,9 +20,8 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 )

@@ -19,12 +19,11 @@ package eth_test
 import (
 	"bytes"
 
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"

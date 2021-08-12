@@ -28,9 +28,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 
 	"github.com/vulcanize/gap-filler/pkg/mux"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
 	srpc "github.com/vulcanize/ipld-eth-server/pkg/rpc"
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"

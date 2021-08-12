@@ -22,9 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/lib/pq"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 )
 
 const (

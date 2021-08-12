@@ -19,13 +19,12 @@ package test_config
 import (
 	"errors"
 
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 )
 
-var DBConfig postgres.Config
+var DBConfig postgres.ConnectionParams
 
 func init() {
 	setTestConfig()
@@ -53,7 +52,7 @@ func setTestConfig() {
 	port := vip.GetInt("database.port")
 	name := vip.GetString("database.name")
 
-	DBConfig = postgres.Config{
+	DBConfig = postgres.ConnectionParams{
 		Hostname: hn,
 		Name:     name,
 		Port:     port,

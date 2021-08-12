@@ -22,9 +22,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 )
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
@@ -146,10 +147,23 @@ type StorageNode struct {
 // Passed to IPLDFetcher
 type CIDWrapper struct {
 	BlockNumber  *big.Int
-	Header       eth.HeaderModel
-	Uncles       []eth.UncleModel
-	Transactions []eth.TxModel
-	Receipts     []eth.ReceiptModel
-	StateNodes   []eth.StateNodeModel
-	StorageNodes []eth.StorageNodeWithStateKeyModel
+	Header       models.HeaderModel
+	Uncles       []models.UncleModel
+	Transactions []models.TxModel
+	Receipts     []models.ReceiptModel
+	StateNodes   []models.StateNodeModel
+	StorageNodes []models.StorageNodeWithStateKeyModel
+}
+
+// ConvertedPayload is a custom type which packages raw ETH data for publishing to IPFS and filtering to subscribers
+// Returned by PayloadConverter
+// Passed to IPLDPublisher and ResponseFilterer
+type ConvertedPayload struct {
+	TotalDifficulty *big.Int
+	Block           *types.Block
+	TxMetaData      []models.TxModel
+	Receipts        types.Receipts
+	ReceiptMetaData []models.ReceiptModel
+	StateNodes      []sdtypes.StateNode
+	StorageNodes    map[string][]sdtypes.StorageNode
 }
