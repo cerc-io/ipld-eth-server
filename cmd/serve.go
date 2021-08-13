@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/mailgun/groupcache/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -82,6 +83,11 @@ func serve() {
 	}
 
 	err = startIpldGraphQL(serverConfig)
+	if err != nil {
+		logWithCommand.Fatal(err)
+	}
+
+	err = startGroupCacheService(serverConfig)
 	if err != nil {
 		logWithCommand.Fatal(err)
 	}
@@ -196,6 +202,32 @@ func startIpldGraphQL(settings *s.Config) error {
 	} else {
 		logWithCommand.Info("IPLD GraphQL server is disabled")
 	}
+
+	return nil
+}
+
+func startGroupCacheService(settings *s.Config) error {
+	gcc := settings.GroupCache
+
+	pool := groupcache.NewHTTPPoolOpts(gcc.Pool.HttpEndpoint, &groupcache.HTTPPoolOptions{})
+	pool.Set(gcc.Pool.PeerHttpEndpoints...)
+
+	httpURL, err := url.Parse(gcc.Pool.HttpEndpoint)
+	if err != nil {
+		return err
+	}
+
+	server := http.Server{
+		Addr:    httpURL.Host,
+		Handler: pool,
+	}
+
+	// Start a HTTP server to listen for peer requests from the groupcache
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			logWithCommand.Fatal(err)
+		}
+	}()
 
 	return nil
 }

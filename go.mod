@@ -13,6 +13,7 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lib/pq v1.10.2
 	github.com/machinebox/graphql v0.2.2
+	github.com/mailgun/groupcache/v2 v2.2.1
 	github.com/matryer/is v1.4.0 // indirect
 	github.com/multiformats/go-multihash v0.0.14
 	github.com/onsi/ginkgo v1.16.2

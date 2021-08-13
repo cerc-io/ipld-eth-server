@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -41,9 +42,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
-	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
+	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	"github.com/ethereum/go-ethereum/trie"
-	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -100,17 +102,23 @@ type Backend struct {
 }
 
 type Config struct {
-	ChainConfig   *params.ChainConfig
-	VmConfig      vm.Config
-	DefaultSender *common.Address
-	RPCGasCap     *big.Int
-	CacheConfig   pgipfsethdb.CacheConfig
+	ChainConfig      *params.ChainConfig
+	VmConfig         vm.Config
+	DefaultSender    *common.Address
+	RPCGasCap        *big.Int
+	GroupCacheConfig *shared.GroupCacheConfig
 }
 
 func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
-	r := NewCIDRetriever(db)
+	gcc := c.GroupCacheConfig
 
-	ethDB := pgipfsethdb.NewDatabase(db.DB, c.CacheConfig)
+	r := NewCIDRetriever(db)
+	ethDB := ipfsethdb.NewDatabase(db.DB, ipfsethdb.CacheConfig{
+		Name:           "statedb",
+		Size:           gcc.StateDB.CacheSizeInMB,
+		ExpiryDuration: time.Minute * time.Duration(gcc.StateDB.CacheExpiryInMins),
+	})
+
 	return &Backend{
 		DB:            db,
 		Retriever:     r,
@@ -292,10 +300,10 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
@@ -383,10 +391,10 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
@@ -704,10 +712,10 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
@@ -717,7 +725,7 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 		return nil, err
 	}
 	var mhKey string
-	mhKey, err = shared.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
+	mhKey, err = ethServerShared.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
 	if err != nil {
 		return nil, err
 	}
