@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -592,18 +593,54 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		if err != nil {
 			return nil, err
 		}
+
 		rctIPLDs, err := pea.B.Fetcher.FetchRcts(tx, rctCIDs)
 		if err != nil {
 			return nil, err
 		}
-		if err := tx.Commit(); err != nil {
-			return nil, err
+
+		rcptIDs := make([]int64, len(rctCIDs))
+		txnIDs := make([]int64, len(rctCIDs))
+		for idx, v := range rctCIDs {
+			rcptIDs[idx] = v.ID
+			txnIDs[idx] = v.TxID
 		}
-		block, err := pea.B.BlockByHash(context.Background(), *crit.BlockHash)
+
+		logCIDs, err := pea.B.Retriever.RetrieveLogCID(tx, rcptIDs)
 		if err != nil {
 			return nil, err
 		}
-		return extractLogsOfInterest(pea.B.Config.ChainConfig, *crit.BlockHash, block.NumberU64(), block.Transactions(), rctIPLDs, filter)
+
+		logIPLDs, err := pea.B.Fetcher.FetchLogs(tx, logCIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		txnCIDs, err := pea.B.Retriever.RetrieveTxCIDsByReceipt(tx, txnIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		txnIPLDs, err := pea.B.Fetcher.FetchTrxs(tx, txnCIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		header, err := pea.B.Retriever.RetrieveHeaderCIDByHash(tx, *crit.BlockHash)
+		if err != nil {
+			return nil, err
+		}
+
+		if err = tx.Commit(); err != nil {
+			return nil, err
+		}
+
+		blockNumber, err := strconv.ParseUint(header.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		return extractLogsOfInterest(pea.B.Config.ChainConfig, *crit.BlockHash, blockNumber, rctCIDs, txnIPLDs, rctIPLDs, logIPLDs, txnCIDs)
 	}
 
 	// Otherwise, create block range from criteria
@@ -631,22 +668,44 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 			return nil, err
 		}
 
-		block, err := pea.B.BlockByNumber(context.Background(), rpc.BlockNumber(i))
-		if err != nil {
-			return nil, err
-		}
-
 		rctIPLDs, err := pea.B.Fetcher.FetchRcts(tx, rctCIDs)
 		if err != nil {
 			return nil, err
 		}
 
-		log, err := extractLogsOfInterest(pea.B.Config.ChainConfig, block.Hash(), uint64(i), block.Transactions(), rctIPLDs, filter)
+		rcptIDs := make([]int64, len(rctCIDs))
+		txnIDs := make([]int64, len(rctCIDs))
+		for idx, v := range rctCIDs {
+			rcptIDs[idx] = v.ID
+			txnIDs[idx] = v.TxID
+		}
+
+		logCIDs, err := pea.B.Retriever.RetrieveLogCID(tx, rcptIDs)
 		if err != nil {
 			return nil, err
 		}
 
-		logs = append(logs, log...)
+		logIPLDs, err := pea.B.Fetcher.FetchLogs(tx, logCIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		txnCIDs, err := pea.B.Retriever.RetrieveTxCIDsByReceipt(tx, txnIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		txnIPLDs, err := pea.B.Fetcher.FetchTrxs(tx, txnCIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		header, err := pea.B.Retriever.RetrieveHeaderCIDByNumber(tx, i)
+		if err != nil {
+			return nil, err
+		}
+
+		return extractLogsOfInterest(pea.B.Config.ChainConfig, common.HexToHash(header.BlockHash), uint64(i), rctCIDs, txnIPLDs, rctIPLDs, logIPLDs, txnCIDs)
 	}
 
 	if err := tx.Commit(); err != nil {

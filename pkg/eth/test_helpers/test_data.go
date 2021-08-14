@@ -208,80 +208,42 @@ var (
 	}
 	MockRctMeta = []models.ReceiptModel{
 		{
-			CID:   "",
-			MhKey: "",
-			Topic0s: []string{
-				mockTopic11.String(),
-			},
-			Topic1s: []string{
-				mockTopic12.String(),
-			},
+			CID:          "",
+			MhKey:        "",
 			Contract:     "",
 			ContractHash: "",
-			LogContracts: []string{
-				Address.String(),
-			},
 		},
 		{
-			CID:   "",
-			MhKey: "",
-			Topic0s: []string{
-				mockTopic21.String(),
-			},
-			Topic1s: []string{
-				mockTopic22.String(),
-			},
+			CID:          "",
+			MhKey:        "",
 			Contract:     "",
 			ContractHash: "",
-			LogContracts: []string{
-				AnotherAddress.String(),
-			},
 		},
 		{
 			CID:          "",
 			MhKey:        "",
 			Contract:     ContractAddress.String(),
 			ContractHash: ContractHash,
-			LogContracts: []string{},
 		},
 	}
 	MockRctMetaPostPublish = []models.ReceiptModel{
 		{
-			CID:   Rct1CID.String(),
-			MhKey: Rct1MhKey,
-			Topic0s: []string{
-				mockTopic11.String(),
-			},
-			Topic1s: []string{
-				mockTopic12.String(),
-			},
+			CID:          Rct1CID.String(),
+			MhKey:        Rct1MhKey,
 			Contract:     "",
 			ContractHash: "",
-			LogContracts: []string{
-				Address.String(),
-			},
 		},
 		{
-			CID:   Rct2CID.String(),
-			MhKey: Rct2MhKey,
-			Topic0s: []string{
-				mockTopic21.String(),
-			},
-			Topic1s: []string{
-				mockTopic22.String(),
-			},
+			CID:          Rct2CID.String(),
+			MhKey:        Rct2MhKey,
 			Contract:     "",
 			ContractHash: "",
-			LogContracts: []string{
-				AnotherAddress.String(),
-			},
 		},
 		{
 			CID:          Rct3CID.String(),
 			MhKey:        Rct3MhKey,
 			Contract:     ContractAddress.String(),
 			ContractHash: ContractHash,
-			LogContracts: []string{},
 		},
 	}
 
@@ -524,46 +486,8 @@ var (
 		BaseFee:    big.NewInt(params.InitialBaseFee),
 	}
 
-	MockLondonTransactions, MockLondonReceipts, SenderAdd = createDynamicTransactionsAndReceipts(LondonBlockNum)
-	MockLondonBlock                                       = createNewBlock(&MockLondonHeader, MockLondonTransactions, nil, MockLondonReceipts, new(trie.Trie))
-	MockLondonTrxMeta                                     = []models.TxModel{
-		{
-			CID:    "", // This is empty until we go to publish to ipfs
-			MhKey:  "",
-			Src:    SenderAdd.Hex(),
-			Dst:    Address.String(),
-			Index:  0,
-			TxHash: MockLondonTransactions[0].Hash().String(),
-			Data:   []byte{},
-		},
-	}
-	MockLondonRctMeta = []models.ReceiptModel{
-		{
-			CID:   "",
-			MhKey: "",
-			Topic0s: []string{
-				mockTopic11.String(),
-			},
-			Topic1s: []string{
-				mockTopic12.String(),
-			},
-			Contract:     "",
-			ContractHash: "",
-			LogContracts: []string{
-				Address.String(),
-			},
-		},
-	}
-
-	MockConvertedLondonPayload = eth.ConvertedPayload{
-		TotalDifficulty: MockLondonBlock.Difficulty(),
-		Block:           MockLondonBlock,
-		Receipts:        MockLondonReceipts,
-		TxMetaData:      MockLondonTrxMeta,
-		ReceiptMetaData: MockLondonRctMeta,
-		StorageNodes:    MockStorageNodes,
-		StateNodes:      MockStateNodes,
-	}
+	MockLondonTransactions, MockLondonReceipts, _ = createDynamicTransactionsAndReceipts(LondonBlockNum)
+	MockLondonBlock                               = createNewBlock(&MockLondonHeader, MockLondonTransactions, nil, MockLondonReceipts, new(trie.Trie))
 )
 
 func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, hasher types.TrieHasher) *types.Block {
@@ -614,7 +538,7 @@ func createDynamicTransactionsAndReceipts(blockNumber *big.Int) (types.Transacti
 	// https://github.com/ethereum/go-ethereum/pull/22806
 	mockReceipt1 := &types.Receipt{
 		Type:              types.DynamicFeeTxType,
-		PostState:         common.HexToHash("0x1").Bytes(),
+		PostState:         common.HexToHash("0x0").Bytes(),
 		Status:            types.ReceiptStatusSuccessful,
 		CumulativeGasUsed: 50,
 		Logs:              []*types.Log{},

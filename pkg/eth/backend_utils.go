@@ -27,10 +27,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 )
 
 // RPCMarshalHeader converts the given header to the RPC output.
@@ -272,42 +274,93 @@ func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransacti
 
 // extractLogsOfInterest returns logs from the receipt IPLD
 func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, blockNumber uint64,
-	txs types.Transactions, rctIPLDs []ipfs.BlockModel, filter ReceiptFilter) ([]*types.Log, error) {
+	rctCIDs []models.ReceiptModel, txnIPLDs, rctIPLDs []ipfs.BlockModel, logIPLDs map[int64]map[int64]ipfs.BlockModel,
+	txnCIDs []models.TxModel) ([]*types.Log, error) {
 	receipts := make(types.Receipts, len(rctIPLDs))
 
-	for i, rctBytes := range rctIPLDs {
+	for k, rctBytes := range rctIPLDs {
 		rct := new(types.Receipt)
 		if err := rct.UnmarshalBinary(rctBytes.Data); err != nil {
 			return nil, err
 		}
-		receipts[i] = rct
+
+		if logModels, ok := logIPLDs[rctCIDs[k].ID]; ok {
+			idx := 0
+			for logIdx, v := range logModels {
+				l := &types.Log{}
+				err := rlp.DecodeBytes(v.Data, l)
+				if err != nil {
+					return nil, err
+				}
+				l.Index = uint(logIdx)
+				rct.Logs[idx] = l
+				idx++
+			}
+		}
+
+		receipts[k] = rct
 	}
 
-	err := receipts.DeriveFields(config, blockHash, blockNumber, txs)
+	txns := make(types.Transactions, len(txnIPLDs))
+	for idx, txnBytes := range txnIPLDs {
+		txn := new(types.Transaction)
+		if err := txn.UnmarshalBinary(txnBytes.Data); err != nil {
+			return nil, err
+		}
+		txns[idx] = txn
+	}
+
+	receipts, err := deriveFields(receipts, config, blockHash, blockNumber, txns, txnCIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	var unfilteredLogs []*types.Log
-	for _, receipt := range receipts {
-		unfilteredLogs = append(unfilteredLogs, receipt.Logs...)
+	var logs []*types.Log
+	for _, r := range receipts {
+		logs = append(logs, r.Logs...)
 	}
 
-	adders := make([]common.Address, len(filter.LogAddresses))
-	for i, addr := range filter.LogAddresses {
-		adders[i] = common.HexToAddress(addr)
-	}
+	return logs, nil
+}
 
-	topics := make([][]common.Hash, len(filter.Topics))
-	for i, v := range filter.Topics {
-		topics[i] = make([]common.Hash, len(v))
-		for j, topic := range v {
-			topics[i][j] = common.HexToHash(topic)
+func deriveFields(rs types.Receipts, config *params.ChainConfig, hash common.Hash, number uint64, txs types.Transactions,
+	txnCIDs []models.TxModel) (types.Receipts, error) {
+
+	signer := types.MakeSigner(config, new(big.Int).SetUint64(number))
+	for i := 0; i < len(rs); i++ {
+		// The transaction type and hash can be retrieved from the transaction itself
+		rs[i].Type = txs[i].Type()
+		rs[i].TxHash = txs[i].Hash()
+
+		// block location fields
+		rs[i].BlockHash = hash
+		rs[i].BlockNumber = new(big.Int).SetUint64(number)
+		rs[i].TransactionIndex = uint(txnCIDs[i].Index)
+
+		// The contract address can be derived from the transaction itself
+		if txs[i].To() == nil {
+			// Deriving the signer is expensive, only do if it's actually needed
+			from, _ := types.Sender(signer, txs[i])
+			rs[i].ContractAddress = crypto.CreateAddress(from, txs[i].Nonce())
+		}
+		// The used gas can be calculated based on previous r
+		if i == 0 {
+			rs[i].GasUsed = rs[i].CumulativeGasUsed
+		} else {
+			rs[i].GasUsed = rs[i].CumulativeGasUsed - rs[i-1].CumulativeGasUsed
+		}
+		for j := 0; j < len(rs[i].Logs); j++ {
+
+		}
+		for j := 0; j < len(rs[i].Logs); j++ {
+			rs[i].Logs[j].BlockNumber = number
+			rs[i].Logs[j].BlockHash = hash
+			rs[i].Logs[j].TxHash = rs[i].TxHash
+			rs[i].Logs[j].TxIndex = uint(txnCIDs[i].Index)
 		}
 	}
 
-	logs := filterLogs(unfilteredLogs, nil, nil, adders, topics)
-	return logs, nil
+	return rs, nil
 }
 
 func includes(addresses []common.Address, a common.Address) bool {

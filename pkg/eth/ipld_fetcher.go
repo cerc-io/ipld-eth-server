@@ -166,6 +166,33 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]ipfs
 	return rctIPLDs, nil
 }
 
+// FetchLogs fetches logs
+func (f *IPLDFetcher) FetchLogs(tx *sqlx.Tx, logCIDs []models.LogsModel) (map[int64]map[int64]ipfs.BlockModel, error) {
+	log.Debug("fetching log iplds")
+
+	// receipt id and log index as key to store log IPLD at log index inside receipt.
+	logIPLDs := make(map[int64]map[int64]ipfs.BlockModel, len(logCIDs))
+	for _, l := range logCIDs {
+		logBytes, err := shared.FetchIPLDByMhKey(tx, l.MhKey)
+		if err != nil {
+			return nil, err
+		}
+
+		if v, ok := logIPLDs[l.ReceiptID]; ok {
+			v[l.Index] = ipfs.BlockModel{
+				Data: logBytes,
+				CID:  l.CID,
+			}
+			continue
+		}
+
+		logIPLDs[l.ReceiptID] = map[int64]ipfs.BlockModel{
+			l.Index: {Data: logBytes, CID: l.CID},
+		}
+	}
+	return logIPLDs, nil
+}
+
 // FetchState fetches state nodes
 func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []models.StateNodeModel) ([]StateNode, error) {
 	log.Debug("fetching state iplds")

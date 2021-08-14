@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -41,16 +42,15 @@ import (
 )
 
 var (
-	randomAddr      = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
-	randomHash      = crypto.Keccak256Hash(randomAddr.Bytes())
-	number          = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
-	londonBlockNum  = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
-	wrongNumber     = rpc.BlockNumber(number + 1)
-	blockHash       = test_helpers.MockBlock.Header().Hash()
-	londonBlockHash = test_helpers.MockLondonBlock.Header().Hash()
-	baseFee         = test_helpers.MockLondonBlock.BaseFee()
-	ctx             = context.Background()
-	expectedBlock   = map[string]interface{}{
+	randomAddr     = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
+	randomHash     = crypto.Keccak256Hash(randomAddr.Bytes())
+	number         = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
+	londonBlockNum = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
+	wrongNumber    = rpc.BlockNumber(number + 1)
+	blockHash      = test_helpers.MockBlock.Header().Hash()
+	baseFee        = test_helpers.MockLondonBlock.BaseFee()
+	ctx            = context.Background()
+	expectedBlock  = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
 		"hash":             test_helpers.MockBlock.Hash(),
 		"parentHash":       test_helpers.MockBlock.ParentHash(),
@@ -219,15 +219,21 @@ var _ = Describe("API", func() {
 		api = eth.NewPublicEthAPI(backend, nil, false)
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
+
 		for _, node := range test_helpers.MockStateNodes {
 			err = indexAndPublisher.PushStateNode(tx, node)
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		err = tx.Close(err)
+		ccHash := sdtypes.CodeAndCodeHash{
+			Hash: test_helpers.ContractCodeHash,
+			Code: test_helpers.ContractCode,
+		}
+
+		err = indexAndPublisher.PushCodeAndCodeHash(tx, ccHash)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = publishCode(db, test_helpers.ContractCodeHash, test_helpers.ContractCode)
+		err = tx.Close(err)
 		Expect(err).ToNot(HaveOccurred())
 
 		uncles := test_helpers.MockBlock.Uncles()
@@ -236,6 +242,9 @@ var _ = Describe("API", func() {
 			uncleHashes[i] = uncle.Hash()
 		}
 		expectedBlock["uncles"] = uncleHashes
+
+		chainConfig.LondonBlock = big.NewInt(2)
+		indexAndPublisher = indexer.NewStateDiffIndexer(chainConfig, db)
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
 
@@ -365,8 +374,7 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, ok := block["baseFee"]
 			Expect(ok).To(Equal(false))
-
-			block, err = api.GetBlockByHash(ctx, londonBlockHash, false)
+			block, err = api.GetBlockByHash(ctx, test_helpers.MockLondonBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
 		})
@@ -516,7 +524,7 @@ var _ = Describe("API", func() {
 		})
 
 		It("Retrieves the GasFeeCap and GasTipCap for dynamic transaction from the london block hash", func() {
-			tx := api.GetTransactionByBlockHashAndIndex(ctx, londonBlockHash, 0)
+			tx := api.GetTransactionByBlockHashAndIndex(ctx, test_helpers.MockLondonBlock.Hash(), 0)
 			Expect(tx).ToNot(BeNil())
 			Expect(tx.GasFeeCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasFeeCap())))
 			Expect(tx.GasTipCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasTipCap())))

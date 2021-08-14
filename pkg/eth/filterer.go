@@ -165,10 +165,18 @@ func checkTransactionAddrs(wantedSrc, wantedDst []string, actualSrc, actualDst s
 func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *IPLDs, payload ConvertedPayload, trxHashes []common.Hash) error {
 	if !receiptFilter.Off {
 		response.Receipts = make([]ipfs.BlockModel, 0, len(payload.Receipts))
-		for i, receipt := range payload.Receipts {
+		for _, receipt := range payload.Receipts {
 			// topics is always length 4
-			topics := [][]string{payload.ReceiptMetaData[i].Topic0s, payload.ReceiptMetaData[i].Topic1s, payload.ReceiptMetaData[i].Topic2s, payload.ReceiptMetaData[i].Topic3s}
-			if checkReceipts(receipt, receiptFilter.Topics, topics, receiptFilter.LogAddresses, payload.ReceiptMetaData[i].LogContracts, trxHashes) {
+			topics := make([][]string, 4)
+			contracts := make([]string, len(receipt.Logs))
+			for _, l := range receipt.Logs {
+				contracts = append(contracts, l.Address.String())
+				for idx, t := range l.Topics {
+					topics[idx] = append(topics[idx], t.String())
+				}
+			}
+
+			if checkReceipts(receipt, receiptFilter.Topics, topics, receiptFilter.LogAddresses, contracts, trxHashes) {
 				receiptBuffer := new(bytes.Buffer)
 				if err := receipt.EncodeRLP(receiptBuffer); err != nil {
 					return err
