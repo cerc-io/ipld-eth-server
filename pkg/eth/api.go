@@ -626,6 +626,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 			return nil, err
 		}
 
+		// TODO: write query for Retrieving block Number by hash
 		header, err := pea.B.Retriever.RetrieveHeaderCIDByHash(tx, *crit.BlockHash)
 		if err != nil {
 			return nil, err
@@ -635,6 +636,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 			return nil, err
 		}
 
+		// TODO: should we convert string to uint ?
 		blockNumber, err := strconv.ParseUint(header.BlockNumber, 10, 64)
 		if err != nil {
 			return nil, err
@@ -700,12 +702,12 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 			return nil, err
 		}
 
-		header, err := pea.B.Retriever.RetrieveHeaderCIDByNumber(tx, i)
+		canonicalHash, err := pea.B.GetCanonicalHash(uint64(i))
 		if err != nil {
 			return nil, err
 		}
 
-		return extractLogsOfInterest(pea.B.Config.ChainConfig, common.HexToHash(header.BlockHash), uint64(i), rctCIDs, txnIPLDs, rctIPLDs, logIPLDs, txnCIDs)
+		return extractLogsOfInterest(pea.B.Config.ChainConfig, canonicalHash, uint64(i), rctCIDs, txnIPLDs, rctIPLDs, logIPLDs, txnCIDs)
 	}
 
 	if err := tx.Commit(); err != nil {

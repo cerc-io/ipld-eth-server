@@ -4,7 +4,7 @@ CREATE TABLE eth.log_cids (
     receipt_id            INTEGER NOT NULL REFERENCES eth.receipt_cids (id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     address               VARCHAR(66),
     cid                   TEXT NOT NULL,
-    data                  BYTEA,
+    log_data                  BYTEA,
     mh_key                TEXT NOT NULL REFERENCES public.blocks (key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
     index                 INTEGER NOT NULL,
     topic0               VARCHAR(66),

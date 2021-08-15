@@ -243,6 +243,7 @@ var _ = Describe("API", func() {
 		}
 		expectedBlock["uncles"] = uncleHashes
 
+		// setting chain config to for london block
 		chainConfig.LondonBlock = big.NewInt(2)
 		indexAndPublisher = indexer.NewStateDiffIndexer(chainConfig, db)
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())

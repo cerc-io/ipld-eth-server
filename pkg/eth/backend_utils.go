@@ -285,7 +285,7 @@ func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, bl
 		}
 
 		if logModels, ok := logIPLDs[rctCIDs[k].ID]; ok {
-			idx := 0
+			idx := 0 // TODO: check if this is good way use index for log
 			for logIdx, v := range logModels {
 				l := &types.Log{}
 				err := rlp.DecodeBytes(v.Data, l)
@@ -349,9 +349,7 @@ func deriveFields(rs types.Receipts, config *params.ChainConfig, hash common.Has
 		} else {
 			rs[i].GasUsed = rs[i].CumulativeGasUsed - rs[i-1].CumulativeGasUsed
 		}
-		for j := 0; j < len(rs[i].Logs); j++ {
 
-		}
 		for j := 0; j < len(rs[i].Logs); j++ {
 			rs[i].Logs[j].BlockNumber = number
 			rs[i].Logs[j].BlockHash = hash

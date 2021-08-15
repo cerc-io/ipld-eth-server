@@ -209,7 +209,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID
 	return results, tx.Select(&results, pgStr, args...)
 }
 
-func topicsQuery(id int, topics [][]string, args []interface{}, pgStr string, first bool) (string, []interface{}, int) {
+func topicFilterCondition(id int, topics [][]string, args []interface{}, pgStr string, first bool) (string, []interface{}, int) {
 	for i, topicSet := range topics {
 		if len(topicSet) == 0 {
 			continue
@@ -227,7 +227,7 @@ func topicsQuery(id int, topics [][]string, args []interface{}, pgStr string, fi
 	return pgStr, args, id
 }
 
-func retrieveFilteredRctQuery(id int, pgStr string, args []interface{}, rctFilter ReceiptFilter, trxIds []int64) (string, []interface{}, int) {
+func receiptFilterConditions(id int, pgStr string, args []interface{}, rctFilter ReceiptFilter, trxIds []int64) (string, []interface{}, int) {
 	rctCond := " AND (receipt_cids.id = ANY ( "
 	logQuery := "SELECT receipt_id FROM eth.log_cids WHERE"
 	if len(rctFilter.LogAddresses) > 0 {
@@ -238,7 +238,7 @@ func retrieveFilteredRctQuery(id int, pgStr string, args []interface{}, rctFilte
 
 		// Filter on topics if there are any
 		if hasTopics(rctFilter.Topics) {
-			pgStr, args, id = topicsQuery(id, rctFilter.Topics, args, pgStr, false)
+			pgStr, args, id = topicFilterCondition(id, rctFilter.Topics, args, pgStr, false)
 		}
 
 		pgStr += ")"
@@ -253,7 +253,7 @@ func retrieveFilteredRctQuery(id int, pgStr string, args []interface{}, rctFilte
 		// Filter on topics if there are any
 		if hasTopics(rctFilter.Topics) {
 			pgStr += rctCond + logQuery
-			pgStr, args, id = topicsQuery(id, rctFilter.Topics, args, pgStr, true)
+			pgStr, args, id = topicFilterCondition(id, rctFilter.Topics, args, pgStr, true)
 			pgStr += ")"
 			// Filter on txIDs if there are any and we are matching txs
 			if rctFilter.MatchTxs && len(trxIds) > 0 {
@@ -303,7 +303,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 			AND header_cids.id = $1`
 	id := 2
 	args = append(args, headerID)
-	pgStr, args, id = retrieveFilteredRctQuery(id, pgStr, args, rctFilter, trxIds)
+	pgStr, args, id = receiptFilterConditions(id, pgStr, args, rctFilter, trxIds)
 
 	pgStr += ` ORDER BY transaction_cids.index`
 	receiptCids := make([]models.ReceiptModel, 0)
@@ -332,7 +332,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, b
 		id++
 	}
 
-	pgStr, args, id = retrieveFilteredRctQuery(id, pgStr, args, rctFilter, trxIds)
+	pgStr, args, id = receiptFilterConditions(id, pgStr, args, rctFilter, trxIds)
 
 	pgStr += ` ORDER BY transaction_cids.index`
 	receiptCids := make([]models.ReceiptModel, 0)
@@ -516,15 +516,6 @@ func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.H
 			WHERE block_hash = $1`
 	var headerCID models.HeaderModel
 	return headerCID, tx.Get(&headerCID, pgStr, blockHash.String())
-}
-
-// RetrieveHeaderCIDByNumber returns the header for the given block number
-func (ecr *CIDRetriever) RetrieveHeaderCIDByNumber(tx *sqlx.Tx, blockNumber int64) (models.HeaderModel, error) {
-	log.Debug("retrieving header cids for block hash ", blockNumber)
-	pgStr := `SELECT * FROM eth.header_cids
-			WHERE block_number = $1`
-	var headerCID models.HeaderModel
-	return headerCID, tx.Get(&headerCID, pgStr, blockNumber)
 }
 
 // RetrieveTxCIDsByHeaderID retrieves all tx CIDs for the given header id
