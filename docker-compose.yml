@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     depends_on:
       - statediff-migrations
-    image: vulcanize/dapptools:v0.29.0-v1.10.2-statediff-0.0.19
+    image: vulcanize/dapptools:v0.29.0-v1.10.3-statediff-0.0.24
     environment:
       DB_USER: vdbm
       DB_NAME: vulcanize_public
@@ -20,7 +20,7 @@ services:
     restart: on-failure
     depends_on:
       - db
-    image: vulcanize/statediff-migrations:v0.4.0
+    image: vulcanize/statediff-migrations:v0.5.0
     environment:
       DATABASE_USER: vdbm
       DATABASE_NAME: vulcanize_public
