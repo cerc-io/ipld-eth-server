@@ -17,13 +17,15 @@
 package shared
 
 type PoolConfig struct {
+	Enabled           bool
 	HttpEndpoint      string
 	PeerHttpEndpoints []string
 }
 
 type GroupConfig struct {
-	CacheSizeInMB     int
-	CacheExpiryInMins int
+	CacheSizeInMB          int
+	CacheExpiryInMins      int
+	LogStatsIntervalInSecs int
 }
 
 type GroupCacheConfig struct {

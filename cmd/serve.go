@@ -209,25 +209,29 @@ func startIpldGraphQL(settings *s.Config) error {
 func startGroupCacheService(settings *s.Config) error {
 	gcc := settings.GroupCache
 
-	pool := groupcache.NewHTTPPoolOpts(gcc.Pool.HttpEndpoint, &groupcache.HTTPPoolOptions{})
-	pool.Set(gcc.Pool.PeerHttpEndpoints...)
+	if gcc.Pool.Enabled {
+		logWithCommand.Info("starting up groupcache pool HTTTP server")
 
-	httpURL, err := url.Parse(gcc.Pool.HttpEndpoint)
-	if err != nil {
-		return err
-	}
+		pool := groupcache.NewHTTPPoolOpts(gcc.Pool.HttpEndpoint, &groupcache.HTTPPoolOptions{})
+		pool.Set(gcc.Pool.PeerHttpEndpoints...)
 
-	server := http.Server{
-		Addr:    httpURL.Host,
-		Handler: pool,
-	}
-
-	// Start a HTTP server to listen for peer requests from the groupcache
-	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			logWithCommand.Fatal(err)
+		httpURL, err := url.Parse(gcc.Pool.HttpEndpoint)
+		if err != nil {
+			return err
 		}
-	}()
+
+		server := http.Server{
+			Addr:    httpURL.Host,
+			Handler: pool,
+		}
+
+		// Start a HTTP server to listen for peer requests from the groupcache
+		go server.ListenAndServe()
+
+		logWithCommand.Infof("groupcache pool endpoint opened for url %s", httpURL)
+	} else {
+		logWithCommand.Info("Groupcache pool is disabled")
+	}
 
 	return nil
 }
@@ -292,6 +296,14 @@ func init() {
 	serveCmd.PersistentFlags().String("eth-chain-config", "", "json chain config file location")
 	serveCmd.PersistentFlags().Bool("eth-supports-state-diff", false, "whether or not the proxy ethereum client supports statediffing endpoints")
 
+	// groupcache flags
+	serveCmd.PersistentFlags().Bool("gcache-pool-enabled", false, "turn on the groupcache pool")
+	serveCmd.PersistentFlags().String("gcache-pool-http-path", "", "http url for groupcache node")
+	serveCmd.PersistentFlags().StringArray("gcache-pool-http-peers", []string{}, "http urls for groupcache peers")
+	serveCmd.PersistentFlags().Int("gcache-statedb-cache-size", 16, "state DB cache size in MB")
+	serveCmd.PersistentFlags().Int("gcache-statedb-cache-expiry", 60, "state DB cache expiry time in mins")
+	serveCmd.PersistentFlags().Int("gcache-statedb-log-stats-interval", 60, "state DB cache stats log interval in secs")
+
 	// and their bindings
 	// database
 	viper.BindPFlag("database.name", serveCmd.PersistentFlags().Lookup("database-name"))
@@ -333,4 +345,12 @@ func init() {
 	viper.BindPFlag("ethereum.rpcGasCap", serveCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
 	viper.BindPFlag("ethereum.chainConfig", serveCmd.PersistentFlags().Lookup("eth-chain-config"))
 	viper.BindPFlag("ethereum.supportsStateDiff", serveCmd.PersistentFlags().Lookup("eth-supports-state-diff"))
+
+	// groupcache flags
+	viper.BindPFlag("groupcache.pool.enabled", serveCmd.PersistentFlags().Lookup("gcache-pool-enabled"))
+	viper.BindPFlag("groupcache.pool.httpEndpoint", serveCmd.PersistentFlags().Lookup("gcache-pool-http-path"))
+	viper.BindPFlag("groupcache.pool.peerHttpEndpoints", serveCmd.PersistentFlags().Lookup("gcache-pool-http-peers"))
+	viper.BindPFlag("groupcache.statedb.cacheSizeInMB", serveCmd.PersistentFlags().Lookup("gcache-statedb-cache-size"))
+	viper.BindPFlag("groupcache.statedb.cacheExpiryInMins", serveCmd.PersistentFlags().Lookup("gcache-statedb-cache-expiry"))
+	viper.BindPFlag("groupcache.statedb.logStatsIntervalInSecs", serveCmd.PersistentFlags().Lookup("gcache-statedb-log-stats-interval"))
 }

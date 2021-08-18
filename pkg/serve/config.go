@@ -245,13 +245,24 @@ func (d *Config) dbInit() {
 }
 
 func (c *Config) loadGroupCacheConfig() {
+	viper.BindEnv("groupcache.pool.enabled", ethServerShared.GCACHE_POOL_ENABLED)
+	viper.BindEnv("groupcache.pool.httpEndpoint", ethServerShared.GCACHE_POOL_HTTP_PATH)
+	viper.BindEnv("groupcache.pool.peerHttpEndpoints", ethServerShared.GCACHE_POOL_HTTP_PEERS)
+	viper.BindEnv("groupcache.statedb.cacheSizeInMB", ethServerShared.GCACHE_STATEDB_CACHE_SIZE)
+	viper.BindEnv("groupcache.statedb.cacheExpiryInMins", ethServerShared.GCACHE_STATEDB_CACHE_EXPIRY)
+	viper.BindEnv("groupcache.statedb.logStatsIntervalInSecs", ethServerShared.GCACHE_STATEDB_LOG_STATS_INTERVAL)
+
 	gcc := ethServerShared.GroupCacheConfig{}
+	gcc.Pool.Enabled = viper.GetBool("groupcache.pool.enabled")
+	if gcc.Pool.Enabled {
+		gcc.Pool.HttpEndpoint = viper.GetString("groupcache.pool.httpEndpoint")
+		gcc.Pool.PeerHttpEndpoints = viper.GetStringSlice("groupcache.pool.peerHttpEndpoints")
+	}
 
-	gcc.Pool.HttpEndpoint = viper.GetString("groupcache.pool.httpEndpoint")
-	gcc.Pool.PeerHttpEndpoints = viper.GetStringSlice("groupcache.pool.peerHttpEndpoints")
-
+	// Irrespective of whether the pool is enabled, we always use the hot/local cache.
 	gcc.StateDB.CacheSizeInMB = viper.GetInt("groupcache.statedb.cacheSizeInMB")
 	gcc.StateDB.CacheExpiryInMins = viper.GetInt("groupcache.statedb.cacheExpiryInMins")
+	gcc.StateDB.LogStatsIntervalInSecs = viper.GetInt("groupcache.statedb.logStatsIntervalInSecs")
 
 	c.GroupCache = &gcc
 }

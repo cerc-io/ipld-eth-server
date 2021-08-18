@@ -44,6 +44,7 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	"github.com/ethereum/go-ethereum/trie"
+	log "github.com/sirupsen/logrus"
 	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
@@ -85,6 +86,10 @@ const (
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
 
+const (
+	StateDBGroupCacheName = "statedb"
+)
+
 type Backend struct {
 	// underlying postgres db
 	DB *postgres.DB
@@ -114,10 +119,12 @@ func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
 
 	r := NewCIDRetriever(db)
 	ethDB := ipfsethdb.NewDatabase(db.DB, ipfsethdb.CacheConfig{
-		Name:           "statedb",
+		Name:           StateDBGroupCacheName,
 		Size:           gcc.StateDB.CacheSizeInMB,
 		ExpiryDuration: time.Minute * time.Duration(gcc.StateDB.CacheExpiryInMins),
 	})
+
+	logStateDBStatsOnTimer(ethDB, gcc)
 
 	return &Backend{
 		DB:            db,
@@ -833,4 +840,22 @@ func (b *Backend) BloomStatus() (uint64, uint64) {
 
 func (b *Backend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	panic("implement me")
+}
+
+func logStateDBStatsOnTimer(ethDB *ipfsethdb.Database, gcc *shared.GroupCacheConfig) {
+	// No stats logging if interval isn't a positive integer.
+	if gcc.StateDB.LogStatsIntervalInSecs <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(time.Duration(gcc.StateDB.LogStatsIntervalInSecs) * time.Second)
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				log.Infof("%s groupcache stats: %+v", StateDBGroupCacheName, ethDB.GetCacheStats())
+			}
+		}
+	}()
 }
