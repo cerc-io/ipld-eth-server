@@ -506,7 +506,7 @@ var _ = Describe("eth state reading tests", func() {
 
 			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(val).To(Equal(hexutil.Bytes{}))
+			Expect(val).To(Equal(hexutil.Bytes(make([]byte, 32))))
 		})
 		It("Throws an error for a non-existing block hash", func() {
 			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithHash(randomHash, true))
