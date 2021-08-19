@@ -709,6 +709,9 @@ func (pea *PublicEthAPI) localGetBalance(ctx context.Context, address common.Add
 func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Address, key string, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
 	storageVal, err := pea.B.GetStorageByNumberOrHash(ctx, address, common.HexToHash(key), blockNrOrHash)
 	if storageVal != nil && err == nil {
+		if len(storageVal) == 0 {
+			return make([]byte, 32), nil
+		}
 		var value common.Hash
 		_, content, _, err := rlp.Split(storageVal)
 		if err == io.ErrUnexpectedEOF {

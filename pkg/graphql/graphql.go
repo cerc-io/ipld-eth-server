@@ -1010,6 +1010,9 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 
 		return nil, err
 	}
+	if len(rlpValue) == 0 {
+		return &StorageResult{value: make([]byte, 32), cid: cid, ipldBlock: ipldBlock}, nil
+	}
 
 	var value interface{}
 	err = rlp.DecodeBytes(rlpValue, &value)
