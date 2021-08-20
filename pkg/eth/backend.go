@@ -120,7 +120,7 @@ func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
 	r := NewCIDRetriever(db)
 	ethDB := ipfsethdb.NewDatabase(db.DB, ipfsethdb.CacheConfig{
 		Name:           StateDBGroupCacheName,
-		Size:           gcc.StateDB.CacheSizeInMB,
+		Size:           gcc.StateDB.CacheSizeInMB * 1024 * 1024,
 		ExpiryDuration: time.Minute * time.Duration(gcc.StateDB.CacheExpiryInMins),
 	})
 
@@ -807,6 +807,26 @@ func (b *Backend) GetHeader(hash common.Hash, height uint64) *types.Header {
 		return nil
 	}
 	return header
+}
+
+// ValidateTrie returns an error if the state and storage tries for the provided state root cannot be confirmed as complete
+// This does consider child storage tries
+func (b *Backend) ValidateTrie(stateRoot common.Hash) error {
+	// Generate the state.NodeIterator for this root
+	stateDB, err := state.New(stateRoot, b.StateDatabase, nil)
+
+	if err != nil {
+		return err
+	}
+
+	it := state.NewNodeIterator(stateDB)
+	for it.Next() {
+		// iterate through entire state trie and descendent storage tries
+		// it.Next() will return false when we have either completed iteration of the entire trie or have ran into an error (e.g. a missing node)
+		// if we are able to iterate through the entire trie without error then the trie is complete
+	}
+
+	return it.Error
 }
 
 // RPCGasCap returns the configured gas cap for the rpc server

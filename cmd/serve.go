@@ -23,6 +23,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/mailgun/groupcache/v2"
@@ -90,6 +91,13 @@ func serve() {
 	err = startGroupCacheService(serverConfig)
 	if err != nil {
 		logWithCommand.Fatal(err)
+	}
+
+	if serverConfig.StateValidationEnabled {
+		go startStateTrieValidator(server, serverConfig.StateValidationEveryNthBlock)
+		logWithCommand.Info("state validator enabled")
+	} else {
+		logWithCommand.Info("state validator disabled")
 	}
 
 	shutdown := make(chan os.Signal)
@@ -236,6 +244,46 @@ func startGroupCacheService(settings *s.Config) error {
 	return nil
 }
 
+func startStateTrieValidator(server s.Server, validateEveryNthBlock uint64) {
+	var lastBlockNumber uint64 = 0
+	backend := server.Backend()
+
+	for {
+		time.Sleep(10 * time.Second)
+
+		block, err := backend.CurrentBlock()
+		if err != nil {
+			log.Errorln("Error fetching current block for state trie validator")
+			continue
+		}
+
+		stateRoot := block.Root()
+		blockNumber := block.NumberU64()
+		blockHash := block.Hash()
+
+		if (blockNumber > lastBlockNumber) && (blockNumber%validateEveryNthBlock == 0) {
+			// The validate trie call will take a long time on mainnet, e.g. a few hours.
+			err = backend.ValidateTrie(stateRoot)
+			if err != nil {
+				// Log an error and exit.
+				log.Fatalf("Error validating state trie for block %s (%d), state root %s",
+					blockHash,
+					blockNumber,
+					stateRoot,
+				)
+			} else {
+				log.Infoln("Successfully validated state trie for block %s (%d), state root %s",
+					blockHash,
+					blockNumber,
+					stateRoot,
+				)
+			}
+
+			lastBlockNumber = blockNumber
+		}
+	}
+}
+
 func parseRpcAddresses(value string) ([]*rpc.Client, error) {
 	rpcAddresses := strings.Split(value, ",")
 	rpcClients := make([]*rpc.Client, 0, len(rpcAddresses))
@@ -304,6 +352,10 @@ func init() {
 	serveCmd.PersistentFlags().Int("gcache-statedb-cache-expiry", 60, "state DB cache expiry time in mins")
 	serveCmd.PersistentFlags().Int("gcache-statedb-log-stats-interval", 60, "state DB cache stats log interval in secs")
 
+	// state validator flags
+	serveCmd.PersistentFlags().Bool("validator-enabled", false, "turn on the state validator")
+	serveCmd.PersistentFlags().Uint("validator-every-nth-block", 1500, "only validate every Nth block")
+
 	// and their bindings
 	// database
 	viper.BindPFlag("database.name", serveCmd.PersistentFlags().Lookup("database-name"))
@@ -353,4 +405,8 @@ func init() {
 	viper.BindPFlag("groupcache.statedb.cacheSizeInMB", serveCmd.PersistentFlags().Lookup("gcache-statedb-cache-size"))
 	viper.BindPFlag("groupcache.statedb.cacheExpiryInMins", serveCmd.PersistentFlags().Lookup("gcache-statedb-cache-expiry"))
 	viper.BindPFlag("groupcache.statedb.logStatsIntervalInSecs", serveCmd.PersistentFlags().Lookup("gcache-statedb-log-stats-interval"))
+
+	// state validator flags
+	viper.BindPFlag("validator.enabled", serveCmd.PersistentFlags().Lookup("validator-enabled"))
+	viper.BindPFlag("validator.everyNthBlock", serveCmd.PersistentFlags().Lookup("validator-every-nth-block"))
 }

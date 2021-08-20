@@ -48,6 +48,9 @@ const (
 	ethRPCGasCap         = "ETH_RPC_GAS_CAP"
 	ethChainConfig       = "ETH_CHAIN_CONFIG"
 	ethSupportsStatediff = "ETH_SUPPORTS_STATEDIFF"
+
+	VALIDATOR_ENABLED         = "VALIDATOR_ENABLED"
+	VALIDATOR_EVERY_NTH_BLOCK = "VALIDATOR_EVERY_NTH_BLOCK"
 )
 
 // Config struct
@@ -83,6 +86,9 @@ type Config struct {
 
 	// Cache configuration.
 	GroupCache *ethServerShared.GroupCacheConfig
+
+	StateValidationEnabled       bool
+	StateValidationEveryNthBlock uint64
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -212,6 +218,8 @@ func NewConfig() (*Config, error) {
 
 	c.loadGroupCacheConfig()
 
+	c.loadValidatorConfig()
+
 	return c, err
 }
 
@@ -265,4 +273,12 @@ func (c *Config) loadGroupCacheConfig() {
 	gcc.StateDB.LogStatsIntervalInSecs = viper.GetInt("groupcache.statedb.logStatsIntervalInSecs")
 
 	c.GroupCache = &gcc
+}
+
+func (c *Config) loadValidatorConfig() {
+	viper.BindEnv("validator.enabled", VALIDATOR_ENABLED)
+	viper.BindEnv("validator.everyNthBlock", VALIDATOR_EVERY_NTH_BLOCK)
+
+	c.StateValidationEnabled = viper.GetBool("validator.enabled")
+	c.StateValidationEveryNthBlock = viper.GetUint64("validator.everyNthBlock")
 }
