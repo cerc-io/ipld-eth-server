@@ -167,3 +167,24 @@ type ConvertedPayload struct {
 	StateNodes      []sdtypes.StateNode
 	StorageNodes    map[string][]sdtypes.StorageNode
 }
+
+// customLog represent a log.
+type customLog struct {
+	ID          int64  `db:"id"`
+	LeafCID     string `db:"leaf_cid"`
+	LeafMhKey   string `db:"leaf_mh_key"`
+	ReceiptID   int64  `db:"receipt_id"`
+	Address     string `db:"address"`
+	Index       int64  `db:"index"`
+	Data        []byte `db:"log_data"`
+	Topic0      string `db:"topic0"`
+	Topic1      string `db:"topic1"`
+	Topic2      string `db:"topic2"`
+	Topic3      string `db:"topic3"`
+	RctData     []byte `db:"data"`
+	RctCID      string `db:"cid"`
+	BlockNumber string `db:"block_number"`
+	BlockHash   string `db:"block_hash"`
+	TxnIndex    int64  `db:"txn_index"`
+	TxHash      string `db:"tx_hash"`
+}

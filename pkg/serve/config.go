@@ -92,8 +92,7 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
 	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
 
-	//c.DBConfig.Init()
-
+	c.dbInit()
 	ethHTTP := viper.GetString("ethereum.httpPath")
 	ethHTTPEndpoint := fmt.Sprintf("http://%s", ethHTTP)
 	nodeInfo, cli, err := getEthNodeAndClient(ethHTTPEndpoint)
@@ -212,4 +211,24 @@ func overrideDBConnConfig(con *postgres.ConnectionConfig) {
 	con.MaxIdle = viper.GetInt("database.server.maxIdle")
 	con.MaxOpen = viper.GetInt("database.server.maxOpen")
 	con.MaxLifetime = viper.GetInt("database.server.maxLifetime")
+}
+
+func (d *Config) dbInit() {
+	viper.BindEnv("database.name", DATABASE_NAME)
+	viper.BindEnv("database.hostname", DATABASE_HOSTNAME)
+	viper.BindEnv("database.port", DATABASE_PORT)
+	viper.BindEnv("database.user", DATABASE_USER)
+	viper.BindEnv("database.password", DATABASE_PASSWORD)
+	viper.BindEnv("database.maxIdle", DATABASE_MAX_IDLE_CONNECTIONS)
+	viper.BindEnv("database.maxOpen", DATABASE_MAX_OPEN_CONNECTIONS)
+	viper.BindEnv("database.maxLifetime", DATABASE_MAX_CONN_LIFETIME)
+
+	d.DBParams.Name = viper.GetString("database.name")
+	d.DBParams.Hostname = viper.GetString("database.hostname")
+	d.DBParams.Port = viper.GetInt("database.port")
+	d.DBParams.User = viper.GetString("database.user")
+	d.DBParams.Password = viper.GetString("database.password")
+	d.DBConfig.MaxIdle = viper.GetInt("database.maxIdle")
+	d.DBConfig.MaxOpen = viper.GetInt("database.maxOpen")
+	d.DBConfig.MaxLifetime = viper.GetInt("database.maxLifetime")
 }

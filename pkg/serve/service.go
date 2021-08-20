@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 	"github.com/vulcanize/ipld-eth-server/pkg/net"
 
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -104,6 +106,11 @@ func NewServer(settings *Config) (Server, error) {
 		VmConfig:      vm.Config{},
 		DefaultSender: settings.DefaultSender,
 		RPCGasCap:     settings.RPCGasCap,
+		CacheConfig: pgipfsethdb.CacheConfig{
+			Name:           "ipld-eth-server",
+			Size:           3000000, // 3MB
+			ExpiryDuration: time.Hour,
+		},
 	})
 	return sap, err
 }

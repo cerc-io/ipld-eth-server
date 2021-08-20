@@ -31,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 )
 
@@ -94,6 +93,7 @@ type Log struct {
 	transaction *Transaction
 	log         *types.Log
 	cid         string
+	receiptCID  string
 	ipldBlock   []byte
 }
 
@@ -1009,37 +1009,37 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 }) (*[]*Log, error) {
 	ret := make([]*Log, 0, 10)
 
-	receiptCIDs, receiptsBytes, txs, err := r.backend.IPLDRetriever.RetrieveReceiptsByBlockHash(args.BlockHash)
+	// Begin tx
+	tx, err := r.backend.DB.Beginx()
 	if err != nil {
 		return nil, err
 	}
 
-	var logIndexInBlock uint = 0
-	receipts := make(types.Receipts, len(receiptsBytes))
-	for index, receiptBytes := range receiptsBytes {
-		receiptCID := receiptCIDs[index]
-		receipt := new(types.Receipt)
-		if err := rlp.DecodeBytes(receiptBytes, receipt); err != nil {
-			return nil, err
-		}
+	filter := eth.ReceiptFilter{
+		LogAddresses: []string{args.Contract.String()},
+	}
 
-		receipts[index] = receipt
-		for _, log := range receipt.Logs {
-			log.Index = logIndexInBlock
-			logIndexInBlock++
+	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash)
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
 
-			if args.Contract == nil || *args.Contract == log.Address {
-				ret = append(ret, &Log{
-					backend:   r.backend,
-					log:       log,
-					cid:       receiptCID,
-					ipldBlock: receiptBytes,
-					transaction: &Transaction{
-						hash: txs[index],
-					},
-				})
-			}
-		}
+	rctLog, err := r.backend.Fetcher.FetchGQLLogs(filteredLogs)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, l := range rctLog {
+		ret = append(ret, &Log{
+			backend:    r.backend,
+			log:        l.Log,
+			cid:        l.CID,
+			receiptCID: l.RctCID,
+			ipldBlock:  l.RctData,
+			transaction: &Transaction{
+				hash: l.Log.TxHash,
+			},
+		})
 	}
 
 	return &ret, nil

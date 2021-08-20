@@ -26,18 +26,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
-	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 )
 
 // RPCMarshalHeader converts the given header to the RPC output.
 // This function is eth/internal so we have to make our own version here...
-func RPCMarshalHeader(head *types.Header) map[string]interface{} {
+func RPCMarshalHeader(head *types.Header, extractMiner bool) map[string]interface{} {
+	if extractMiner {
+		err := recoverMiner(head)
+		if err != nil {
+			return nil
+		}
+	}
+
 	headerMap := map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
 		"hash":             head.Hash(),
@@ -67,8 +72,8 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
-func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header())
+func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool, extractMiner bool) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header(), extractMiner)
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
@@ -101,8 +106,8 @@ func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool) (map[string]i
 }
 
 // RPCMarshalBlockWithUncleHashes marshals the block with the provided uncle hashes
-func RPCMarshalBlockWithUncleHashes(block *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header())
+func RPCMarshalBlockWithUncleHashes(block *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool, extractMiner bool) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header(), extractMiner)
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
@@ -124,8 +129,8 @@ func RPCMarshalBlockWithUncleHashes(block *types.Block, uncleHashes []common.Has
 		}
 		fields["transactions"] = transactions
 	}
-	fields["uncles"] = uncleHashes
 
+	fields["uncles"] = uncleHashes
 	return fields, nil
 }
 
@@ -272,171 +277,6 @@ func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransacti
 	return NewRPCTransaction(txs[index], b.Hash(), b.NumberU64(), index, b.BaseFee())
 }
 
-// extractLogsOfInterest returns logs from the receipt IPLD
-func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, blockNumber uint64,
-	rctCIDs []models.ReceiptModel, txnIPLDs, rctIPLDs []ipfs.BlockModel, logIPLDs map[int64]map[int64]ipfs.BlockModel,
-	txnCIDs []models.TxModel) ([]*types.Log, error) {
-	receipts := make(types.Receipts, len(rctIPLDs))
-
-	for k, rctBytes := range rctIPLDs {
-		rct := new(types.Receipt)
-		if err := rct.UnmarshalBinary(rctBytes.Data); err != nil {
-			return nil, err
-		}
-
-		if logModels, ok := logIPLDs[rctCIDs[k].ID]; ok {
-			idx := 0 // TODO: check if this is good way use index for log
-			for logIdx, v := range logModels {
-				l := &types.Log{}
-				err := rlp.DecodeBytes(v.Data, l)
-				if err != nil {
-					return nil, err
-				}
-				l.Index = uint(logIdx)
-				rct.Logs[idx] = l
-				idx++
-			}
-		}
-
-		receipts[k] = rct
-	}
-
-	txns := make(types.Transactions, len(txnIPLDs))
-	for idx, txnBytes := range txnIPLDs {
-		txn := new(types.Transaction)
-		if err := txn.UnmarshalBinary(txnBytes.Data); err != nil {
-			return nil, err
-		}
-		txns[idx] = txn
-	}
-
-	receipts, err := deriveFields(receipts, config, blockHash, blockNumber, txns, txnCIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	var logs []*types.Log
-	for _, r := range receipts {
-		logs = append(logs, r.Logs...)
-	}
-
-	return logs, nil
-}
-
-func deriveFields(rs types.Receipts, config *params.ChainConfig, hash common.Hash, number uint64, txs types.Transactions,
-	txnCIDs []models.TxModel) (types.Receipts, error) {
-
-	signer := types.MakeSigner(config, new(big.Int).SetUint64(number))
-	for i := 0; i < len(rs); i++ {
-		// The transaction type and hash can be retrieved from the transaction itself
-		rs[i].Type = txs[i].Type()
-		rs[i].TxHash = txs[i].Hash()
-
-		// block location fields
-		rs[i].BlockHash = hash
-		rs[i].BlockNumber = new(big.Int).SetUint64(number)
-		rs[i].TransactionIndex = uint(txnCIDs[i].Index)
-
-		// The contract address can be derived from the transaction itself
-		if txs[i].To() == nil {
-			// Deriving the signer is expensive, only do if it's actually needed
-			from, _ := types.Sender(signer, txs[i])
-			rs[i].ContractAddress = crypto.CreateAddress(from, txs[i].Nonce())
-		}
-		// The used gas can be calculated based on previous r
-		if i == 0 {
-			rs[i].GasUsed = rs[i].CumulativeGasUsed
-		} else {
-			rs[i].GasUsed = rs[i].CumulativeGasUsed - rs[i-1].CumulativeGasUsed
-		}
-
-		for j := 0; j < len(rs[i].Logs); j++ {
-			rs[i].Logs[j].BlockNumber = number
-			rs[i].Logs[j].BlockHash = hash
-			rs[i].Logs[j].TxHash = rs[i].TxHash
-			rs[i].Logs[j].TxIndex = uint(txnCIDs[i].Index)
-		}
-	}
-
-	return rs, nil
-}
-
-func includes(addresses []common.Address, a common.Address) bool {
-	for _, addr := range addresses {
-		if addr == a {
-			return true
-		}
-	}
-
-	return false
-}
-
-// filterLogs creates a slice of logs matching the given criteria.
-func filterLogs(logs []*types.Log, fromBlock, toBlock *big.Int, addresses []common.Address, topics [][]common.Hash) []*types.Log {
-	var ret []*types.Log
-Logs:
-	for _, log := range logs {
-		if fromBlock != nil && fromBlock.Int64() >= 0 && fromBlock.Uint64() > log.BlockNumber {
-			continue
-		}
-		if toBlock != nil && toBlock.Int64() >= 0 && toBlock.Uint64() < log.BlockNumber {
-			continue
-		}
-
-		if len(addresses) > 0 && !includes(addresses, log.Address) {
-			continue
-		}
-		// If the to filtered topics is greater than the amount of topics in logs, skip.
-		if len(topics) > len(log.Topics) {
-			continue
-		}
-		for i, sub := range topics {
-			match := len(sub) == 0 // empty rule set == wildcard
-			for _, topic := range sub {
-				if log.Topics[i] == topic {
-					match = true
-					break
-				}
-			}
-			if !match {
-				continue Logs
-			}
-		}
-		ret = append(ret, log)
-	}
-	return ret
-}
-
-// returns true if the log matches on the filter
-func wantedLog(wantedTopics [][]string, actualTopics []common.Hash) bool {
-	// actualTopics will always have length <= 4
-	// wantedTopics will always have length 4
-	matches := 0
-	for i, actualTopic := range actualTopics {
-		// If we have topics in this filter slot, count as a match if the actualTopic matches one of the ones in this filter slot
-		if len(wantedTopics[i]) > 0 {
-			matches += sliceContainsHash(wantedTopics[i], actualTopic)
-		} else {
-			// Filter slot is empty, not matching any topics at this slot => counts as a match
-			matches++
-		}
-	}
-	if matches == len(actualTopics) {
-		return true
-	}
-	return false
-}
-
-// returns 1 if the slice contains the hash, 0 if it does not
-func sliceContainsHash(slice []string, hash common.Hash) int {
-	for _, str := range slice {
-		if str == hash.String() {
-			return 1
-		}
-	}
-	return 0
-}
-
 func toFilterArg(q ethereum.FilterQuery) (interface{}, error) {
 	arg := map[string]interface{}{
 		"address": q.Addresses,
@@ -463,4 +303,25 @@ func toBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
+}
+
+func recoverMiner(header *types.Header) error {
+	// Retrieve the signature from the header extra-data
+	if len(header.Extra) < crypto.SignatureLength {
+		return errMissingSignature
+	}
+
+	signature := header.Extra[len(header.Extra)-crypto.SignatureLength:]
+
+	// Recover the public key and the Ethereum address
+	pubkey, err := crypto.Ecrecover(clique.SealHash(header).Bytes(), signature)
+	if err != nil {
+		return err
+	}
+
+	var signer common.Address
+	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
+	header.Coinbase = signer
+
+	return nil
 }

@@ -96,6 +96,7 @@ var (
 	MockChildRlp, _      = rlp.EncodeToBytes(MockChild.Header())
 	Address              = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476592")
 	AnotherAddress       = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476593")
+	AnotherAddress1      = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476594")
 	ContractAddress      = crypto.CreateAddress(SenderAddr, MockTransactions[2].Nonce())
 	ContractHash         = crypto.Keccak256Hash(ContractAddress.Bytes()).String()
 	MockContractByteCode = []byte{0, 1, 2, 3, 4, 5}
@@ -103,6 +104,11 @@ var (
 	mockTopic12          = common.HexToHash("0x06")
 	mockTopic21          = common.HexToHash("0x05")
 	mockTopic22          = common.HexToHash("0x07")
+	mockTopic31          = common.HexToHash("0x08")
+	mockTopic41          = common.HexToHash("0x09")
+	mockTopic42          = common.HexToHash("0x0a")
+	mockTopic43          = common.HexToHash("0x0b")
+	mockTopic51          = common.HexToHash("0x0c")
 	MockLog1             = &types.Log{
 		Address:     Address,
 		Topics:      []common.Hash{mockTopic11, mockTopic12},
@@ -114,6 +120,31 @@ var (
 	MockLog2 = &types.Log{
 		Address:     AnotherAddress,
 		Topics:      []common.Hash{mockTopic21, mockTopic22},
+		Data:        []byte{},
+		BlockNumber: BlockNumber.Uint64(),
+		TxIndex:     1,
+		Index:       1,
+	}
+	MockLog3 = &types.Log{
+		Address:     AnotherAddress1,
+		Topics:      []common.Hash{mockTopic31},
+		Data:        []byte{},
+		BlockNumber: BlockNumber.Uint64(),
+		TxIndex:     1,
+		Index:       1,
+	}
+
+	MockLog4 = &types.Log{
+		Address:     AnotherAddress1,
+		Topics:      []common.Hash{mockTopic41, mockTopic42, mockTopic43},
+		Data:        []byte{},
+		BlockNumber: BlockNumber.Uint64(),
+		TxIndex:     1,
+		Index:       1,
+	}
+	MockLog5 = &types.Log{
+		Address:     AnotherAddress1,
+		Topics:      []common.Hash{mockTopic51},
 		Data:        []byte{},
 		BlockNumber: BlockNumber.Uint64(),
 		TxIndex:     1,
@@ -595,7 +626,7 @@ func createLegacyTransactionsAndReceipts() (types.Transactions, types.Receipts, 
 	mockReceipt2.GasUsed = mockReceipt2.CumulativeGasUsed - mockReceipt1.CumulativeGasUsed
 
 	mockReceipt3 := types.NewReceipt(common.HexToHash("0x2").Bytes(), false, 175)
-	mockReceipt3.Logs = []*types.Log{}
+	mockReceipt3.Logs = []*types.Log{MockLog3, MockLog4, MockLog5}
 	mockReceipt3.TxHash = signedTrx3.Hash()
 	mockReceipt3.GasUsed = mockReceipt3.CumulativeGasUsed - mockReceipt2.CumulativeGasUsed
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -37,6 +38,7 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 )
@@ -214,6 +216,11 @@ var _ = Describe("API", func() {
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
+			CacheConfig: pgipfsethdb.CacheConfig{
+				Name:           "api_test",
+				Size:           3000000, // 3MB
+				ExpiryDuration: time.Hour,
+			},
 		})
 		Expect(err).ToNot(HaveOccurred())
 		api = eth.NewPublicEthAPI(backend, nil, false)
@@ -645,13 +652,71 @@ var _ = Describe("API", func() {
 			crit := filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
-						common.HexToHash("0x04"),
+						common.HexToHash("0x0c"),
+					},
+					{
+						common.HexToHash("0x0a"),
+					},
+					{
+						common.HexToHash("0x0b"),
 					},
 				},
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err := api.GetLogs(ctx, crit)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(logs)).To(Equal(0))
+
+			crit = filters.FilterCriteria{
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x08"),
+					},
+					{
+						common.HexToHash("0x0a"),
+					},
+					{
+						common.HexToHash("0x0c"),
+					},
+				},
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
+			}
+			logs, err = api.GetLogs(ctx, crit)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(logs)).To(Equal(0))
+
+			crit = filters.FilterCriteria{
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x09"),
+					},
+					{
+						common.HexToHash("0x0a"),
+					},
+					{
+						common.HexToHash("0x0b"),
+					},
+				},
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
+			}
+			logs, err = api.GetLogs(ctx, crit)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(logs)).To(Equal(1))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog4}))
+
+			crit = filters.FilterCriteria{
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x04"),
+					},
+				},
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
+			}
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -810,8 +875,8 @@ var _ = Describe("API", func() {
 			}
 			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
+			Expect(len(logs)).To(Equal(5))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2, test_helpers.MockLog3, test_helpers.MockLog4, test_helpers.MockLog5}))
 		})
 
 		It("Uses the provided blockhash if one is provided", func() {
@@ -946,8 +1011,8 @@ var _ = Describe("API", func() {
 			}
 			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
+			Expect(len(logs)).To(Equal(5))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2, test_helpers.MockLog3, test_helpers.MockLog4, test_helpers.MockLog5}))
 		})
 
 		It("Filters on contract address if any are provided", func() {

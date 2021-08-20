@@ -21,6 +21,7 @@ import (
 	"context"
 	"io/ioutil"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -36,6 +37,7 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
@@ -80,6 +82,11 @@ var _ = Describe("eth state reading tests", func() {
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
+			CacheConfig: pgipfsethdb.CacheConfig{
+				Name:           "eth_state",
+				Size:           3000000, // 3MB
+				ExpiryDuration: time.Hour,
+			},
 		})
 		Expect(err).ToNot(HaveOccurred())
 		api = eth.NewPublicEthAPI(backend, nil, false)

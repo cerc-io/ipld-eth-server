@@ -41,10 +41,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/ethereum/go-ethereum/trie"
+	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
-	ipfsethdb "github.com/vulcanize/ipfs-ethdb"
 )
 
 var (
@@ -52,6 +52,10 @@ var (
 	errNegativeBlockNumber = errors.New("negative block number not supported")
 	errHeaderHashNotFound  = errors.New("header for hash not found")
 	errHeaderNotFound      = errors.New("header not found")
+
+	// errMissingSignature is returned if a block's extra-data section doesn't seem
+	// to contain a 65 byte secp256k1 signature.
+	errMissingSignature = errors.New("extra-data 65 byte signature suffix missing")
 )
 
 const (
@@ -101,11 +105,13 @@ type Config struct {
 	VmConfig      vm.Config
 	DefaultSender *common.Address
 	RPCGasCap     *big.Int
+	CacheConfig   pgipfsethdb.CacheConfig
 }
 
 func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
 	r := NewCIDRetriever(db)
-	ethDB := ipfsethdb.NewDatabase(db.DB)
+
+	ethDB := pgipfsethdb.NewDatabase(db.DB, c.CacheConfig)
 	return &Backend{
 		DB:            db,
 		Retriever:     r,

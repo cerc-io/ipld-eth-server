@@ -20,8 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/jmoiron/sqlx"
@@ -166,31 +168,90 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]ipfs
 	return rctIPLDs, nil
 }
 
-// FetchLogs fetches logs
-func (f *IPLDFetcher) FetchLogs(tx *sqlx.Tx, logCIDs []models.LogsModel) (map[int64]map[int64]ipfs.BlockModel, error) {
-	log.Debug("fetching log iplds")
+// FetchLogs fetches logs.
+func (f *IPLDFetcher) FetchLogs(logCIDs []customLog) ([]*types.Log, error) {
+	log.Debug("fetching logs")
 
-	// receipt id and log index as key to store log IPLD at log index inside receipt.
-	logIPLDs := make(map[int64]map[int64]ipfs.BlockModel, len(logCIDs))
-	for _, l := range logCIDs {
-		logBytes, err := shared.FetchIPLDByMhKey(tx, l.MhKey)
+	logs := make([]*types.Log, len(logCIDs))
+	for i, l := range logCIDs {
+		topics := make([]common.Hash, 0)
+		if l.Topic0 != "" {
+			topics = append(topics, common.HexToHash(l.Topic0))
+		}
+		if l.Topic1 != "" {
+			topics = append(topics, common.HexToHash(l.Topic1))
+		}
+		if l.Topic2 != "" {
+			topics = append(topics, common.HexToHash(l.Topic2))
+		}
+		if l.Topic3 != "" {
+			topics = append(topics, common.HexToHash(l.Topic3))
+		}
+
+		// TODO: should we convert string to uint ?
+		blockNum, err := strconv.ParseUint(l.BlockNumber, 10, 64)
 		if err != nil {
 			return nil, err
 		}
 
-		if v, ok := logIPLDs[l.ReceiptID]; ok {
-			v[l.Index] = ipfs.BlockModel{
-				Data: logBytes,
-				CID:  l.CID,
-			}
-			continue
-		}
-
-		logIPLDs[l.ReceiptID] = map[int64]ipfs.BlockModel{
-			l.Index: {Data: logBytes, CID: l.CID},
+		logs[i] = &types.Log{
+			Address:     common.HexToAddress(l.Address),
+			Topics:      topics,
+			Data:        l.Data,
+			BlockNumber: blockNum,
+			TxHash:      common.HexToHash(l.TxHash),
+			TxIndex:     uint(l.TxnIndex),
+			BlockHash:   common.HexToHash(l.BlockHash),
+			Index:       uint(l.Index),
+			Removed:     false, // TODO: check where to get this value
 		}
 	}
-	return logIPLDs, nil
+
+	return logs, nil
+}
+
+type logsCID struct {
+	Log     *types.Log
+	CID     string
+	RctCID  string
+	RctData []byte
+}
+
+// FetchGQLLogs fetches logs for graphql.
+func (f *IPLDFetcher) FetchGQLLogs(logCIDs []customLog) ([]logsCID, error) {
+	log.Debug("fetching logs")
+
+	logs := make([]logsCID, len(logCIDs))
+	for i, l := range logCIDs {
+		topics := make([]common.Hash, 0)
+		if l.Topic0 != "" {
+			topics = append(topics, common.HexToHash(l.Topic0))
+		}
+		if l.Topic1 != "" {
+			topics = append(topics, common.HexToHash(l.Topic1))
+		}
+		if l.Topic2 != "" {
+			topics = append(topics, common.HexToHash(l.Topic2))
+		}
+		if l.Topic3 != "" {
+			topics = append(topics, common.HexToHash(l.Topic3))
+		}
+
+		logs[i] = logsCID{
+			Log: &types.Log{
+				Address: common.HexToAddress(l.Address),
+				Topics:  topics,
+				Data:    l.Data,
+				Index:   uint(l.Index),
+				TxHash:  common.HexToHash(l.TxHash),
+			},
+			CID:     l.LeafCID,
+			RctCID:  l.RctCID,
+			RctData: l.RctData,
+		}
+	}
+
+	return logs, nil
 }
 
 // FetchState fetches state nodes
