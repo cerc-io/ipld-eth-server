@@ -272,7 +272,7 @@ func startStateTrieValidator(server s.Server, validateEveryNthBlock uint64) {
 					stateRoot,
 				)
 			} else {
-				log.Infoln("Successfully validated state trie for block %s (%d), state root %s",
+				log.Infof("Successfully validated state trie for block %s (%d), state root %s",
 					blockHash,
 					blockNumber,
 					stateRoot,
