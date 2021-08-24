@@ -117,9 +117,14 @@ type Config struct {
 func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
 	gcc := c.GroupCacheConfig
 
+	groupName := gcc.StateDB.Name
+	if groupName == "" {
+		groupName = StateDBGroupCacheName
+	}
+
 	r := NewCIDRetriever(db)
 	ethDB := ipfsethdb.NewDatabase(db.DB, ipfsethdb.CacheConfig{
-		Name:           StateDBGroupCacheName,
+		Name:           groupName,
 		Size:           gcc.StateDB.CacheSizeInMB * 1024 * 1024,
 		ExpiryDuration: time.Minute * time.Duration(gcc.StateDB.CacheExpiryInMins),
 	})

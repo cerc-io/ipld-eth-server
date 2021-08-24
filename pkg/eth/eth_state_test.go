@@ -83,6 +83,7 @@ var _ = Describe("eth state reading tests", func() {
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
 			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
 				StateDB: ethServerShared.GroupConfig{
+					Name:                   "eth_state_test",
 					CacheSizeInMB:          8,
 					CacheExpiryInMins:      60,
 					LogStatsIntervalInSecs: 0,

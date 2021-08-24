@@ -26,6 +26,10 @@ type GroupConfig struct {
 	CacheSizeInMB          int
 	CacheExpiryInMins      int
 	LogStatsIntervalInSecs int
+
+	// Used in tests to override the cache name, to work around
+	// the "duplicate registration of group" error from groupcache
+	Name string
 }
 
 type GroupCacheConfig struct {

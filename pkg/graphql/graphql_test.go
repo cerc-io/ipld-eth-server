@@ -88,6 +88,7 @@ var _ = Describe("GraphQL", func() {
 			RPCGasCap:   big.NewInt(10000000000),
 			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
 				StateDB: ethServerShared.GroupConfig{
+					Name:                   "graphql_test",
 					CacheSizeInMB:          8,
 					CacheExpiryInMins:      60,
 					LogStatsIntervalInSecs: 0,

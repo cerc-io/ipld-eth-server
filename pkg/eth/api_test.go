@@ -217,6 +217,7 @@ var _ = Describe("API", func() {
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
 			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
 				StateDB: ethServerShared.GroupConfig{
+					Name:                   "api_test",
 					CacheSizeInMB:          8,
 					CacheExpiryInMins:      60,
 					LogStatsIntervalInSecs: 0,
