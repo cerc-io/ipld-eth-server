@@ -20,7 +20,6 @@ import (
 	"context"
 	"math/big"
 	"strconv"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -37,9 +36,10 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -215,10 +215,12 @@ var _ = Describe("API", func() {
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
-			CacheConfig: pgipfsethdb.CacheConfig{
-				Name:           "api_test",
-				Size:           3000000, // 3MB
-				ExpiryDuration: time.Hour,
+			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
+				StateDB: ethServerShared.GroupConfig{
+					CacheSizeInMB:          8,
+					CacheExpiryInMins:      60,
+					LogStatsIntervalInSecs: 0,
+				},
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())
