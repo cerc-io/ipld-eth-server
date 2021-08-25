@@ -263,21 +263,19 @@ func startStateTrieValidator(server s.Server, validateEveryNthBlock uint64) {
 
 		if (blockNumber > lastBlockNumber) && (blockNumber%validateEveryNthBlock == 0) {
 			// The validate trie call will take a long time on mainnet, e.g. a few hours.
-			err = backend.ValidateTrie(stateRoot)
-			if err != nil {
-				// Log an error and exit.
-				log.Fatalf("Error validating state trie for block number %d hash %s state root %s",
-					blockNumber,
-					blockHash,
-					stateRoot,
-				)
-			} else {
-				log.Infof("Successfully validated state trie for block number %d hash %s state root %s",
+			if err = backend.ValidateTrie(stateRoot); err != nil {
+				log.Fatalf("Error validating trie for block number %d hash %s state root %s",
 					blockNumber,
 					blockHash,
 					stateRoot,
 				)
 			}
+
+			log.Infof("Successfully validated trie for block number %d hash %s state root %s",
+				blockNumber,
+				blockHash,
+				stateRoot,
+			)
 
 			lastBlockNumber = blockNumber
 		}
@@ -308,12 +306,7 @@ func parseRpcAddresses(value string) ([]*rpc.Client, error) {
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	// database credentials
-	serveCmd.PersistentFlags().String("database-name", "vulcanize_public", "database name")
-	serveCmd.PersistentFlags().Int("database-port", 5432, "database port")
-	serveCmd.PersistentFlags().String("database-hostname", "localhost", "database hostname")
-	serveCmd.PersistentFlags().String("database-user", "", "database user")
-	serveCmd.PersistentFlags().String("database-password", "", "database password")
+	addDatabaseFlags(serveCmd)
 
 	// flags for all config variables
 	// eth graphql and json-rpc parameters
@@ -357,13 +350,6 @@ func init() {
 	serveCmd.PersistentFlags().Uint("validator-every-nth-block", 1500, "only validate every Nth block")
 
 	// and their bindings
-	// database
-	viper.BindPFlag("database.name", serveCmd.PersistentFlags().Lookup("database-name"))
-	viper.BindPFlag("database.port", serveCmd.PersistentFlags().Lookup("database-port"))
-	viper.BindPFlag("database.hostname", serveCmd.PersistentFlags().Lookup("database-hostname"))
-	viper.BindPFlag("database.user", serveCmd.PersistentFlags().Lookup("database-user"))
-	viper.BindPFlag("database.password", serveCmd.PersistentFlags().Lookup("database-password"))
-
 	// eth graphql server
 	viper.BindPFlag("eth.server.graphql", serveCmd.PersistentFlags().Lookup("eth-server-graphql"))
 	viper.BindPFlag("eth.server.graphqlPath", serveCmd.PersistentFlags().Lookup("eth-server-graphql-path"))
