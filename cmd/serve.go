@@ -249,7 +249,7 @@ func startStateTrieValidator(server s.Server, validateEveryNthBlock uint64) {
 	backend := server.Backend()
 
 	for {
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		block, err := backend.CurrentBlock()
 		if err != nil {
@@ -266,15 +266,15 @@ func startStateTrieValidator(server s.Server, validateEveryNthBlock uint64) {
 			err = backend.ValidateTrie(stateRoot)
 			if err != nil {
 				// Log an error and exit.
-				log.Fatalf("Error validating state trie for block %s (%d), state root %s",
-					blockHash,
+				log.Fatalf("Error validating state trie for block number %d hash %s state root %s",
 					blockNumber,
+					blockHash,
 					stateRoot,
 				)
 			} else {
-				log.Infof("Successfully validated state trie for block %s (%d), state root %s",
-					blockHash,
+				log.Infof("Successfully validated state trie for block number %d hash %s state root %s",
 					blockNumber,
+					blockHash,
 					stateRoot,
 				)
 			}
