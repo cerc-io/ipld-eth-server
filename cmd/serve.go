@@ -94,7 +94,7 @@ func serve() {
 	}
 
 	if serverConfig.StateValidationEnabled {
-		go startStateTrieValidator(server, serverConfig.StateValidationEveryNthBlock)
+		go startStateTrieValidator(serverConfig, server)
 		logWithCommand.Info("state validator enabled")
 	} else {
 		logWithCommand.Info("state validator disabled")
@@ -244,7 +244,9 @@ func startGroupCacheService(settings *s.Config) error {
 	return nil
 }
 
-func startStateTrieValidator(server s.Server, validateEveryNthBlock uint64) {
+func startStateTrieValidator(config *s.Config, server s.Server) {
+	validateEveryNthBlock := config.StateValidationEveryNthBlock
+
 	var lastBlockNumber uint64 = 0
 	backend := server.Backend()
 
@@ -261,7 +263,9 @@ func startStateTrieValidator(server s.Server, validateEveryNthBlock uint64) {
 		blockNumber := block.NumberU64()
 		blockHash := block.Hash()
 
-		if (blockNumber > lastBlockNumber) && (blockNumber%validateEveryNthBlock == 0) {
+		if validateEveryNthBlock <= 0 || // Used for static replicas where block number doesn't progress.
+			(blockNumber > lastBlockNumber) && (blockNumber%validateEveryNthBlock == 0) {
+
 			// The validate trie call will take a long time on mainnet, e.g. a few hours.
 			if err = backend.ValidateTrie(stateRoot); err != nil {
 				log.Fatalf("Error validating trie for block number %d hash %s state root %s",
@@ -276,6 +280,11 @@ func startStateTrieValidator(server s.Server, validateEveryNthBlock uint64) {
 				blockHash,
 				stateRoot,
 			)
+
+			if validateEveryNthBlock <= 0 {
+				// Static replica, sleep a long-ish time (1/2 of cache expiry time) since we only need to keep the cache warm.
+				time.Sleep((time.Minute * time.Duration(config.GroupCache.StateDB.CacheExpiryInMins)) / 2)
+			}
 
 			lastBlockNumber = blockNumber
 		}
