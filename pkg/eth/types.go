@@ -183,6 +183,7 @@ type customLog struct {
 	Topic3      string `db:"topic3"`
 	RctData     []byte `db:"data"`
 	RctCID      string `db:"cid"`
+	RctStatus   uint64 `db:"post_status"`
 	BlockNumber string `db:"block_number"`
 	BlockHash   string `db:"block_hash"`
 	TxnIndex    int64  `db:"txn_index"`

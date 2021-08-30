@@ -151,7 +151,7 @@ var (
 		"contractAddress":   nil,
 		"logs":              test_helpers.MockReceipts[0].Logs,
 		"logsBloom":         test_helpers.MockReceipts[0].Bloom,
-		"root":              hexutil.Bytes(test_helpers.MockReceipts[0].PostState),
+		"status":            hexutil.Uint(test_helpers.MockReceipts[0].Status),
 	}
 	expectedReceipt2 = map[string]interface{}{
 		"blockHash":         blockHash,

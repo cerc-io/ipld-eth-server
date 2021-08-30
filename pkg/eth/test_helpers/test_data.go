@@ -608,7 +608,7 @@ func createLegacyTransactionsAndReceipts() (types.Transactions, types.Receipts, 
 		log.Fatal(err)
 	}
 	// make receipts
-	mockReceipt1 := types.NewReceipt(common.HexToHash("0x0").Bytes(), false, 50)
+	mockReceipt1 := types.NewReceipt(nil, false, 50)
 
 	hash1 := signedTrx1.Hash()
 	MockLog1.TxHash = hash1

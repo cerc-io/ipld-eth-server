@@ -203,7 +203,6 @@ func (f *IPLDFetcher) FetchLogs(logCIDs []customLog) ([]*types.Log, error) {
 			TxIndex:     uint(l.TxnIndex),
 			BlockHash:   common.HexToHash(l.BlockHash),
 			Index:       uint(l.Index),
-			Removed:     false, // TODO: check where to get this value
 		}
 	}
 
@@ -211,10 +210,11 @@ func (f *IPLDFetcher) FetchLogs(logCIDs []customLog) ([]*types.Log, error) {
 }
 
 type logsCID struct {
-	Log     *types.Log
-	CID     string
-	RctCID  string
-	RctData []byte
+	Log       *types.Log
+	CID       string
+	RctCID    string
+	RctData   []byte
+	RctStatus uint64
 }
 
 // FetchGQLLogs fetches logs for graphql.
@@ -245,9 +245,10 @@ func (f *IPLDFetcher) FetchGQLLogs(logCIDs []customLog) ([]logsCID, error) {
 				Index:   uint(l.Index),
 				TxHash:  common.HexToHash(l.TxHash),
 			},
-			CID:     l.LeafCID,
-			RctCID:  l.RctCID,
-			RctData: l.RctData,
+			CID:       l.LeafCID,
+			RctCID:    l.RctCID,
+			RctData:   l.RctData,
+			RctStatus: l.RctStatus,
 		}
 	}
 

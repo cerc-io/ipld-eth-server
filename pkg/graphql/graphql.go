@@ -95,6 +95,7 @@ type Log struct {
 	cid         string
 	receiptCID  string
 	ipldBlock   []byte
+	status      uint64
 }
 
 func (l *Log) Transaction(ctx context.Context) *Transaction {
@@ -127,6 +128,10 @@ func (l *Log) Cid(ctx context.Context) string {
 
 func (l *Log) IpldBlock(ctx context.Context) hexutil.Bytes {
 	return hexutil.Bytes(l.ipldBlock)
+}
+
+func (l *Log) Status(ctx context.Context) int32 {
+	return int32(l.status)
 }
 
 // Transaction represents an Ethereum transaction.
@@ -1039,6 +1044,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 			transaction: &Transaction{
 				hash: l.Log.TxHash,
 			},
+			status: l.RctStatus,
 		})
 	}
 

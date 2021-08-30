@@ -72,6 +72,9 @@ const schema string = `
 
         # IPLD block data for the Receipt this Log exists in.
         ipldBlock: Bytes!
+
+		# Status of the Receipt IPLD block this Log exists in.
+		status: Int!
     }
 
     # Transaction is an Ethereum transaction.

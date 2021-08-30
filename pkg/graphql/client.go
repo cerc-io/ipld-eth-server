@@ -24,6 +24,7 @@ type LogResponse struct {
 	Topics      []common.Hash   `json:"topics"`
 	Data        hexutil.Bytes   `json:"data"`
 	Transaction TransactionResp `json:"transaction"`
+	Status      int32           `json:"status"`
 }
 
 type TransactionResp struct {
@@ -52,6 +53,7 @@ func (c *Client) GetLogs(ctx context.Context, hash common.Hash, address common.A
 				transaction {
 					hash
 				}
+				status
 			}
 		}
 	`, hash.String(), address.String())

@@ -191,6 +191,7 @@ var _ = Describe("GraphQL", func() {
 					Topics:      test_helpers.MockLog1.Topics,
 					Data:        hexutil.Bytes(test_helpers.MockLog1.Data),
 					Transaction: graphql.TransactionResp{Hash: test_helpers.MockTransactions[0].Hash()},
+					Status:      int32(test_helpers.MockReceipts[0].Status),
 				},
 			}
 			Expect(logs).To(Equal(expectedLogs))
