@@ -438,9 +438,11 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 	if err := r.db.Get(accountResult, RetrieveAccountByLeafKeyAndBlockHashPgStr, leafKey.Hex(), hash.Hex()); err != nil {
 		return "", nil, err
 	}
+
 	if accountResult.NodeType == removedNode {
 		return "", []byte{}, nil
 	}
+
 	var i []interface{}
 	if err := rlp.DecodeBytes(accountResult.Data, &i); err != nil {
 		return "", nil, fmt.Errorf("error decoding state leaf node rlp: %s", err.Error())
@@ -459,9 +461,11 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 	if err := r.db.Get(accountResult, RetrieveAccountByLeafKeyAndBlockNumberPgStr, leafKey.Hex(), number); err != nil {
 		return "", nil, err
 	}
+
 	if accountResult.NodeType == removedNode {
 		return "", []byte{}, nil
 	}
+
 	var i []interface{}
 	if err := rlp.DecodeBytes(accountResult.Data, &i); err != nil {
 		return "", nil, fmt.Errorf("error decoding state leaf node rlp: %s", err.Error())
@@ -502,6 +506,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr, stateLeafKey.Hex(), storageLeafKey.Hex(), number); err != nil {
 		return "", nil, err
 	}
+
 	if storageResult.NodeType == removedNode {
 		return "", []byte{}, nil
 	}
