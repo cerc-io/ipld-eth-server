@@ -19,13 +19,12 @@ package eth
 import (
 	"bytes"
 
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/multiformats/go-multihash"
 
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
@@ -176,6 +175,7 @@ func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *
 				}
 			}
 
+			// TODO: Verify this filter logic.
 			if checkReceipts(receipt, receiptFilter.Topics, topics, receiptFilter.LogAddresses, contracts, trxHashes) {
 				receiptBuffer := new(bytes.Buffer)
 				if err := receipt.EncodeRLP(receiptBuffer); err != nil {

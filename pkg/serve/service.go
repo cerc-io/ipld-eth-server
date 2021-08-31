@@ -22,20 +22,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
-	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
-	"github.com/vulcanize/ipld-eth-server/pkg/net"
-
-	"github.com/ethereum/go-ethereum/core/vm"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	ethnode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	log "github.com/sirupsen/logrus"
+	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/net"
 )
 
 const (

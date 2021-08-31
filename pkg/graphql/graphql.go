@@ -1025,6 +1025,10 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 	}
 
 	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+
 	if err = tx.Commit(); err != nil {
 		return nil, err
 	}

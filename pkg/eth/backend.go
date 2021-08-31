@@ -39,12 +39,11 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	"github.com/ethereum/go-ethereum/trie"
 	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
-
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
-	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 )
 
 var (

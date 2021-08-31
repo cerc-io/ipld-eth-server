@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
@@ -168,8 +167,8 @@ type ConvertedPayload struct {
 	StorageNodes    map[string][]sdtypes.StorageNode
 }
 
-// customLog represent a log.
-type customLog struct {
+// logResult represent a log.
+type logResult struct {
 	ID          int64  `db:"id"`
 	LeafCID     string `db:"leaf_cid"`
 	LeafMhKey   string `db:"leaf_mh_key"`

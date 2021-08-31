@@ -650,7 +650,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	start := startingBlock.Int64()
 	end := endingBlock.Int64()
 	var logs []*types.Log
-	for i := start; i <= end; {
+	for i := start; i <= end; i++ {
 		filteredLog, err := pea.B.Retriever.RetrieveFilteredLog(tx, filter, i, nil)
 		if err != nil {
 			return nil, err
@@ -662,7 +662,6 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		}
 
 		logs = append(logs, logCIDs...)
-		i++
 	}
 
 	if err := tx.Commit(); err != nil {

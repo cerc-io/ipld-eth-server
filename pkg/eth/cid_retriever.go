@@ -209,7 +209,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID
 	return results, tx.Select(&results, pgStr, args...)
 }
 
-func topicFilterCondition(id int, topics [][]string, args []interface{}, pgStr string, first bool) (string, []interface{}, int) {
+func topicFilterCondition(id *int, topics [][]string, args []interface{}, pgStr string, first bool) (string, []interface{}) {
 	for i, topicSet := range topics {
 		if len(topicSet) == 0 {
 			continue
@@ -220,49 +220,47 @@ func topicFilterCondition(id int, topics [][]string, args []interface{}, pgStr s
 		} else {
 			first = false
 		}
-		pgStr += fmt.Sprintf(` eth.log_cids.topic%d = ANY ($%d)`, i, id)
+		pgStr += fmt.Sprintf(` eth.log_cids.topic%d = ANY ($%d)`, i, *id)
 		args = append(args, pq.Array(topicSet))
-		id++
+		*id++
 	}
-	return pgStr, args, id
+	return pgStr, args
 }
 
-func logFilterCondition(id int, pgStr string, args []interface{}, rctFilter ReceiptFilter) (string, []interface{}, int) {
+func logFilterCondition(id *int, pgStr string, args []interface{}, rctFilter ReceiptFilter) (string, []interface{}) {
 	if len(rctFilter.LogAddresses) > 0 {
-		pgStr += fmt.Sprintf(` AND eth.log_cids.address = ANY ($%d)`, id)
+		pgStr += fmt.Sprintf(` AND eth.log_cids.address = ANY ($%d)`, *id)
 		args = append(args, pq.Array(rctFilter.LogAddresses))
-		id++
-
-		// Filter on topics if there are any
-		if hasTopics(rctFilter.Topics) {
-			pgStr, args, id = topicFilterCondition(id, rctFilter.Topics, args, pgStr, false)
-		}
-	} else if hasTopics(rctFilter.Topics) {
-		pgStr, args, id = topicFilterCondition(id, rctFilter.Topics, args, pgStr, false)
+		*id++
 	}
 
-	return pgStr, args, id
+	// Filter on topics if there are any
+	if hasTopics(rctFilter.Topics) {
+		pgStr, args = topicFilterCondition(id, rctFilter.Topics, args, pgStr, false)
+	}
+
+	return pgStr, args
 }
 
-func receiptFilterConditions(id int, pgStr string, args []interface{}, rctFilter ReceiptFilter, trxIds []int64) (string, []interface{}, int) {
+func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilter ReceiptFilter, trxIds []int64) (string, []interface{}) {
 	rctCond := " AND (receipt_cids.id = ANY ( "
 	logQuery := "SELECT receipt_id FROM eth.log_cids WHERE"
 	if len(rctFilter.LogAddresses) > 0 {
 		// Filter on log contract addresses if there are any
-		pgStr += fmt.Sprintf(`%s %s eth.log_cids.address = ANY ($%d)`, rctCond, logQuery, id)
+		pgStr += fmt.Sprintf(`%s %s eth.log_cids.address = ANY ($%d)`, rctCond, logQuery, *id)
 		args = append(args, pq.Array(rctFilter.LogAddresses))
-		id++
+		*id++
 
 		// Filter on topics if there are any
 		if hasTopics(rctFilter.Topics) {
-			pgStr, args, id = topicFilterCondition(id, rctFilter.Topics, args, pgStr, false)
+			pgStr, args = topicFilterCondition(id, rctFilter.Topics, args, pgStr, false)
 		}
 
 		pgStr += ")"
 
 		// Filter on txIDs if there are any and we are matching txs
 		if rctFilter.MatchTxs && len(trxIds) > 0 {
-			pgStr += fmt.Sprintf(` OR receipt_cids.tx_id = ANY($%d::INTEGER[])`, id)
+			pgStr += fmt.Sprintf(` OR receipt_cids.tx_id = ANY($%d::INTEGER[])`, *id)
 			args = append(args, pq.Array(trxIds))
 		}
 		pgStr += ")"
@@ -270,23 +268,23 @@ func receiptFilterConditions(id int, pgStr string, args []interface{}, rctFilter
 		// Filter on topics if there are any
 		if hasTopics(rctFilter.Topics) {
 			pgStr += rctCond + logQuery
-			pgStr, args, id = topicFilterCondition(id, rctFilter.Topics, args, pgStr, true)
+			pgStr, args = topicFilterCondition(id, rctFilter.Topics, args, pgStr, true)
 			pgStr += ")"
 			// Filter on txIDs if there are any and we are matching txs
 			if rctFilter.MatchTxs && len(trxIds) > 0 {
-				pgStr += fmt.Sprintf(` OR receipt_cids.tx_id = ANY($%d::INTEGER[])`, id)
+				pgStr += fmt.Sprintf(` OR receipt_cids.tx_id = ANY($%d::INTEGER[])`, *id)
 				args = append(args, pq.Array(trxIds))
 			}
 			pgStr += ")"
 		} else if rctFilter.MatchTxs && len(trxIds) > 0 {
 			// If there are no contract addresses or topics to filter on,
 			// Filter on txIDs if there are any and we are matching txs
-			pgStr += fmt.Sprintf(` AND receipt_cids.tx_id = ANY($%d::INTEGER[])`, id)
+			pgStr += fmt.Sprintf(` AND receipt_cids.tx_id = ANY($%d::INTEGER[])`, *id)
 			args = append(args, pq.Array(trxIds))
 		}
 	}
 
-	return pgStr, args, id
+	return pgStr, args
 }
 
 // RetrieveRctCIDsByHeaderID retrieves and returns all of the rct cids at the provided header ID that conform to the provided
@@ -302,7 +300,8 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 			AND header_cids.id = $1`
 	id := 2
 	args = append(args, headerID)
-	pgStr, args, id = receiptFilterConditions(id, pgStr, args, rctFilter, trxIds)
+
+	pgStr, args = receiptFilterConditions(&id, pgStr, args, rctFilter, trxIds)
 
 	pgStr += ` ORDER BY transaction_cids.index`
 	receiptCids := make([]models.ReceiptModel, 0)
@@ -311,7 +310,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 
 // RetrieveFilteredGQLLogs retrieves and returns all the log cIDs provided blockHash that conform to the provided
 // filter parameters.
-func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]customLog, error) {
+func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]logResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	id := 1
@@ -327,10 +326,10 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	args = append(args, blockHash.String())
 	id++
 
-	pgStr, args, id = logFilterCondition(id, pgStr, args, rctFilter)
+	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY log_cids.index`
 
-	logCIDs := make([]customLog, 0)
+	logCIDs := make([]logResult, 0)
 	err := tx.Select(&logCIDs, pgStr, args...)
 	if err != nil {
 		return nil, err
@@ -341,7 +340,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 
 // RetrieveFilteredLog retrieves and returns all the log cIDs provided blockHeight or blockHash that conform to the provided
 // filter parameters.
-func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]customLog, error) {
+func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]logResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	pgStr := `SELECT eth.log_cids.id,eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
@@ -364,10 +363,10 @@ func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilte
 		id++
 	}
 
-	pgStr, args, id = logFilterCondition(id, pgStr, args, rctFilter)
+	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY log_cids.index`
 
-	logCIDs := make([]customLog, 0)
+	logCIDs := make([]logResult, 0)
 	err := tx.Select(&logCIDs, pgStr, args...)
 	if err != nil {
 		return nil, err
@@ -397,7 +396,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, b
 		id++
 	}
 
-	pgStr, args, id = receiptFilterConditions(id, pgStr, args, rctFilter, trxIds)
+	pgStr, args = receiptFilterConditions(&id, pgStr, args, rctFilter, trxIds)
 
 	pgStr += ` ORDER BY transaction_cids.index`
 	receiptCids := make([]models.ReceiptModel, 0)
@@ -604,15 +603,4 @@ func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txIDs []int64) 
 			ORDER BY transaction_cids.index`
 	var rctCIDs []models.ReceiptModel
 	return rctCIDs, tx.Select(&rctCIDs, pgStr, pq.Array(txIDs))
-}
-
-func (ecr *CIDRetriever) RetrieveTxCIDsByReceipt(tx *sqlx.Tx, txIDs []int64) ([]models.TxModel, error) {
-	log.Debugf("retrieving receipt cids for tx ids %v", txIDs)
-	pgStr := `SELECT transaction_cids.id,transaction_cids.mh_key,transaction_cids.cid,
- 			transaction_cids.tx_hash,transaction_cids.index,transaction_cids.tx_type
-			FROM eth.transaction_cids WHERE eth.transaction_cids.id = ANY ( $1 )
-			ORDER BY transaction_cids.index`
-
-	var txnCIDs []models.TxModel
-	return txnCIDs, tx.Select(&txnCIDs, pgStr, pq.Array(txIDs))
 }

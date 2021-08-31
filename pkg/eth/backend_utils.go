@@ -37,8 +37,7 @@ import (
 // This function is eth/internal so we have to make our own version here...
 func RPCMarshalHeader(head *types.Header, extractMiner bool) map[string]interface{} {
 	if extractMiner {
-		err := recoverMiner(head)
-		if err != nil {
+		if err := recoverMiner(head); err != nil {
 			return nil
 		}
 	}

@@ -24,12 +24,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -169,7 +168,7 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]ipfs
 }
 
 // FetchLogs fetches logs.
-func (f *IPLDFetcher) FetchLogs(logCIDs []customLog) ([]*types.Log, error) {
+func (f *IPLDFetcher) FetchLogs(logCIDs []logResult) ([]*types.Log, error) {
 	log.Debug("fetching logs")
 
 	logs := make([]*types.Log, len(logCIDs))
@@ -218,7 +217,7 @@ type logsCID struct {
 }
 
 // FetchGQLLogs fetches logs for graphql.
-func (f *IPLDFetcher) FetchGQLLogs(logCIDs []customLog) ([]logsCID, error) {
+func (f *IPLDFetcher) FetchGQLLogs(logCIDs []logResult) ([]logsCID, error) {
 	log.Debug("fetching logs")
 
 	logs := make([]logsCID, len(logCIDs))
