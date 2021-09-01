@@ -310,7 +310,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 
 // RetrieveFilteredGQLLogs retrieves and returns all the log cIDs provided blockHash that conform to the provided
 // filter parameters.
-func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]logResult, error) {
+func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	id := 1
@@ -321,7 +321,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 				WHERE eth.log_cids.receipt_id = receipt_cids.id
 				AND receipt_cids.tx_id = transaction_cids.id
  				AND transaction_cids.header_id = header_cids.id
- 				AND receipt_cids.mh_key = blocks.key AND header_cids.block_hash = $1`
+ 				AND log_cids.leaf_mh_key = blocks.key AND header_cids.block_hash = $1`
 
 	args = append(args, blockHash.String())
 	id++
@@ -329,7 +329,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY log_cids.index`
 
-	logCIDs := make([]logResult, 0)
+	logCIDs := make([]LogResult, 0)
 	err := tx.Select(&logCIDs, pgStr, args...)
 	if err != nil {
 		return nil, err
@@ -340,7 +340,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 
 // RetrieveFilteredLog retrieves and returns all the log cIDs provided blockHeight or blockHash that conform to the provided
 // filter parameters.
-func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]logResult, error) {
+func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	pgStr := `SELECT eth.log_cids.id,eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
@@ -366,7 +366,7 @@ func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilte
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY log_cids.index`
 
-	logCIDs := make([]logResult, 0)
+	logCIDs := make([]LogResult, 0)
 	err := tx.Select(&logCIDs, pgStr, args...)
 	if err != nil {
 		return nil, err

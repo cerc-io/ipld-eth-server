@@ -94,15 +94,17 @@ type Log struct {
 	log         *types.Log
 	cid         string
 	receiptCID  string
-	ipldBlock   []byte
+	ipldBlock   []byte // log leaf node IPLD block data
 	status      uint64
 }
 
-func (l *Log) Transaction(ctx context.Context) *Transaction {
+// Transaction returns transaction that generated this log entry.
+func (l *Log) Transaction(_ context.Context) *Transaction {
 	return l.transaction
 }
 
-func (l *Log) Account(ctx context.Context, args BlockNumberArgs) *Account {
+// Account returns the contract account which generated this log.
+func (l *Log) Account(_ context.Context, args BlockNumberArgs) *Account {
 	return &Account{
 		backend:       l.backend,
 		address:       l.log.Address,
@@ -110,28 +112,39 @@ func (l *Log) Account(ctx context.Context, args BlockNumberArgs) *Account {
 	}
 }
 
-func (l *Log) Index(ctx context.Context) int32 {
+// Index returns the index of this log in the block
+func (l *Log) Index(_ context.Context) int32 {
 	return int32(l.log.Index)
 }
 
-func (l *Log) Topics(ctx context.Context) []common.Hash {
+// Topics returns the list of 0-4 indexed topics for the log.
+func (l *Log) Topics(_ context.Context) []common.Hash {
 	return l.log.Topics
 }
 
-func (l *Log) Data(ctx context.Context) hexutil.Bytes {
-	return hexutil.Bytes(l.log.Data)
+// Data returns data of this log.
+func (l *Log) Data(_ context.Context) hexutil.Bytes {
+	return l.log.Data
 }
 
-func (l *Log) Cid(ctx context.Context) string {
+// Cid returns cid of the leaf node of this log.
+func (l *Log) Cid(_ context.Context) string {
 	return l.cid
 }
 
-func (l *Log) IpldBlock(ctx context.Context) hexutil.Bytes {
-	return hexutil.Bytes(l.ipldBlock)
+// IpldBlock returns IPLD block of the leaf node of this log.
+func (l *Log) IpldBlock(_ context.Context) hexutil.Bytes {
+	return l.ipldBlock
 }
 
-func (l *Log) Status(ctx context.Context) int32 {
+// Status returns the status of the receipt IPLD block this Log exists in.
+func (l *Log) Status(_ context.Context) int32 {
 	return int32(l.status)
+}
+
+// ReceiptCID returns the receipt CID of the receipt IPLD block this Log exists in.
+func (l *Log) ReceiptCID(_ context.Context) string {
+	return l.receiptCID
 }
 
 // Transaction represents an Ethereum transaction.
@@ -1033,7 +1046,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	rctLog, err := r.backend.Fetcher.FetchGQLLogs(filteredLogs)
+	rctLog := decomposeGQLLogs(filteredLogs)
 	if err != nil {
 		return nil, err
 	}
@@ -1044,7 +1057,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 			log:        l.Log,
 			cid:        l.CID,
 			receiptCID: l.RctCID,
-			ipldBlock:  l.RctData,
+			ipldBlock:  l.LogLeafData,
 			transaction: &Transaction{
 				hash: l.Log.TxHash,
 			},
@@ -1053,4 +1066,48 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 	}
 
 	return &ret, nil
+}
+
+type logsCID struct {
+	Log         *types.Log
+	CID         string
+	RctCID      string
+	LogLeafData []byte
+	RctStatus   uint64
+}
+
+// decomposeGQLLogs return logs for graphql.
+func decomposeGQLLogs(logCIDs []eth.LogResult) []logsCID {
+	logs := make([]logsCID, len(logCIDs))
+	for i, l := range logCIDs {
+		topics := make([]common.Hash, 0)
+		if l.Topic0 != "" {
+			topics = append(topics, common.HexToHash(l.Topic0))
+		}
+		if l.Topic1 != "" {
+			topics = append(topics, common.HexToHash(l.Topic1))
+		}
+		if l.Topic2 != "" {
+			topics = append(topics, common.HexToHash(l.Topic2))
+		}
+		if l.Topic3 != "" {
+			topics = append(topics, common.HexToHash(l.Topic3))
+		}
+
+		logs[i] = logsCID{
+			Log: &types.Log{
+				Address: common.HexToAddress(l.Address),
+				Topics:  topics,
+				Data:    l.Data,
+				Index:   uint(l.Index),
+				TxHash:  common.HexToHash(l.TxHash),
+			},
+			CID:         l.LeafCID,
+			RctCID:      l.RctCID,
+			LogLeafData: l.LogLeafData,
+			RctStatus:   l.RctStatus,
+		}
+	}
+
+	return logs
 }

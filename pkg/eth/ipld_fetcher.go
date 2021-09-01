@@ -20,10 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
@@ -165,93 +163,6 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]ipfs
 		}
 	}
 	return rctIPLDs, nil
-}
-
-// FetchLogs fetches logs.
-func (f *IPLDFetcher) FetchLogs(logCIDs []logResult) ([]*types.Log, error) {
-	log.Debug("fetching logs")
-
-	logs := make([]*types.Log, len(logCIDs))
-	for i, l := range logCIDs {
-		topics := make([]common.Hash, 0)
-		if l.Topic0 != "" {
-			topics = append(topics, common.HexToHash(l.Topic0))
-		}
-		if l.Topic1 != "" {
-			topics = append(topics, common.HexToHash(l.Topic1))
-		}
-		if l.Topic2 != "" {
-			topics = append(topics, common.HexToHash(l.Topic2))
-		}
-		if l.Topic3 != "" {
-			topics = append(topics, common.HexToHash(l.Topic3))
-		}
-
-		// TODO: should we convert string to uint ?
-		blockNum, err := strconv.ParseUint(l.BlockNumber, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-
-		logs[i] = &types.Log{
-			Address:     common.HexToAddress(l.Address),
-			Topics:      topics,
-			Data:        l.Data,
-			BlockNumber: blockNum,
-			TxHash:      common.HexToHash(l.TxHash),
-			TxIndex:     uint(l.TxnIndex),
-			BlockHash:   common.HexToHash(l.BlockHash),
-			Index:       uint(l.Index),
-		}
-	}
-
-	return logs, nil
-}
-
-type logsCID struct {
-	Log       *types.Log
-	CID       string
-	RctCID    string
-	RctData   []byte
-	RctStatus uint64
-}
-
-// FetchGQLLogs fetches logs for graphql.
-func (f *IPLDFetcher) FetchGQLLogs(logCIDs []logResult) ([]logsCID, error) {
-	log.Debug("fetching logs")
-
-	logs := make([]logsCID, len(logCIDs))
-	for i, l := range logCIDs {
-		topics := make([]common.Hash, 0)
-		if l.Topic0 != "" {
-			topics = append(topics, common.HexToHash(l.Topic0))
-		}
-		if l.Topic1 != "" {
-			topics = append(topics, common.HexToHash(l.Topic1))
-		}
-		if l.Topic2 != "" {
-			topics = append(topics, common.HexToHash(l.Topic2))
-		}
-		if l.Topic3 != "" {
-			topics = append(topics, common.HexToHash(l.Topic3))
-		}
-
-		logs[i] = logsCID{
-			Log: &types.Log{
-				Address: common.HexToAddress(l.Address),
-				Topics:  topics,
-				Data:    l.Data,
-				Index:   uint(l.Index),
-				TxHash:  common.HexToHash(l.TxHash),
-			},
-			CID:       l.LeafCID,
-			RctCID:    l.RctCID,
-			RctData:   l.RctData,
-			RctStatus: l.RctStatus,
-		}
-	}
-
-	return logs, nil
 }
 
 // FetchState fetches state nodes

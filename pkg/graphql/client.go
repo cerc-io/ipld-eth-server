@@ -24,6 +24,7 @@ type LogResponse struct {
 	Topics      []common.Hash   `json:"topics"`
 	Data        hexutil.Bytes   `json:"data"`
 	Transaction TransactionResp `json:"transaction"`
+	ReceiptCID  string          `json:"receiptCID"`
 	Status      int32           `json:"status"`
 }
 
@@ -54,6 +55,7 @@ func (c *Client) GetLogs(ctx context.Context, hash common.Hash, address common.A
 					hash
 				}
 				status
+				receiptCID
 			}
 		}
 	`, hash.String(), address.String())

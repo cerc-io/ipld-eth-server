@@ -167,8 +167,8 @@ type ConvertedPayload struct {
 	StorageNodes    map[string][]sdtypes.StorageNode
 }
 
-// logResult represent a log.
-type logResult struct {
+// LogResult represent a log.
+type LogResult struct {
 	ID          int64  `db:"id"`
 	LeafCID     string `db:"leaf_cid"`
 	LeafMhKey   string `db:"leaf_mh_key"`
@@ -180,7 +180,7 @@ type logResult struct {
 	Topic1      string `db:"topic1"`
 	Topic2      string `db:"topic2"`
 	Topic3      string `db:"topic3"`
-	RctData     []byte `db:"data"`
+	LogLeafData []byte `db:"data"`
 	RctCID      string `db:"cid"`
 	RctStatus   uint64 `db:"post_status"`
 	BlockNumber string `db:"block_number"`

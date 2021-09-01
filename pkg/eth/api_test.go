@@ -34,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer"
 	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
-	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -48,7 +47,7 @@ var (
 	randomHash     = crypto.Keccak256Hash(randomAddr.Bytes())
 	number         = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
 	londonBlockNum = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
-	wrongNumber    = rpc.BlockNumber(number + 1)
+	wrongNumber    = number + 1
 	blockHash      = test_helpers.MockBlock.Header().Hash()
 	baseFee        = test_helpers.MockLondonBlock.BaseFee()
 	ctx            = context.Background()
@@ -482,14 +481,14 @@ var _ = Describe("API", func() {
 	Describe("eth_getBlockTransactionCountByNumber", func() {
 		It("Retrieves the number of transactions in the canonical block with the provided number", func() {
 			count := api.GetBlockTransactionCountByNumber(ctx, number)
-			Expect(uint64(*count)).To(Equal(uint64(3)))
+			Expect(uint64(*count)).To(Equal(uint64(4)))
 		})
 	})
 
 	Describe("eth_getBlockTransactionCountByHash", func() {
 		It("Retrieves the number of transactions in the block with the provided hash ", func() {
 			count := api.GetBlockTransactionCountByHash(ctx, blockHash)
-			Expect(uint64(*count)).To(Equal(uint64(3)))
+			Expect(uint64(*count)).To(Equal(uint64(4)))
 		})
 	})
 
@@ -875,8 +874,8 @@ var _ = Describe("API", func() {
 			}
 			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(logs)).To(Equal(5))
-			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2, test_helpers.MockLog3, test_helpers.MockLog4, test_helpers.MockLog5}))
+			Expect(len(logs)).To(Equal(6))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2, test_helpers.MockLog3, test_helpers.MockLog4, test_helpers.MockLog5, test_helpers.MockLog6}))
 		})
 
 		It("Uses the provided blockhash if one is provided", func() {
@@ -1011,8 +1010,8 @@ var _ = Describe("API", func() {
 			}
 			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(logs)).To(Equal(5))
-			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2, test_helpers.MockLog3, test_helpers.MockLog4, test_helpers.MockLog5}))
+			Expect(len(logs)).To(Equal(6))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2, test_helpers.MockLog3, test_helpers.MockLog4, test_helpers.MockLog5, test_helpers.MockLog6}))
 		})
 
 		It("Filters on contract address if any are provided", func() {
@@ -1134,20 +1133,3 @@ var _ = Describe("API", func() {
 		})
 	})
 })
-
-func publishCode(db *postgres.DB, codeHash common.Hash, code []byte) error {
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
-	mhKey, err := shared.MultihashKeyFromKeccak256(codeHash)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := shared.PublishDirect(tx, mhKey, code); err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
-}

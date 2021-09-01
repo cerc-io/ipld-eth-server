@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -120,12 +121,7 @@ func (pea *PublicEthAPI) GetHeaderByHash(ctx context.Context, hash common.Hash) 
 
 // rpcMarshalHeader uses the generalized output filler, then adds the total difficulty field
 func (pea *PublicEthAPI) rpcMarshalHeader(header *types.Header) (map[string]interface{}, error) {
-	var extractMiner bool
-	if pea.B.Config.ChainConfig.Clique != nil {
-		extractMiner = true
-	}
-
-	fields := RPCMarshalHeader(header, extractMiner)
+	fields := RPCMarshalHeader(header, pea.B.Config.ChainConfig.Clique != nil)
 	td, err := pea.B.GetTd(header.Hash())
 	if err != nil {
 		return nil, err
@@ -628,7 +624,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 			return nil, err
 		}
 
-		return pea.B.Fetcher.FetchLogs(filteredLogs)
+		return decomposeLogs(filteredLogs)
 	}
 
 	// Otherwise, create block range from criteria
@@ -651,12 +647,12 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	end := endingBlock.Int64()
 	var logs []*types.Log
 	for i := start; i <= end; i++ {
-		filteredLog, err := pea.B.Retriever.RetrieveFilteredLog(tx, filter, i, nil)
+		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLog(tx, filter, i, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		logCIDs, err := pea.B.Fetcher.FetchLogs(filteredLog)
+		logCIDs, err := decomposeLogs(filteredLogs)
 		if err != nil {
 			return nil, err
 		}
@@ -1084,12 +1080,7 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 
 // rpcMarshalBlock uses the generalized output filler, then adds the total difficulty field
 func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	var extractMiner bool
-	if pea.B.Config.ChainConfig.Clique != nil {
-		extractMiner = true
-	}
-
-	fields, err := RPCMarshalBlock(b, inclTx, fullTx, extractMiner)
+	fields, err := RPCMarshalBlock(b, inclTx, fullTx, pea.B.Config.ChainConfig.Clique != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1105,12 +1096,7 @@ func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx boo
 
 // rpcMarshalBlockWithUncleHashes uses the generalized output filler, then adds the total difficulty field
 func (pea *PublicEthAPI) rpcMarshalBlockWithUncleHashes(b *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	var extractMiner bool
-	if pea.B.Config.ChainConfig.Clique != nil {
-		extractMiner = true
-	}
-
-	fields, err := RPCMarshalBlockWithUncleHashes(b, uncleHashes, inclTx, fullTx, extractMiner)
+	fields, err := RPCMarshalBlockWithUncleHashes(b, uncleHashes, inclTx, fullTx, pea.B.Config.ChainConfig.Clique != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1129,4 +1115,43 @@ func toHexSlice(b [][]byte) []string {
 		r[i] = hexutil.Encode(b[i])
 	}
 	return r
+}
+
+// decomposeLogs return logs from LogResult.
+func decomposeLogs(logCIDs []LogResult) ([]*types.Log, error) {
+	logs := make([]*types.Log, len(logCIDs))
+	for i, l := range logCIDs {
+		topics := make([]common.Hash, 0)
+		if l.Topic0 != "" {
+			topics = append(topics, common.HexToHash(l.Topic0))
+		}
+		if l.Topic1 != "" {
+			topics = append(topics, common.HexToHash(l.Topic1))
+		}
+		if l.Topic2 != "" {
+			topics = append(topics, common.HexToHash(l.Topic2))
+		}
+		if l.Topic3 != "" {
+			topics = append(topics, common.HexToHash(l.Topic3))
+		}
+
+		// TODO: should we convert string to uint ?
+		blockNum, err := strconv.ParseUint(l.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		logs[i] = &types.Log{
+			Address:     common.HexToAddress(l.Address),
+			Topics:      topics,
+			Data:        l.Data,
+			BlockNumber: blockNum,
+			TxHash:      common.HexToHash(l.TxHash),
+			TxIndex:     uint(l.TxnIndex),
+			BlockHash:   common.HexToHash(l.BlockHash),
+			Index:       uint(l.Index),
+		}
+	}
+
+	return logs, nil
 }
