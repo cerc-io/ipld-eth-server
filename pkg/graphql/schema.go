@@ -67,7 +67,7 @@ const schema string = `
         # Transaction is the transaction that generated this log entry.
         transaction: Transaction
 
-        # CID for the Receipt IPLD block of leaf node.
+        # CID for the leaf node IPLD block of the log.
         cid: String!
 
         # ReceiptCID for the Receipt IPLD block this Log exists in.
