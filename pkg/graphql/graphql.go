@@ -1025,16 +1025,16 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 	BlockHash common.Hash
 	Contract  *common.Address
 }) (*[]*Log, error) {
-	ret := make([]*Log, 0, 10)
+
+	var filter eth.ReceiptFilter
+	if args.Contract != nil {
+		filter.LogAddresses = []string{args.Contract.String()}
+	}
 
 	// Begin tx
 	tx, err := r.backend.DB.Beginx()
 	if err != nil {
 		return nil, err
-	}
-
-	filter := eth.ReceiptFilter{
-		LogAddresses: []string{args.Contract.String()},
 	}
 
 	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash)
@@ -1051,6 +1051,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	ret := make([]*Log, 0, 10)
 	for _, l := range rctLog {
 		ret = append(ret, &Log{
 			backend:    r.backend,

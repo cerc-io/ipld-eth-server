@@ -183,7 +183,7 @@ var _ = Describe("GraphQL", func() {
 
 	Describe("eth_getLogs", func() {
 		It("Retrieves logs that matches the provided blockHash and contract address", func() {
-			logs, err := client.GetLogs(ctx, blockHash, contractAddress)
+			logs, err := client.GetLogs(ctx, blockHash, &contractAddress)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedLogs := []graphql.LogResponse{
@@ -200,7 +200,7 @@ var _ = Describe("GraphQL", func() {
 		})
 
 		It("Retrieves logs for the failed receipt status that matches the provided blockHash and another contract address", func() {
-			logs, err := client.GetLogs(ctx, blockHash, test_helpers.AnotherAddress2)
+			logs, err := client.GetLogs(ctx, blockHash, &test_helpers.AnotherAddress2)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedLogs := []graphql.LogResponse{
@@ -216,8 +216,14 @@ var _ = Describe("GraphQL", func() {
 			Expect(logs).To(Equal(expectedLogs))
 		})
 
+		It("Retrieves all the logs for the receipt that matches the provided blockHash and nil contract address", func() {
+			logs, err := client.GetLogs(ctx, blockHash, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(logs)).To(Equal(6))
+		})
+
 		It("Retrieves logs with random hash", func() {
-			logs, err := client.GetLogs(ctx, randomHash, contractAddress)
+			logs, err := client.GetLogs(ctx, randomHash, &contractAddress)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(0))
 		})
