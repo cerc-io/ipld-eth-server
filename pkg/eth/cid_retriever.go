@@ -314,7 +314,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	id := 1
-	pgStr := `SELECT eth.log_cids.index, eth.log_cids.receipt_id,  
+	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
        			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, 
        			eth.log_cids.log_data, eth.transaction_cids.tx_hash, data, eth.receipt_cids.cid, eth.receipt_cids.post_status
 				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
@@ -343,7 +343,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
-	pgStr := `SELECT eth.log_cids.id,eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
+	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
        			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, 
        			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index, 
        			header_cids.block_hash, header_cids.block_number

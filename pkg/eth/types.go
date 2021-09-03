@@ -169,9 +169,7 @@ type ConvertedPayload struct {
 
 // LogResult represent a log.
 type LogResult struct {
-	ID          int64  `db:"id"`
 	LeafCID     string `db:"leaf_cid"`
-	LeafMhKey   string `db:"leaf_mh_key"`
 	ReceiptID   int64  `db:"receipt_id"`
 	Address     string `db:"address"`
 	Index       int64  `db:"index"`
