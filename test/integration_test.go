@@ -391,6 +391,30 @@ var _ = Describe("Integration test", func() {
 			Expect(err).To(MatchError("header not found"))
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
+
+		It("get storage after selfdestruct", func() {
+			totalSupplyIndex := "0x2"
+			zeroHash := make([]byte, 32)
+
+			tx, err := integration.DestoyContract(contract.Address)
+			Expect(err).ToNot(HaveOccurred())
+
+			gethStorage1, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber-1))
+			Expect(err).ToNot(HaveOccurred())
+			gethStorage2, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(gethStorage1).NotTo(Equal(gethStorage2))
+			Expect(gethStorage2).To(Equal(zeroHash))
+
+			ipldStorage1, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber-1))
+			Expect(err).ToNot(HaveOccurred())
+			ipldStorage2, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(ipldStorage1).To(Equal(gethStorage1))
+			Expect(ipldStorage2).To(Equal(gethStorage2))
+		})
 	})
 
 	Describe("eth call", func() {

@@ -22,6 +22,15 @@ fastify.get('/v1/deployContract', async (req, reply) => {
     }
 });
 
+fastify.get('/v1/destoyContract', async (req, reply) => {
+    const addr = req.query.addr;
+
+    const Token = await hre.ethers.getContractFactory("GLDToken");
+    const token = await Token.attach(addr);
+
+    return token.destroy();
+})
+
 fastify.get('/v1/sendEth', async (req, reply) => {
     const to = req.query.to;
     const value = req.query.value;

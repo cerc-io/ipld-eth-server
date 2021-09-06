@@ -14,6 +14,12 @@ type ContractDeployed struct {
 	BlockHash       string `json:"blockHash"`
 }
 
+type ContractDestoyed struct {
+	TransactionHash string `json:"txHash"`
+	BlockNumber     int64  `json:"blockNumber"`
+	BlockHash       string `json:"blockHash"`
+}
+
 type Tx struct {
 	From            string   `json:"from"`
 	To              string   `json:"to"`
@@ -41,6 +47,19 @@ func DeployContract() (*ContractDeployed, error) {
 	}
 
 	return &contract, nil
+}
+
+func DestoyContract(addr string) (*ContractDestoyed, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/destoyContract?addr=%s", srvUrl, addr))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var data ContractDestoyed
+	decoder := json.NewDecoder(res.Body)
+
+	return &data, decoder.Decode(&data)
 }
 
 func SendEth(to string, value string) (*Tx, error) {

@@ -4,4 +4,7 @@ contract GLDToken is ERC20 {
     constructor() ERC20("Gold", "GLD") {
         _mint(msg.sender, 1000000000000000000000);
     }
+    function destroy() public {
+        selfdestruct(payable(msg.sender));
+    }
 }
