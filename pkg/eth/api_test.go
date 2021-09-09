@@ -43,15 +43,16 @@ import (
 )
 
 var (
-	randomAddr     = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
-	randomHash     = crypto.Keccak256Hash(randomAddr.Bytes())
-	number         = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
-	londonBlockNum = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
-	wrongNumber    = number + 1
-	blockHash      = test_helpers.MockBlock.Header().Hash()
-	baseFee        = test_helpers.MockLondonBlock.BaseFee()
-	ctx            = context.Background()
-	expectedBlock  = map[string]interface{}{
+	randomAddr      = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
+	randomHash      = crypto.Keccak256Hash(randomAddr.Bytes())
+	number          = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
+	londonBlockNum  = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
+	wrongNumber     = number + 1
+	blockHash       = test_helpers.MockBlock.Header().Hash()
+	baseFee         = test_helpers.MockLondonBlock.BaseFee()
+	ctx             = context.Background()
+	londonBlockHash = test_helpers.MockLondonBlock.Header().Hash()
+	expectedBlock   = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
 		"hash":             test_helpers.MockBlock.Hash(),
 		"parentHash":       test_helpers.MockBlock.ParentHash(),
@@ -151,6 +152,7 @@ var (
 		"logs":              test_helpers.MockReceipts[0].Logs,
 		"logsBloom":         test_helpers.MockReceipts[0].Bloom,
 		"status":            hexutil.Uint(test_helpers.MockReceipts[0].Status),
+		"effectiveGasPrice": hexutil.Uint64(test_helpers.MockTransactions[0].GasPrice().Uint64()),
 	}
 	expectedReceipt2 = map[string]interface{}{
 		"blockHash":         blockHash,
@@ -165,6 +167,7 @@ var (
 		"logs":              test_helpers.MockReceipts[1].Logs,
 		"logsBloom":         test_helpers.MockReceipts[1].Bloom,
 		"root":              hexutil.Bytes(test_helpers.MockReceipts[1].PostState),
+		"effectiveGasPrice": hexutil.Uint64(test_helpers.MockTransactions[1].GasPrice().Uint64()),
 	}
 	expectedReceipt3 = map[string]interface{}{
 		"blockHash":         blockHash,
@@ -179,6 +182,24 @@ var (
 		"logs":              test_helpers.MockReceipts[2].Logs,
 		"logsBloom":         test_helpers.MockReceipts[2].Bloom,
 		"root":              hexutil.Bytes(test_helpers.MockReceipts[2].PostState),
+		"effectiveGasPrice": hexutil.Uint64(test_helpers.MockTransactions[2].GasPrice().Uint64()),
+	}
+
+	effectiveGasTip, _    = test_helpers.MockLondonTransactions[0].EffectiveGasTip(baseFee)
+	expectedLondonReceipt = map[string]interface{}{
+		"blockHash":         londonBlockHash,
+		"blockNumber":       hexutil.Uint64(uint64(londonBlockNum.Int64())),
+		"transactionHash":   expectedLondonTransaction.Hash,
+		"transactionIndex":  hexutil.Uint64(0),
+		"from":              expectedLondonTransaction.From,
+		"to":                expectedLondonTransaction.To,
+		"gasUsed":           hexutil.Uint64(test_helpers.MockLondonReceipts[0].GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(test_helpers.MockLondonReceipts[0].CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              test_helpers.MockLondonReceipts[0].Logs,
+		"logsBloom":         test_helpers.MockLondonReceipts[0].Bloom,
+		"root":              hexutil.Bytes(test_helpers.MockLondonReceipts[0].PostState),
+		"effectiveGasPrice": hexutil.Uint64((new(big.Int).Add(baseFee, effectiveGasTip)).Uint64()),
 	}
 )
 
@@ -513,6 +534,12 @@ var _ = Describe("API", func() {
 			Expect(tx.GasTipCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasTipCap())))
 			Expect(tx).To(Equal(expectedLondonTransaction))
 		})
+		It("Retrieves the GasPrice for dynamic transaction from the london block hash", func() {
+			tx := api.GetTransactionByBlockNumberAndIndex(ctx, londonBlockNum, 0)
+			Expect(tx).ToNot(BeNil())
+			Expect(tx.GasPrice).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasPrice())))
+			Expect(tx).To(Equal(expectedLondonTransaction))
+		})
 	})
 
 	Describe("eth_getTransactionByBlockHashAndIndex", func() {
@@ -639,6 +666,11 @@ var _ = Describe("API", func() {
 			rct, err = api.GetTransactionReceipt(ctx, hash)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rct).To(Equal(expectedReceipt3))
+
+			hash = test_helpers.MockLondonTransactions[0].Hash()
+			rct, err = api.GetTransactionReceipt(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rct).To(Equal(expectedLondonReceipt))
 		})
 		It("Throws an error if it cannot find a receipt for the provided tx hash", func() {
 			_, err := api.GetTransactionReceipt(ctx, randomHash)

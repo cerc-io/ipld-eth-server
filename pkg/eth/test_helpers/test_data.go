@@ -631,6 +631,8 @@ func createDynamicTransactionsAndReceipts(blockNumber *big.Int) (types.Transacti
 		TxHash:            signedTrx1.Hash(),
 	}
 
+	mockReceipt1.GasUsed = mockReceipt1.CumulativeGasUsed
+
 	return types.Transactions{signedTrx1}, types.Receipts{mockReceipt1}, senderAddr
 }
 

@@ -506,7 +506,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 
 	var signer types.Signer = types.FrontierSigner{}
 	if tx.Protected() {
-		signer = types.NewEIP155Signer(tx.ChainId())
+		signer = types.LatestSignerForChainID(tx.ChainId())
 	}
 	from, _ := types.Sender(signer, tx)
 
@@ -536,6 +536,15 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	// If the ContractAddress is 20 0x0 bytes, assume it is not a contract creation
 	if receipt.ContractAddress != (common.Address{}) {
 		fields["contractAddress"] = receipt.ContractAddress
+	}
+
+	if !pea.B.Config.ChainConfig.IsLondon(block.Number()) {
+		fields["effectiveGasPrice"] = hexutil.Uint64(tx.GasPrice().Uint64())
+	} else {
+		baseFee := block.BaseFee()
+		effectiveGasTip, _ := tx.EffectiveGasTip(baseFee)
+		gasPrice := new(big.Int).Add(block.BaseFee(), effectiveGasTip)
+		fields["effectiveGasPrice"] = hexutil.Uint64(gasPrice.Uint64())
 	}
 	return fields, nil
 }
