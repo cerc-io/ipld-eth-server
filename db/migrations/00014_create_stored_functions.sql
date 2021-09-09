@@ -40,77 +40,79 @@ CREATE TYPE child_result AS (
     children eth.header_cids[]
 );
 
-CREATE OR REPLACE FUNCTION has_child(hash VARCHAR(66), height BIGINT) RETURNS child_result AS
-$BODY$
+CREATE OR REPLACE FUNCTION has_child(hash VARCHAR(66), height BIGINT)
+    RETURNS child_result
+    LANGUAGE plpgsql
+    AS $function$
 DECLARE
-child_height INT;
-  temp_child eth.header_cids;
-  new_child_result child_result;
+    child_height INT;
+    temp_child eth.header_cids;
+    new_child_result child_result;
 BEGIN
-  child_height = height + 1;
-  -- short circuit if there are no children
-SELECT exists(SELECT 1
-              FROM eth.header_cids
-              WHERE parent_hash = hash
-                AND block_number = child_height
-              LIMIT 1)
-INTO new_child_result.has_child;
--- collect all the children for this header
-IF new_child_result.has_child THEN
-    FOR temp_child IN
-SELECT * FROM eth.header_cids WHERE parent_hash = hash AND block_number = child_height
-    LOOP
-      new_child_result.children = array_append(new_child_result.children, temp_child);
-END LOOP;
-END IF;
-RETURN new_child_result;
+    child_height = height + 1;
+    -- short circuit if there are no children
+    SELECT exists(SELECT 1
+                  FROM eth.header_cids
+                  WHERE parent_hash = hash
+                    AND block_number = child_height
+                  LIMIT 1)
+    INTO new_child_result.has_child;
+    -- collect all the children for this header
+    IF new_child_result.has_child THEN
+        FOR temp_child IN
+            SELECT * FROM eth.header_cids WHERE parent_hash = hash AND block_number = child_height
+        LOOP
+            new_child_result.children = array_append(new_child_result.children, temp_child);
+        END LOOP;
+    END IF;
+    RETURN new_child_result;
 END
-$BODY$
-LANGUAGE 'plpgsql';
+$function$
+;
 -- +goose StatementEnd
 
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION canonical_header_from_array(headers eth.header_cids[]) RETURNS eth.header_cids AS
 $BODY$
 DECLARE
-canonical_header eth.header_cids;
-  canonical_child eth.header_cids;
-  header eth.header_cids;
-  current_child_result child_result;
-  child_headers eth.header_cids[];
-  current_header_with_child eth.header_cids;
-  has_children_count INT DEFAULT 0;
+    canonical_header eth.header_cids;
+    canonical_child eth.header_cids;
+    header eth.header_cids;
+    current_child_result child_result;
+    child_headers eth.header_cids[];
+    current_header_with_child eth.header_cids;
+    has_children_count INT DEFAULT 0;
 BEGIN
-  -- for each header in the provided set
-  FOREACH header IN ARRAY headers
-  LOOP
-    -- check if it has any children
-    current_child_result = has_child(header.block_hash, header.block_number);
-    IF current_child_result.has_child THEN
-      -- if it does, take note
-      has_children_count = has_children_count + 1;
-      current_header_with_child = header;
-      -- and add the children to the growing set of child headers
-      child_headers = array_cat(child_headers, current_child_result.children);
-END IF;
-END LOOP;
-  -- if none of the headers had children, none is more canonical than the other
-  IF has_children_count = 0 THEN
-    -- return the first one selected
-SELECT * INTO canonical_header FROM unnest(headers) LIMIT 1;
--- if only one header had children, it can be considered the heaviest/canonical header of the set
-ELSIF has_children_count = 1 THEN
-    -- return the only header with a child
-    canonical_header = current_header_with_child;
-  -- if there are multiple headers with children
-ELSE
-    -- find the canonical header from the child set
-    canonical_child = canonical_header_from_array(child_headers);
-    -- the header that is parent to this header, is the canonical header at this level
-SELECT * INTO canonical_header FROM unnest(headers)
-WHERE block_hash = canonical_child.parent_hash;
-END IF;
-RETURN canonical_header;
+    -- for each header in the provided set
+    FOREACH header IN ARRAY headers
+        LOOP
+            -- check if it has any children
+            current_child_result = has_child(header.block_hash, header.block_number);
+            IF current_child_result.has_child THEN
+                -- if it does, take note
+                has_children_count = has_children_count + 1;
+                current_header_with_child = header;
+                -- and add the children to the growing set of child headers
+                child_headers = array_cat(child_headers, current_child_result.children);
+            END IF;
+        END LOOP;
+    -- if none of the headers had children, none is more canonical than the other
+    IF has_children_count = 0 THEN
+        -- return the first one selected
+        SELECT * INTO canonical_header FROM unnest(headers) LIMIT 1;
+        -- if only one header had children, it can be considered the heaviest/canonical header of the set
+    ELSIF has_children_count = 1 THEN
+        -- return the only header with a child
+        canonical_header = current_header_with_child;
+        -- if there are multiple headers with children
+    ELSE
+        -- find the canonical header from the child set
+        canonical_child = canonical_header_from_array(child_headers);
+        -- the header that is parent to this header, is the canonical header at this level
+        SELECT * INTO canonical_header FROM unnest(headers)
+        WHERE block_hash = canonical_child.parent_hash;
+    END IF;
+    RETURN canonical_header;
 END
 $BODY$
 LANGUAGE 'plpgsql';

@@ -102,14 +102,40 @@ begin
 end;
 $_$;
 
+--
+-- Name: canonical_header(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.canonical_header(height bigint) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    current_weight INT;
+    heaviest_weight INT DEFAULT 0;
+    heaviest_id INT;
+    r eth.header_cids%ROWTYPE;
+BEGIN
+    FOR r IN SELECT * FROM eth.header_cids
+    WHERE block_number = height
+    LOOP
+        SELECT INTO current_weight * FROM header_weight(r.block_hash);
+        IF current_weight > heaviest_weight THEN
+            heaviest_weight := current_weight;
+            heaviest_id := r.id;
+        END IF;
+    END LOOP;
+    RETURN heaviest_id;
+END
+$$;
 
 --
 -- Name: canonical_header_from_array(eth.header_cids[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.canonical_header_from_array(headers eth.header_cids[]) RETURNS eth.header_cids
-    LANGUAGE plpgsql
-    AS $$
+CREATE OR REPLACE FUNCTION public.canonical_header_from_array(headers eth.header_cids[])
+ RETURNS eth.header_cids
+ LANGUAGE plpgsql
+AS $function$
 DECLARE
 canonical_header eth.header_cids;
   canonical_child eth.header_cids;
@@ -150,7 +176,8 @@ WHERE block_hash = canonical_child.parent_hash;
 END IF;
 RETURN canonical_header;
 END
-$$;
+$function$
+;
 
 
 --
@@ -188,14 +215,25 @@ END IF;
 END;
 $$;
 
+--
+-- Name: ethHeaderCidByBlockNumber(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public."ethHeaderCidByBlockNumber"(n bigint) RETURNS SETOF eth.header_cids
+    LANGUAGE sql STABLE
+    AS $_$
+SELECT * FROM eth.header_cids WHERE block_number=$1 ORDER BY id
+$_$;
+
 
 --
 -- Name: has_child(character varying, bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.has_child(hash character varying, height bigint) RETURNS public.child_result
-    LANGUAGE plpgsql
-    AS $$
+CREATE OR REPLACE FUNCTION public.has_child(hash character varying, height bigint)
+ RETURNS child_result
+ LANGUAGE plpgsql
+AS $function$
 DECLARE
 child_height INT;
   temp_child eth.header_cids;
@@ -219,8 +257,8 @@ END LOOP;
 END IF;
 RETURN new_child_result;
 END
-$$;
-
+$function$
+;
 
 --
 -- Name: was_state_removed(bytea, bigint, character varying); Type: FUNCTION; Schema: public; Owner: -
@@ -251,8 +289,8 @@ CREATE FUNCTION public.was_storage_removed(path bytea, height bigint, hash chara
     AS $$
 SELECT exists(SELECT 1
               FROM eth.storage_cids
-                       INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
-                       INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+                   INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
+                   INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
               WHERE storage_path = path
                 AND block_number > height
                 AND block_number <= (SELECT block_number

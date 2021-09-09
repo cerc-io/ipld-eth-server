@@ -260,7 +260,7 @@ var _ = Describe("API", func() {
 	})
 
 	// Single test db tear down at end of all tests
-	defer It("test teardown", func() { eth.TearDownDB(db) })
+	//defer It("test teardown", func() { eth.TearDownDB(db) })
 	/*
 
 	   Headers and blocks

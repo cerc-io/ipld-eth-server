@@ -20,5 +20,14 @@ CREATE TABLE eth.header_cids (
   UNIQUE (block_number, block_hash)
 );
 
+CREATE FUNCTION "ethHeaderCidByBlockNumber"(n bigint) returns SETOF eth.header_cids
+    stable
+    language sql
+as
+$$
+SELECT * FROM eth.header_cids WHERE block_number=$1 ORDER BY id
+    $$;
+
 -- +goose Down
+DROP FUNCTION "ethHeaderCidByBlockNumber"(bigint);
 DROP TABLE eth.header_cids;
