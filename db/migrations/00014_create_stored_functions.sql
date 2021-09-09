@@ -18,14 +18,14 @@ $$ LANGUAGE SQL;
 -- +goose StatementEnd
 
 -- +goose StatementBegin
--- returns if a state node at the provided path was removed in the range > the provided height and <= the provided block hash
+-- returns if a state node at the provided path was removed in the range >= the provided height and <= the provided block hash
 CREATE OR REPLACE FUNCTION was_state_removed(path BYTEA, height BIGINT, hash VARCHAR(66)) RETURNS BOOLEAN
 AS $$
 SELECT exists(SELECT 1
               FROM eth.state_cids
                        INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
               WHERE state_path = path
-                AND block_number > height
+                AND block_number >= height
                 AND block_number <= (SELECT block_number
                                      FROM eth.header_cids
                                      WHERE block_hash = hash)
