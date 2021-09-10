@@ -9,6 +9,7 @@ CREATE TABLE eth.transaction_cids (
   dst                   VARCHAR(66) NOT NULL,
   src                   VARCHAR(66) NOT NULL,
   tx_data               BYTEA,
+  tx_type               BYTEA,
   UNIQUE (header_id, tx_hash)
 );
 

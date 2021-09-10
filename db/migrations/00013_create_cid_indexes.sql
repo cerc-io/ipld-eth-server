@@ -36,16 +36,6 @@ CREATE INDEX rct_contract_index ON eth.receipt_cids USING btree (contract);
 
 CREATE INDEX rct_contract_hash_index ON eth.receipt_cids USING btree (contract_hash);
 
-CREATE INDEX rct_topic0_index ON eth.receipt_cids USING gin (topic0s);
-
-CREATE INDEX rct_topic1_index ON eth.receipt_cids USING gin (topic1s);
-
-CREATE INDEX rct_topic2_index ON eth.receipt_cids USING gin (topic2s);
-
-CREATE INDEX rct_topic3_index ON eth.receipt_cids USING gin (topic3s);
-
-CREATE INDEX rct_log_contract_index ON eth.receipt_cids USING gin (log_contracts);
-
 -- state node indexes
 CREATE INDEX state_header_id_index ON eth.state_cids USING btree (header_id);
 
@@ -56,6 +46,8 @@ CREATE INDEX state_cid_index ON eth.state_cids USING btree (cid);
 CREATE INDEX state_mh_index ON eth.state_cids USING btree (mh_key);
 
 CREATE INDEX state_path_index ON eth.state_cids USING btree (state_path);
+
+CREATE INDEX state_node_type_index ON eth.state_cids USING btree (node_type);
 
 -- storage node indexes
 CREATE INDEX storage_state_id_index ON eth.storage_cids USING btree (state_id);
@@ -68,6 +60,8 @@ CREATE INDEX storage_mh_index ON eth.storage_cids USING btree (mh_key);
 
 CREATE INDEX storage_path_index ON eth.storage_cids USING btree (storage_path);
 
+CREATE INDEX storage_node_type_index ON eth.storage_cids USING btree (node_type);
+
 -- state accounts indexes
 CREATE INDEX account_state_id_index ON eth.state_accounts USING btree (state_id);
 
@@ -79,6 +73,7 @@ DROP INDEX eth.storage_root_index;
 DROP INDEX eth.account_state_id_index;
 
 -- storage node indexes
+DROP INDEX eth.storage_node_type_index;
 DROP INDEX eth.storage_path_index;
 DROP INDEX eth.storage_mh_index;
 DROP INDEX eth.storage_cid_index;
@@ -86,6 +81,7 @@ DROP INDEX eth.storage_leaf_key_index;
 DROP INDEX eth.storage_state_id_index;
 
 -- state node indexes
+DROP INDEX eth.state_node_type_index;
 DROP INDEX eth.state_path_index;
 DROP INDEX eth.state_mh_index;
 DROP INDEX eth.state_cid_index;
@@ -93,11 +89,6 @@ DROP INDEX eth.state_leaf_key_index;
 DROP INDEX eth.state_header_id_index;
 
 -- receipt indexes
-DROP INDEX eth.rct_log_contract_index;
-DROP INDEX eth.rct_topic3_index;
-DROP INDEX eth.rct_topic2_index;
-DROP INDEX eth.rct_topic1_index;
-DROP INDEX eth.rct_topic0_index;
 DROP INDEX eth.rct_contract_hash_index;
 DROP INDEX eth.rct_contract_index;
 DROP INDEX eth.rct_mh_index;

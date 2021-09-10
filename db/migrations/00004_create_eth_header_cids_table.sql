@@ -16,6 +16,7 @@ CREATE TABLE eth.header_cids (
   bloom                 BYTEA NOT NULL,
   timestamp             NUMERIC NOT NULL,
   times_validated       INTEGER NOT NULL DEFAULT 1,
+  base_fee              BIGINT,
   UNIQUE (block_number, block_hash)
 );
 

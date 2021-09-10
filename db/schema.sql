@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 12.4
--- Dumped by pg_dump version 12.4
+-- Dumped from database version 14beta3
+-- Dumped by pg_dump version 14beta3
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -47,7 +47,8 @@ CREATE TABLE eth.header_cids (
     uncle_root character varying(66) NOT NULL,
     bloom bytea NOT NULL,
     "timestamp" numeric NOT NULL,
-    times_validated integer DEFAULT 1 NOT NULL
+    times_validated integer DEFAULT 1 NOT NULL,
+    base_fee bigint
 );
 
 
@@ -111,7 +112,7 @@ CREATE FUNCTION public.canonical_header_from_array(headers eth.header_cids[]) RE
     LANGUAGE plpgsql
     AS $$
 DECLARE
-canonical_header eth.header_cids;
+  canonical_header eth.header_cids;
   canonical_child eth.header_cids;
   header eth.header_cids;
   current_child_result child_result;
@@ -130,25 +131,25 @@ BEGIN
       current_header_with_child = header;
       -- and add the children to the growing set of child headers
       child_headers = array_cat(child_headers, current_child_result.children);
-END IF;
-END LOOP;
+    END IF;
+  END LOOP;
   -- if none of the headers had children, none is more canonical than the other
   IF has_children_count = 0 THEN
     -- return the first one selected
-SELECT * INTO canonical_header FROM unnest(headers) LIMIT 1;
--- if only one header had children, it can be considered the heaviest/canonical header of the set
-ELSIF has_children_count = 1 THEN
+    SELECT * INTO canonical_header FROM unnest(headers) LIMIT 1;
+  -- if only one header had children, it can be considered the heaviest/canonical header of the set
+  ELSIF has_children_count = 1 THEN
     -- return the only header with a child
     canonical_header = current_header_with_child;
   -- if there are multiple headers with children
-ELSE
+  ELSE
     -- find the canonical header from the child set
     canonical_child = canonical_header_from_array(child_headers);
     -- the header that is parent to this header, is the canonical header at this level
-SELECT * INTO canonical_header FROM unnest(headers)
-WHERE block_hash = canonical_child.parent_hash;
-END IF;
-RETURN canonical_header;
+    SELECT * INTO canonical_header FROM unnest(headers)
+    WHERE block_hash = canonical_child.parent_hash;
+  END IF;
+  RETURN canonical_header;
 END
 $$;
 
@@ -161,17 +162,17 @@ CREATE FUNCTION public.canonical_header_id(height bigint) RETURNS integer
     LANGUAGE plpgsql
     AS $$
 DECLARE
-canonical_header eth.header_cids;
+  canonical_header eth.header_cids;
   headers eth.header_cids[];
   header_count INT;
   temp_header eth.header_cids;
 BEGIN
   -- collect all headers at this height
-FOR temp_header IN
-SELECT * FROM eth.header_cids WHERE block_number = height
-    LOOP
+  FOR temp_header IN
+  SELECT * FROM eth.header_cids WHERE block_number = height
+  LOOP
     headers = array_append(headers, temp_header);
-END LOOP;
+  END LOOP;
   -- count the number of headers collected
   header_count = array_length(headers, 1);
   -- if we have less than 1 header, return NULL
@@ -181,10 +182,10 @@ END LOOP;
   ELSIF header_count = 1 THEN
     RETURN headers[1].id;
   -- if we have multiple headers we need to determine which one is canonical
-ELSE
+  ELSE
     canonical_header = canonical_header_from_array(headers);
-RETURN canonical_header.id;
-END IF;
+    RETURN canonical_header.id;
+  END IF;
 END;
 $$;
 
@@ -197,26 +198,26 @@ CREATE FUNCTION public.has_child(hash character varying, height bigint) RETURNS 
     LANGUAGE plpgsql
     AS $$
 DECLARE
-child_height INT;
+  child_height INT;
   temp_child eth.header_cids;
   new_child_result child_result;
 BEGIN
   child_height = height + 1;
   -- short circuit if there are no children
-SELECT exists(SELECT 1
+  SELECT exists(SELECT 1
               FROM eth.header_cids
               WHERE parent_hash = hash
                 AND block_number = child_height
               LIMIT 1)
-INTO new_child_result.has_child;
--- collect all the children for this header
-IF new_child_result.has_child THEN
+  INTO new_child_result.has_child;
+  -- collect all the children for this header
+  IF new_child_result.has_child THEN
     FOR temp_child IN
-SELECT * FROM eth.header_cids WHERE parent_hash = hash AND block_number = child_height
+    SELECT * FROM eth.header_cids WHERE parent_hash = hash AND block_number = child_height
     LOOP
       new_child_result.children = array_append(new_child_result.children, temp_child);
-END LOOP;
-END IF;
+    END LOOP;
+  END IF;
 RETURN new_child_result;
 END
 $$;
@@ -231,7 +232,7 @@ CREATE FUNCTION public.was_state_removed(path bytea, height bigint, hash charact
     AS $$
 SELECT exists(SELECT 1
               FROM eth.state_cids
-                       INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+                INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
               WHERE state_path = path
                 AND block_number > height
                 AND block_number <= (SELECT block_number
@@ -251,8 +252,8 @@ CREATE FUNCTION public.was_storage_removed(path bytea, height bigint, hash chara
     AS $$
 SELECT exists(SELECT 1
               FROM eth.storage_cids
-                       INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
-                       INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+                INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
+                INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
               WHERE storage_path = path
                 AND block_number > height
                 AND block_number <= (SELECT block_number
@@ -261,6 +262,39 @@ SELECT exists(SELECT 1
                 AND storage_cids.node_type = 3
               LIMIT 1);
 $$;
+
+
+--
+-- Name: access_list_element; Type: TABLE; Schema: eth; Owner: -
+--
+
+CREATE TABLE eth.access_list_element (
+    id integer NOT NULL,
+    tx_id integer NOT NULL,
+    index integer NOT NULL,
+    address character varying(66),
+    storage_keys character varying(66)[]
+);
+
+
+--
+-- Name: access_list_element_id_seq; Type: SEQUENCE; Schema: eth; Owner: -
+--
+
+CREATE SEQUENCE eth.access_list_element_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: access_list_element_id_seq; Type: SEQUENCE OWNED BY; Schema: eth; Owner: -
+--
+
+ALTER SEQUENCE eth.access_list_element_id_seq OWNED BY eth.access_list_element.id;
 
 
 --
@@ -284,6 +318,45 @@ ALTER SEQUENCE eth.header_cids_id_seq OWNED BY eth.header_cids.id;
 
 
 --
+-- Name: log_cids; Type: TABLE; Schema: eth; Owner: -
+--
+
+CREATE TABLE eth.log_cids (
+    id integer NOT NULL,
+    leaf_cid text NOT NULL,
+    leaf_mh_key text NOT NULL,
+    receipt_id integer NOT NULL,
+    address character varying(66),
+    log_data bytea,
+    index integer NOT NULL,
+    topic0 character varying(66),
+    topic1 character varying(66),
+    topic2 character varying(66),
+    topic3 character varying(66)
+);
+
+
+--
+-- Name: log_cids_id_seq; Type: SEQUENCE; Schema: eth; Owner: -
+--
+
+CREATE SEQUENCE eth.log_cids_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: log_cids_id_seq; Type: SEQUENCE OWNED BY; Schema: eth; Owner: -
+--
+
+ALTER SEQUENCE eth.log_cids_id_seq OWNED BY eth.log_cids.id;
+
+
+--
 -- Name: receipt_cids; Type: TABLE; Schema: eth; Owner: -
 --
 
@@ -294,13 +367,9 @@ CREATE TABLE eth.receipt_cids (
     mh_key text NOT NULL,
     contract character varying(66),
     contract_hash character varying(66),
-    topic0s character varying(66)[],
-    topic1s character varying(66)[],
-    topic2s character varying(66)[],
-    topic3s character varying(66)[],
-    log_contracts character varying(66)[],
     post_state character varying(66),
-    post_status integer
+    post_status integer,
+    log_root character varying(66)
 );
 
 
@@ -441,7 +510,8 @@ CREATE TABLE eth.transaction_cids (
     mh_key text NOT NULL,
     dst character varying(66) NOT NULL,
     src character varying(66) NOT NULL,
-    tx_data bytea
+    tx_data bytea,
+    tx_type bytea
 );
 
 
@@ -598,10 +668,24 @@ ALTER SEQUENCE public.nodes_id_seq OWNED BY public.nodes.id;
 
 
 --
+-- Name: access_list_element id; Type: DEFAULT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.access_list_element ALTER COLUMN id SET DEFAULT nextval('eth.access_list_element_id_seq'::regclass);
+
+
+--
 -- Name: header_cids id; Type: DEFAULT; Schema: eth; Owner: -
 --
 
 ALTER TABLE ONLY eth.header_cids ALTER COLUMN id SET DEFAULT nextval('eth.header_cids_id_seq'::regclass);
+
+
+--
+-- Name: log_cids id; Type: DEFAULT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.log_cids ALTER COLUMN id SET DEFAULT nextval('eth.log_cids_id_seq'::regclass);
 
 
 --
@@ -661,6 +745,22 @@ ALTER TABLE ONLY public.nodes ALTER COLUMN id SET DEFAULT nextval('public.nodes_
 
 
 --
+-- Name: access_list_element access_list_element_pkey; Type: CONSTRAINT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.access_list_element
+    ADD CONSTRAINT access_list_element_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: access_list_element access_list_element_tx_id_index_key; Type: CONSTRAINT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.access_list_element
+    ADD CONSTRAINT access_list_element_tx_id_index_key UNIQUE (tx_id, index);
+
+
+--
 -- Name: header_cids header_cids_block_number_block_hash_key; Type: CONSTRAINT; Schema: eth; Owner: -
 --
 
@@ -674,6 +774,22 @@ ALTER TABLE ONLY eth.header_cids
 
 ALTER TABLE ONLY eth.header_cids
     ADD CONSTRAINT header_cids_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: log_cids log_cids_pkey; Type: CONSTRAINT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.log_cids
+    ADD CONSTRAINT log_cids_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: log_cids log_cids_receipt_id_index_key; Type: CONSTRAINT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.log_cids
+    ADD CONSTRAINT log_cids_receipt_id_index_key UNIQUE (receipt_id, index);
 
 
 --
@@ -805,6 +921,13 @@ ALTER TABLE ONLY public.nodes
 
 
 --
+-- Name: accesss_list_element_address_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX accesss_list_element_address_index ON eth.access_list_element USING btree (address);
+
+
+--
 -- Name: account_state_id_index; Type: INDEX; Schema: eth; Owner: -
 --
 
@@ -840,6 +963,55 @@ CREATE INDEX header_mh_index ON eth.header_cids USING btree (mh_key);
 
 
 --
+-- Name: log_cid_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX log_cid_index ON eth.log_cids USING btree (leaf_cid);
+
+
+--
+-- Name: log_mh_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX log_mh_index ON eth.log_cids USING btree (leaf_mh_key);
+
+
+--
+-- Name: log_rct_id_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX log_rct_id_index ON eth.log_cids USING btree (receipt_id);
+
+
+--
+-- Name: log_topic0_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX log_topic0_index ON eth.log_cids USING btree (topic0);
+
+
+--
+-- Name: log_topic1_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX log_topic1_index ON eth.log_cids USING btree (topic1);
+
+
+--
+-- Name: log_topic2_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX log_topic2_index ON eth.log_cids USING btree (topic2);
+
+
+--
+-- Name: log_topic3_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX log_topic3_index ON eth.log_cids USING btree (topic3);
+
+
+--
 -- Name: rct_cid_index; Type: INDEX; Schema: eth; Owner: -
 --
 
@@ -861,45 +1033,10 @@ CREATE INDEX rct_contract_index ON eth.receipt_cids USING btree (contract);
 
 
 --
--- Name: rct_log_contract_index; Type: INDEX; Schema: eth; Owner: -
---
-
-CREATE INDEX rct_log_contract_index ON eth.receipt_cids USING gin (log_contracts);
-
-
---
 -- Name: rct_mh_index; Type: INDEX; Schema: eth; Owner: -
 --
 
 CREATE INDEX rct_mh_index ON eth.receipt_cids USING btree (mh_key);
-
-
---
--- Name: rct_topic0_index; Type: INDEX; Schema: eth; Owner: -
---
-
-CREATE INDEX rct_topic0_index ON eth.receipt_cids USING gin (topic0s);
-
-
---
--- Name: rct_topic1_index; Type: INDEX; Schema: eth; Owner: -
---
-
-CREATE INDEX rct_topic1_index ON eth.receipt_cids USING gin (topic1s);
-
-
---
--- Name: rct_topic2_index; Type: INDEX; Schema: eth; Owner: -
---
-
-CREATE INDEX rct_topic2_index ON eth.receipt_cids USING gin (topic2s);
-
-
---
--- Name: rct_topic3_index; Type: INDEX; Schema: eth; Owner: -
---
-
-CREATE INDEX rct_topic3_index ON eth.receipt_cids USING gin (topic3s);
 
 
 --
@@ -938,6 +1075,13 @@ CREATE INDEX state_mh_index ON eth.state_cids USING btree (mh_key);
 
 
 --
+-- Name: state_node_type_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX state_node_type_index ON eth.state_cids USING btree (node_type);
+
+
+--
 -- Name: state_path_index; Type: INDEX; Schema: eth; Owner: -
 --
 
@@ -970,6 +1114,13 @@ CREATE INDEX storage_leaf_key_index ON eth.storage_cids USING btree (storage_lea
 --
 
 CREATE INDEX storage_mh_index ON eth.storage_cids USING btree (mh_key);
+
+
+--
+-- Name: storage_node_type_index; Type: INDEX; Schema: eth; Owner: -
+--
+
+CREATE INDEX storage_node_type_index ON eth.storage_cids USING btree (node_type);
 
 
 --
@@ -1092,6 +1243,14 @@ CREATE TRIGGER uncle_cids_ai AFTER INSERT ON eth.uncle_cids FOR EACH ROW EXECUTE
 
 
 --
+-- Name: access_list_element access_list_element_tx_id_fkey; Type: FK CONSTRAINT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.access_list_element
+    ADD CONSTRAINT access_list_element_tx_id_fkey FOREIGN KEY (tx_id) REFERENCES eth.transaction_cids(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+
+
+--
 -- Name: header_cids header_cids_mh_key_fkey; Type: FK CONSTRAINT; Schema: eth; Owner: -
 --
 
@@ -1105,6 +1264,22 @@ ALTER TABLE ONLY eth.header_cids
 
 ALTER TABLE ONLY eth.header_cids
     ADD CONSTRAINT header_cids_node_id_fkey FOREIGN KEY (node_id) REFERENCES public.nodes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: log_cids log_cids_leaf_mh_key_fkey; Type: FK CONSTRAINT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.log_cids
+    ADD CONSTRAINT log_cids_leaf_mh_key_fkey FOREIGN KEY (leaf_mh_key) REFERENCES public.blocks(key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: log_cids log_cids_receipt_id_fkey; Type: FK CONSTRAINT; Schema: eth; Owner: -
+--
+
+ALTER TABLE ONLY eth.log_cids
+    ADD CONSTRAINT log_cids_receipt_id_fkey FOREIGN KEY (receipt_id) REFERENCES eth.receipt_cids(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
 
 
 --
