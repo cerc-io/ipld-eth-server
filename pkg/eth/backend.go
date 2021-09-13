@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -472,6 +473,7 @@ func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*type
 		BlockHash   string `db:"block_hash"`
 		BlockNumber uint64 `db:"block_number"`
 		Index       uint64 `db:"index"`
+		Gas         uint64 `db:"gas"`
 	}
 	if err := b.DB.Get(&tempTxStruct, RetrieveRPCTransaction, txHash.String()); err != nil {
 		return nil, common.Hash{}, 0, 0, err
@@ -797,6 +799,67 @@ func (b *Backend) GetHeader(hash common.Hash, height uint64) *types.Header {
 // RPCGasCap returns the configured gas cap for the rpc server
 func (b *Backend) RPCGasCap() *big.Int {
 	return b.Config.RPCGasCap
+}
+
+type logsCID struct {
+	Log         *types.Log
+	CID         string
+	RctCID      string
+	LogLeafData []byte
+	RctStatus   uint64
+}
+
+// DecomposeGQLLogs return logs for graphql.
+func (b *Backend) DecomposeGQLLogs(logCIDs []LogResult) ([]logsCID, error) {
+	logs := make([]logsCID, len(logCIDs))
+	for i, l := range logCIDs {
+		topics := make([]common.Hash, 0)
+		if l.Topic0 != "" {
+			topics = append(topics, common.HexToHash(l.Topic0))
+		}
+		if l.Topic1 != "" {
+			topics = append(topics, common.HexToHash(l.Topic1))
+		}
+		if l.Topic2 != "" {
+			topics = append(topics, common.HexToHash(l.Topic2))
+		}
+		if l.Topic3 != "" {
+			topics = append(topics, common.HexToHash(l.Topic3))
+		}
+
+		// TODO: should we convert string to uint ?
+		blockNum, err := strconv.ParseUint(l.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		var status uint64
+		if blockNum <= b.Config.ChainConfig.ByzantiumBlock.Uint64() {
+			if l.RctGasUsed > l.Gas {
+				status = types.ReceiptStatusFailed
+			} else {
+				status = types.ReceiptStatusSuccessful
+			}
+		} else {
+			status = l.RctStatus
+		}
+
+		logs[i] = logsCID{
+			Log: &types.Log{
+				Address: common.HexToAddress(l.Address),
+				Topics:  topics,
+				Data:    l.Data,
+				Index:   uint(l.Index),
+				TxHash:  common.HexToHash(l.TxHash),
+			},
+			CID:         l.LeafCID,
+			RctCID:      l.RctCID,
+			LogLeafData: l.LogLeafData,
+			RctStatus:   status,
+		}
+	}
+
+	return logs, nil
 }
 
 func (b *Backend) SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription {

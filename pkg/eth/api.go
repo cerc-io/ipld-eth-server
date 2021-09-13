@@ -524,12 +524,18 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 		"logsBloom":         receipt.Bloom,
 	}
 
-	// Assign receipt status or post state.
-	if len(receipt.PostState) > 0 {
+	if blockNumber <= pea.B.Config.ChainConfig.ByzantiumBlock.Uint64() {
+		if receipt.GasUsed > tx.Gas() {
+			fields["status"] = hexutil.Uint(types.ReceiptStatusFailed)
+		} else {
+			fields["status"] = hexutil.Uint(types.ReceiptStatusSuccessful)
+		}
+	} else if len(receipt.PostState) > 0 {
 		fields["root"] = hexutil.Bytes(receipt.PostState)
 	} else {
 		fields["status"] = hexutil.Uint(receipt.Status)
 	}
+
 	if receipt.Logs == nil {
 		fields["logs"] = []*types.Log{}
 	}

@@ -43,15 +43,16 @@ import (
 )
 
 var (
-	randomAddr     = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
-	randomHash     = crypto.Keccak256Hash(randomAddr.Bytes())
-	number         = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
-	londonBlockNum = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
-	wrongNumber    = number + 1
-	blockHash      = test_helpers.MockBlock.Header().Hash()
-	baseFee        = test_helpers.MockLondonBlock.BaseFee()
-	ctx            = context.Background()
-	expectedBlock  = map[string]interface{}{
+	randomAddr        = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
+	randomHash        = crypto.Keccak256Hash(randomAddr.Bytes())
+	number            = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
+	londonBlockNum    = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
+	byzantiumBlockNum = rpc.BlockNumber(test_helpers.ByzantiumBlockNum.Int64())
+	wrongNumber       = number + 1
+	blockHash         = test_helpers.MockBlock.Header().Hash()
+	baseFee           = test_helpers.MockLondonBlock.BaseFee()
+	ctx               = context.Background()
+	expectedBlock     = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
 		"hash":             test_helpers.MockBlock.Hash(),
 		"parentHash":       test_helpers.MockBlock.ParentHash(),
@@ -131,14 +132,15 @@ var (
 		"receiptsRoot":     test_helpers.MockUncles[1].ReceiptHash,
 		"uncles":           []common.Hash{},
 	}
-	expectedTransaction       = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0, test_helpers.MockBlock.BaseFee())
-	expectedTransaction2      = eth.NewRPCTransaction(test_helpers.MockTransactions[1], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 1, test_helpers.MockBlock.BaseFee())
-	expectedTransaction3      = eth.NewRPCTransaction(test_helpers.MockTransactions[2], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 2, test_helpers.MockBlock.BaseFee())
-	expectedLondonTransaction = eth.NewRPCTransaction(test_helpers.MockLondonTransactions[0], test_helpers.MockLondonBlock.Hash(), test_helpers.MockLondonBlock.NumberU64(), 0, test_helpers.MockLondonBlock.BaseFee())
-	expectRawTx, _            = rlp.EncodeToBytes(test_helpers.MockTransactions[0])
-	expectRawTx2, _           = rlp.EncodeToBytes(test_helpers.MockTransactions[1])
-	expectRawTx3, _           = rlp.EncodeToBytes(test_helpers.MockTransactions[2])
-	expectedReceipt           = map[string]interface{}{
+	expectedTransaction          = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0, test_helpers.MockBlock.BaseFee())
+	expectedTransaction2         = eth.NewRPCTransaction(test_helpers.MockTransactions[1], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 1, test_helpers.MockBlock.BaseFee())
+	expectedTransaction3         = eth.NewRPCTransaction(test_helpers.MockTransactions[2], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 2, test_helpers.MockBlock.BaseFee())
+	expectedLondonTransaction    = eth.NewRPCTransaction(test_helpers.MockLondonTransactions[0], test_helpers.MockLondonBlock.Hash(), test_helpers.MockLondonBlock.NumberU64(), 0, test_helpers.MockLondonBlock.BaseFee())
+	expectedByzantiumTransaction = eth.NewRPCTransaction(test_helpers.MockByzantiumTransactions[0], test_helpers.MockByzantiumBlock.Hash(), test_helpers.MockByzantiumBlock.NumberU64(), 0, test_helpers.MockByzantiumBlock.BaseFee())
+	expectRawTx, _               = rlp.EncodeToBytes(test_helpers.MockTransactions[0])
+	expectRawTx2, _              = rlp.EncodeToBytes(test_helpers.MockTransactions[1])
+	expectRawTx3, _              = rlp.EncodeToBytes(test_helpers.MockTransactions[2])
+	expectedReceipt              = map[string]interface{}{
 		"blockHash":         blockHash,
 		"blockNumber":       hexutil.Uint64(uint64(number.Int64())),
 		"transactionHash":   expectedTransaction.Hash,
@@ -180,6 +182,20 @@ var (
 		"logsBloom":         test_helpers.MockReceipts[2].Bloom,
 		"root":              hexutil.Bytes(test_helpers.MockReceipts[2].PostState),
 	}
+	expectedByzantiumReceipt = map[string]interface{}{
+		"blockHash":         test_helpers.MockByzantiumBlock.Hash(),
+		"blockNumber":       hexutil.Uint64(uint64(byzantiumBlockNum)),
+		"transactionHash":   expectedByzantiumTransaction.Hash,
+		"transactionIndex":  hexutil.Uint64(0),
+		"from":              expectedByzantiumTransaction.From,
+		"to":                expectedByzantiumTransaction.To,
+		"gasUsed":           hexutil.Uint64(test_helpers.MockByzantiumReceipts[0].GasUsed),
+		"cumulativeGasUsed": hexutil.Uint64(test_helpers.MockByzantiumReceipts[0].CumulativeGasUsed),
+		"contractAddress":   nil,
+		"logs":              test_helpers.MockByzantiumReceipts[0].Logs,
+		"logsBloom":         test_helpers.MockByzantiumReceipts[0].Bloom,
+		"status":            hexutil.Uint(test_helpers.MockByzantiumReceipts[0].Status),
+	}
 )
 
 // SetupDB is use to setup a db for watcher tests
@@ -210,6 +226,13 @@ var _ = Describe("API", func() {
 
 		db, err = SetupDB()
 		Expect(err).ToNot(HaveOccurred())
+
+		// setting chain config to for byzantium block
+		chainConfig.ByzantiumBlock = big.NewInt(1)
+
+		// setting chain config to for london block
+		chainConfig.LondonBlock = big.NewInt(3)
+
 		indexAndPublisher := indexer.NewStateDiffIndexer(chainConfig, db)
 		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -249,10 +272,13 @@ var _ = Describe("API", func() {
 		}
 		expectedBlock["uncles"] = uncleHashes
 
-		// setting chain config to for london block
-		chainConfig.LondonBlock = big.NewInt(2)
-		indexAndPublisher = indexer.NewStateDiffIndexer(chainConfig, db)
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
+		Expect(err).ToNot(HaveOccurred())
+
+		err = tx.Close(err)
+		Expect(err).ToNot(HaveOccurred())
+
+		tx, err = indexAndPublisher.PushBlock(test_helpers.MockByzantiumBlock, test_helpers.MockByzantiumReceipts, test_helpers.MockByzantiumBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
 
 		err = tx.Close(err)
@@ -643,6 +669,13 @@ var _ = Describe("API", func() {
 		It("Throws an error if it cannot find a receipt for the provided tx hash", func() {
 			_, err := api.GetTransactionReceipt(ctx, randomHash)
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("Retrieve receipt for pre byzantium block transaction", func() {
+			hash := test_helpers.MockByzantiumTransactions[0].Hash()
+			tx, err := api.GetTransactionReceipt(ctx, hash)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx).To(Equal(expectedByzantiumReceipt))
 		})
 	})
 

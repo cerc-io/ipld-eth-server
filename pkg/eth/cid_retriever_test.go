@@ -37,7 +37,7 @@ import (
 var (
 	openFilter = eth.SubscriptionSettings{
 		Start:         big.NewInt(0),
-		End:           big.NewInt(1),
+		End:           big.NewInt(number.Int64()),
 		HeaderFilter:  eth.HeaderFilter{},
 		TxFilter:      eth.TxFilter{},
 		ReceiptFilter: eth.ReceiptFilter{},
@@ -46,7 +46,7 @@ var (
 	}
 	rctAddressFilter = eth.SubscriptionSettings{
 		Start: big.NewInt(0),
-		End:   big.NewInt(1),
+		End:   big.NewInt(number.Int64()),
 		HeaderFilter: eth.HeaderFilter{
 			Off: true,
 		},
@@ -65,7 +65,7 @@ var (
 	}
 	rctTopicsFilter = eth.SubscriptionSettings{
 		Start: big.NewInt(0),
-		End:   big.NewInt(1),
+		End:   big.NewInt(number.Int64()),
 		HeaderFilter: eth.HeaderFilter{
 			Off: true,
 		},
@@ -84,7 +84,7 @@ var (
 	}
 	rctTopicsAndAddressFilter = eth.SubscriptionSettings{
 		Start: big.NewInt(0),
-		End:   big.NewInt(1),
+		End:   big.NewInt(number.Int64()),
 		HeaderFilter: eth.HeaderFilter{
 			Off: true,
 		},
@@ -107,7 +107,7 @@ var (
 	}
 	rctTopicsAndAddressFilterFail = eth.SubscriptionSettings{
 		Start: big.NewInt(0),
-		End:   big.NewInt(1),
+		End:   big.NewInt(number.Int64()),
 		HeaderFilter: eth.HeaderFilter{
 			Off: true,
 		},
@@ -130,7 +130,7 @@ var (
 	}
 	rctAddressesAndTopicFilter = eth.SubscriptionSettings{
 		Start: big.NewInt(0),
-		End:   big.NewInt(1),
+		End:   big.NewInt(number.Int64()),
 		HeaderFilter: eth.HeaderFilter{
 			Off: true,
 		},
@@ -150,7 +150,7 @@ var (
 	}
 	rctsForAllCollectedTrxs = eth.SubscriptionSettings{
 		Start: big.NewInt(0),
-		End:   big.NewInt(1),
+		End:   big.NewInt(number.Int64()),
 		HeaderFilter: eth.HeaderFilter{
 			Off: true,
 		},
@@ -169,7 +169,7 @@ var (
 	}
 	rctsForSelectCollectedTrxs = eth.SubscriptionSettings{
 		Start: big.NewInt(0),
-		End:   big.NewInt(1),
+		End:   big.NewInt(number.Int64()),
 		HeaderFilter: eth.HeaderFilter{
 			Off: true,
 		},
@@ -190,7 +190,7 @@ var (
 	}
 	stateFilter = eth.SubscriptionSettings{
 		Start: big.NewInt(0),
-		End:   big.NewInt(1),
+		End:   big.NewInt(number.Int64()),
 		HeaderFilter: eth.HeaderFilter{
 			Off: true,
 		},
@@ -239,7 +239,7 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("Retrieves all CIDs for the given blocknumber when provided an open filter", func() {
-			cids, empty, err := retriever.Retrieve(openFilter, 1)
+			cids, empty, err := retriever.Retrieve(openFilter, number.Int64())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids)).To(Equal(1))
@@ -279,7 +279,7 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Applies filters from the provided config.Subscription", func() {
-			cids1, empty, err := retriever.Retrieve(rctAddressFilter, 1)
+			cids1, empty, err := retriever.Retrieve(rctAddressFilter, number.Int64())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids1)).To(Equal(1))
@@ -294,7 +294,7 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID.TxID = cids1[0].Receipts[0].TxID
 			Expect(cids1[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
-			cids2, empty, err := retriever.Retrieve(rctTopicsFilter, 1)
+			cids2, empty, err := retriever.Retrieve(rctTopicsFilter, number.Int64())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids2)).To(Equal(1))
@@ -309,7 +309,7 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID.TxID = cids2[0].Receipts[0].TxID
 			Expect(cids2[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
-			cids3, empty, err := retriever.Retrieve(rctTopicsAndAddressFilter, 1)
+			cids3, empty, err := retriever.Retrieve(rctTopicsAndAddressFilter, number.Int64())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids3)).To(Equal(1))
@@ -324,7 +324,7 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID.TxID = cids3[0].Receipts[0].TxID
 			Expect(cids3[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
-			cids4, empty, err := retriever.Retrieve(rctAddressesAndTopicFilter, 1)
+			cids4, empty, err := retriever.Retrieve(rctAddressesAndTopicFilter, number.Int64())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids4)).To(Equal(1))
@@ -339,7 +339,7 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID.TxID = cids4[0].Receipts[0].TxID
 			Expect(cids4[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
-			cids5, empty, err := retriever.Retrieve(rctsForAllCollectedTrxs, 1)
+			cids5, empty, err := retriever.Retrieve(rctsForAllCollectedTrxs, number.Int64())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids5)).To(Equal(1))
@@ -356,7 +356,7 @@ var _ = Describe("Retriever", func() {
 			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, test_helpers.Rct2CID.String())).To(BeTrue())
 			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, test_helpers.Rct3CID.String())).To(BeTrue())
 
-			cids6, empty, err := retriever.Retrieve(rctsForSelectCollectedTrxs, 1)
+			cids6, empty, err := retriever.Retrieve(rctsForSelectCollectedTrxs, number.Int64())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids6)).To(Equal(1))
@@ -375,7 +375,7 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID.TxID = cids6[0].Receipts[0].TxID
 			Expect(cids6[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
-			cids7, empty, err := retriever.Retrieve(stateFilter, 1)
+			cids7, empty, err := retriever.Retrieve(stateFilter, number.Int64())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
 			Expect(len(cids7)).To(Equal(1))
@@ -415,7 +415,7 @@ var _ = Describe("Retriever", func() {
 
 			num, err := retriever.RetrieveFirstBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(num).To(Equal(int64(1)))
+			Expect(num).To(Equal(number.Int64()))
 		})
 
 		It("Gets the number of the first block that has data in the database", func() {
@@ -466,7 +466,7 @@ var _ = Describe("Retriever", func() {
 
 			num, err := retriever.RetrieveLastBlockNumber()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(num).To(Equal(int64(1)))
+			Expect(num).To(Equal(number.Int64()))
 		})
 
 		It("Gets the number of the latest block that has data in the database", func() {

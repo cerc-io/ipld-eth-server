@@ -47,7 +47,7 @@ import (
 // Test variables
 var (
 	// block data
-	BlockNumber = big.NewInt(1)
+	BlockNumber = big.NewInt(2)
 	MockHeader  = types.Header{
 		Time:        0,
 		Number:      new(big.Int).Set(BlockNumber),
@@ -110,6 +110,7 @@ var (
 	mockTopic43          = common.HexToHash("0x0b")
 	mockTopic51          = common.HexToHash("0x0c")
 	mockTopic61          = common.HexToHash("0x0d")
+	mockTopic71          = common.HexToHash("0x0e")
 	MockLog1             = &types.Log{
 		Address:     Address,
 		Topics:      []common.Hash{mockTopic11, mockTopic12},
@@ -159,6 +160,14 @@ var (
 		TxIndex:     3,
 		Index:       5,
 	}
+	MockLog7 = &types.Log{
+		Address:     AnotherAddress2,
+		Topics:      []common.Hash{mockTopic71},
+		Data:        []byte{},
+		BlockNumber: BlockNumber.Uint64(),
+		TxIndex:     1,
+		Index:       6,
+	}
 
 	Tx1 = GetTxnRlp(0, MockTransactions)
 	Tx2 = GetTxnRlp(1, MockTransactions)
@@ -170,31 +179,32 @@ var (
 	Rct3 = GetRctRlp(2, MockReceipts)
 	Rct4 = GetRctRlp(3, MockReceipts)
 
-	HeaderCID, _  = ipld.RawdataToCid(ipld.MEthHeader, MockHeaderRlp, multihash.KECCAK_256)
-	HeaderMhKey   = shared.MultihashKeyFromCID(HeaderCID)
-	Trx1CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx1, multihash.KECCAK_256)
-	Trx1MhKey     = shared.MultihashKeyFromCID(Trx1CID)
-	Trx2CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx2, multihash.KECCAK_256)
-	Trx2MhKey     = shared.MultihashKeyFromCID(Trx2CID)
-	Trx3CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx3, multihash.KECCAK_256)
-	Trx3MhKey     = shared.MultihashKeyFromCID(Trx3CID)
-	Trx4CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx4, multihash.KECCAK_256)
-	Trx4MhKey     = shared.MultihashKeyFromCID(Trx4CID)
-	Rct1CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct1, multihash.KECCAK_256)
-	Rct1MhKey     = shared.MultihashKeyFromCID(Rct1CID)
-	Rct2CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct2, multihash.KECCAK_256)
-	Rct2MhKey     = shared.MultihashKeyFromCID(Rct2CID)
-	Rct3CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct3, multihash.KECCAK_256)
-	Rct3MhKey     = shared.MultihashKeyFromCID(Rct3CID)
-	Rct4CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct4, multihash.KECCAK_256)
-	Rct4MhKey     = shared.MultihashKeyFromCID(Rct4CID)
-	State1CID, _  = ipld.RawdataToCid(ipld.MEthStateTrie, ContractLeafNode, multihash.KECCAK_256)
-	State1MhKey   = shared.MultihashKeyFromCID(State1CID)
-	State2CID, _  = ipld.RawdataToCid(ipld.MEthStateTrie, AccountLeafNode, multihash.KECCAK_256)
-	State2MhKey   = shared.MultihashKeyFromCID(State2CID)
-	StorageCID, _ = ipld.RawdataToCid(ipld.MEthStorageTrie, StorageLeafNode, multihash.KECCAK_256)
-	StorageMhKey  = shared.MultihashKeyFromCID(StorageCID)
-	MockTrxMeta   = []models.TxModel{
+	HeaderCID, _       = ipld.RawdataToCid(ipld.MEthHeader, MockHeaderRlp, multihash.KECCAK_256)
+	HeaderMhKey        = shared.MultihashKeyFromCID(HeaderCID)
+	Trx1CID, _         = ipld.RawdataToCid(ipld.MEthTx, Tx1, multihash.KECCAK_256)
+	Trx1MhKey          = shared.MultihashKeyFromCID(Trx1CID)
+	Trx2CID, _         = ipld.RawdataToCid(ipld.MEthTx, Tx2, multihash.KECCAK_256)
+	Trx2MhKey          = shared.MultihashKeyFromCID(Trx2CID)
+	Trx3CID, _         = ipld.RawdataToCid(ipld.MEthTx, Tx3, multihash.KECCAK_256)
+	Trx3MhKey          = shared.MultihashKeyFromCID(Trx3CID)
+	Trx4CID, _         = ipld.RawdataToCid(ipld.MEthTx, Tx4, multihash.KECCAK_256)
+	Trx4MhKey          = shared.MultihashKeyFromCID(Trx4CID)
+	Rct1CID, _         = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct1, multihash.KECCAK_256)
+	Rct1MhKey          = shared.MultihashKeyFromCID(Rct1CID)
+	Rct2CID, _         = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct2, multihash.KECCAK_256)
+	Rct2MhKey          = shared.MultihashKeyFromCID(Rct2CID)
+	Rct3CID, _         = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct3, multihash.KECCAK_256)
+	Rct3MhKey          = shared.MultihashKeyFromCID(Rct3CID)
+	Rct4CID, _         = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct4, multihash.KECCAK_256)
+	Rct4MhKey          = shared.MultihashKeyFromCID(Rct4CID)
+	ByzantiumRctCID, _ = ipld.RawdataToCid(ipld.MEthTxReceipt, GetRctRlp(0, MockByzantiumReceipts), multihash.KECCAK_256)
+	State1CID, _       = ipld.RawdataToCid(ipld.MEthStateTrie, ContractLeafNode, multihash.KECCAK_256)
+	State1MhKey        = shared.MultihashKeyFromCID(State1CID)
+	State2CID, _       = ipld.RawdataToCid(ipld.MEthStateTrie, AccountLeafNode, multihash.KECCAK_256)
+	State2MhKey        = shared.MultihashKeyFromCID(State2CID)
+	StorageCID, _      = ipld.RawdataToCid(ipld.MEthStorageTrie, StorageLeafNode, multihash.KECCAK_256)
+	StorageMhKey       = shared.MultihashKeyFromCID(StorageCID)
+	MockTrxMeta        = []models.TxModel{
 		{
 			CID:    "", // This is empty until we go to publish to ipfs
 			MhKey:  "",
@@ -442,7 +452,7 @@ var (
 	MockCIDWrapper = &eth.CIDWrapper{
 		BlockNumber: new(big.Int).Set(BlockNumber),
 		Header: models.HeaderModel{
-			BlockNumber:     "1",
+			BlockNumber:     "2",
 			BlockHash:       MockBlock.Hash().String(),
 			ParentHash:      "0x0000000000000000000000000000000000000000000000000000000000000000",
 			CID:             HeaderCID.String(),
@@ -574,6 +584,19 @@ var (
 
 	MockLondonTransactions, MockLondonReceipts, _ = createDynamicTransactionsAndReceipts(LondonBlockNum)
 	MockLondonBlock                               = createNewBlock(&MockLondonHeader, MockLondonTransactions, nil, MockLondonReceipts, new(trie.Trie))
+
+	ByzantiumBlockNum   = big.NewInt(1)
+	MockByzantiumHeader = types.Header{
+		Time:       0,
+		Number:     ByzantiumBlockNum,
+		Root:       common.HexToHash("0x00"),
+		Difficulty: big.NewInt(5000000),
+		Extra:      []byte{},
+		BaseFee:    big.NewInt(params.InitialBaseFee),
+	}
+
+	MockByzantiumTransactions, MockByzantiumReceipts, _ = createByzantiumTransactionsAndReceipts(ByzantiumBlockNum)
+	MockByzantiumBlock                                  = createNewBlock(&MockByzantiumHeader, MockByzantiumTransactions, nil, MockByzantiumReceipts, new(trie.Trie))
 )
 
 func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, hasher types.TrieHasher) *types.Block {
@@ -614,13 +637,12 @@ func createDynamicTransactionsAndReceipts(blockNumber *big.Int) (types.Transacti
 		log.Fatal(err.Error())
 	}
 
-	senderAddr, err := types.Sender(transactionSigner, signedTrx1) // same for both trx
+	senderAddr, err := types.Sender(transactionSigner, signedTrx1)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
 	// make receipts
-	// TODO: Change the receipt type to DynamicFeeTxType once this PR is merged.
 	// https://github.com/ethereum/go-ethereum/pull/22806
 	mockReceipt1 := &types.Receipt{
 		Type:              types.DynamicFeeTxType,
@@ -632,6 +654,39 @@ func createDynamicTransactionsAndReceipts(blockNumber *big.Int) (types.Transacti
 	}
 
 	return types.Transactions{signedTrx1}, types.Receipts{mockReceipt1}, senderAddr
+}
+
+// createByzantiumTransactionsAndReceipts is a helper function to generate signed mock transactions and mock receipts with mock logs
+func createByzantiumTransactionsAndReceipts(blockNumber *big.Int) (types.Transactions, types.Receipts, common.Address) {
+	// make transactions
+	trx1 := types.NewTransaction(0, AnotherAddress1, big.NewInt(1000), 50, big.NewInt(100), []byte{})
+	config := params.TestChainConfig
+	config.ByzantiumBlock = blockNumber
+	transactionSigner := types.MakeSigner(config, new(big.Int).Set(BlockNumber))
+	mockCurve := elliptic.P256()
+	mockPrvKey, err := ecdsa.GenerateKey(mockCurve, rand.Reader)
+	if err != nil {
+		log.Fatal(err)
+	}
+	signedTrx, err := types.SignTx(trx1, transactionSigner, mockPrvKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+	SenderAddr, err = types.Sender(transactionSigner, signedTrx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// make receipts
+	mockReceipt := types.NewReceipt(common.HexToHash("0x1").Bytes(), false, 50)
+	hash := signedTrx.Hash()
+	MockLog7.TxHash = hash
+
+	mockReceipt.Logs = []*types.Log{MockLog7}
+	mockReceipt.TxHash = hash
+	mockReceipt.GasUsed = mockReceipt.CumulativeGasUsed
+
+	return types.Transactions{signedTrx}, types.Receipts{mockReceipt}, SenderAddr
 }
 
 // createLegacyTransactionsAndReceipts is a helper function to generate signed mock transactions and mock receipts with mock logs

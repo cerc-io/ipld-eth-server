@@ -711,8 +711,6 @@ github.com/valyala/fasttemplate v1.0.1/go.mod h1:UQGH1tvbgY+Nz5t2n7tXsz52dQxojPU
 github.com/valyala/fasttemplate v1.2.1/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=
 github.com/vulcanize/gap-filler v0.3.1 h1:N5d+jCJo/VTWFvBSbTD7biRhK/OqDZzi1tgA85SIBKs=
 github.com/vulcanize/gap-filler v0.3.1/go.mod h1:qowG1cgshVpBqMokiWro/1xhh0uypw7oAu8FQ42JMy4=
-github.com/vulcanize/go-ethereum v1.10.8-statediff-0.0.26 h1:1UBVQpeJnHkmSKxXanbNGE8w+LR0iZhfGr0QrQ62+C4=
-github.com/vulcanize/go-ethereum v1.10.8-statediff-0.0.26/go.mod h1:nXs5fPBjAVzBmIGtrc0f7akQwkXI5Mi+6I1QcbD2br0=
 github.com/vulcanize/ipfs-ethdb v0.0.4-0.20210824131459-7bb49801fc12 h1:IKqHA89qA+VZBYt1nZ1EInVrAgB3iA5U+klkF4l8mn4=
 github.com/vulcanize/ipfs-ethdb v0.0.4-0.20210824131459-7bb49801fc12/go.mod h1:IueWysMbZu0uFmu+ia6mEnyWsTvwe2q2lbYdy2muRUM=
 github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1/go.mod h1:8UvriyWtv5Q5EOgjHaSseUEdkQfvwFv1I/In/O2M9gc=

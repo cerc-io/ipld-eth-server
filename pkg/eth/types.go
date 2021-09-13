@@ -181,8 +181,10 @@ type LogResult struct {
 	LogLeafData []byte `db:"data"`
 	RctCID      string `db:"cid"`
 	RctStatus   uint64 `db:"post_status"`
+	RctGasUsed  uint64 `db:"gas_used"`
 	BlockNumber string `db:"block_number"`
 	BlockHash   string `db:"block_hash"`
 	TxnIndex    int64  `db:"txn_index"`
 	TxHash      string `db:"tx_hash"`
+	Gas         uint64 `db:"gas"`
 }
