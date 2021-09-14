@@ -27,6 +27,6 @@ require (
 	github.com/vulcanize/ipfs-ethdb v0.0.4-0.20210824131459-7bb49801fc12
 )
 
-replace github.com/ethereum/go-ethereum v1.10.8 => /Users/arijitdas/go/src/github.com/ethereum/go-ethereum
+replace github.com/ethereum/go-ethereum v1.10.8 => github.com/vulcanize/go-ethereum v1.10.8-statediff-0.0.26.0.20210914094415-2551c87b5f13
 
 replace github.com/vulcanize/ipfs-ethdb v0.0.2-alpha => github.com/vulcanize/pg-ipfs-ethdb v0.0.2-alpha
