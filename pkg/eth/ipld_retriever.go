@@ -28,6 +28,10 @@ import (
 )
 
 const (
+	// node type removed value.
+	// https://github.com/vulcanize/go-ethereum/blob/271f4d01e7e2767ffd8e0cd469bf545be96f2a84/statediff/indexer/helpers.go#L34
+	removedNode = 3
+
 	RetrieveHeadersByHashesPgStr = `SELECT cid, data
 								FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
@@ -102,9 +106,7 @@ const (
 										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
 										INNER JOIN public.blocks ON (receipt_cids.mh_key = blocks.key)
 									WHERE tx_hash = $1`
-	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid,
-														data,
-														was_state_removed(state_path, block_number, $2) AS removed
+	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, data, state_cids.node_type
 												FROM eth.state_cids
 													INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
 													INNER JOIN public.blocks ON (state_cids.mh_key = blocks.key)
@@ -115,12 +117,7 @@ const (
 												AND header_cids.id = (SELECT canonical_header_id(block_number))
 												ORDER BY block_number DESC
 												LIMIT 1`
-	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid,
-														  data,
-														  was_state_removed(state_path, block_number, (SELECT block_hash
-																									  FROM eth.header_cids
-																									  WHERE block_number = $2
-																									  LIMIT 1)) AS removed
+	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data, state_cids.node_type
 													FROM eth.state_cids
 														INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
 														INNER JOIN public.blocks ON (state_cids.mh_key = blocks.key)
@@ -128,12 +125,7 @@ const (
 													AND block_number <= $2
 													ORDER BY block_number DESC
 													LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid,
-																			data,
-																			was_storage_removed(storage_path, block_number, (SELECT block_hash
-																															FROM eth.header_cids
-																															WHERE block_number = $3
-																															LIMIT 1)) AS removed
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
 																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
@@ -143,9 +135,7 @@ const (
 																	AND block_number <= $3
 																	ORDER BY block_number DESC
 																	LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid,
-																		  data,
-																		  was_storage_removed(storage_path, block_number, $3) AS removed
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
 																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
@@ -387,9 +377,9 @@ func (r *IPLDRetriever) RetrieveReceiptByHash(hash common.Hash) (string, []byte,
 }
 
 type nodeInfo struct {
-	CID     string `db:"cid"`
-	Data    []byte `db:"data"`
-	Removed bool   `db:"removed"`
+	CID      string `db:"cid"`
+	Data     []byte `db:"data"`
+	NodeType int    `db:"node_type"`
 }
 
 // RetrieveAccountByAddressAndBlockHash returns the cid and rlp bytes for the account corresponding to the provided address and block hash
@@ -400,7 +390,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 	if err := r.db.Get(accountResult, RetrieveAccountByLeafKeyAndBlockHashPgStr, leafKey.Hex(), hash.Hex()); err != nil {
 		return "", nil, err
 	}
-	if accountResult.Removed {
+	if accountResult.NodeType == removedNode {
 		return "", []byte{}, nil
 	}
 	var i []interface{}
@@ -421,7 +411,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 	if err := r.db.Get(accountResult, RetrieveAccountByLeafKeyAndBlockNumberPgStr, leafKey.Hex(), number); err != nil {
 		return "", nil, err
 	}
-	if accountResult.Removed {
+	if accountResult.NodeType == removedNode {
 		return "", []byte{}, nil
 	}
 	var i []interface{}
@@ -442,7 +432,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
 		return "", nil, nil, err
 	}
-	if storageResult.Removed {
+	if storageResult.NodeType == removedNode {
 		return "", []byte{}, []byte{}, nil
 	}
 	var i []interface{}
@@ -464,7 +454,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr, stateLeafKey.Hex(), storageLeafKey.Hex(), number); err != nil {
 		return "", nil, err
 	}
-	if storageResult.Removed {
+	if storageResult.NodeType == removedNode {
 		return "", []byte{}, nil
 	}
 	var i []interface{}
