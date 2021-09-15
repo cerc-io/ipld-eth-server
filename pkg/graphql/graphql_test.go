@@ -167,11 +167,6 @@ var _ = Describe("GraphQL", func() {
 		err = tx.Close(err)
 		Expect(err).ToNot(HaveOccurred())
 
-		tx, err = indexAndPublisher.PushBlock(test_helpers.MockByzantiumBlock, test_helpers.MockByzantiumReceipts, test_helpers.MockByzantiumBlock.Difficulty())
-		Expect(err).ToNot(HaveOccurred())
-		err = tx.Close(err)
-		Expect(err).ToNot(HaveOccurred())
-
 		graphQLServer, err = graphql.New(backend, gqlEndPoint, nil, []string{"*"}, rpc.HTTPTimeouts{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -215,22 +210,6 @@ var _ = Describe("GraphQL", func() {
 					Transaction: graphql.TransactionResp{Hash: test_helpers.MockTransactions[3].Hash()},
 					ReceiptCID:  test_helpers.Rct4CID.String(),
 					Status:      int32(test_helpers.MockReceipts[3].Status),
-				},
-			}
-
-			Expect(logs).To(Equal(expectedLogs))
-		})
-
-		It("Retrieve logs for pre byzantium block", func() {
-			logs, err := client.GetLogs(ctx, test_helpers.MockByzantiumBlock.Hash(), nil)
-			Expect(err).ToNot(HaveOccurred())
-			expectedLogs := []graphql.LogResponse{
-				{
-					Topics:      test_helpers.MockLog7.Topics,
-					Data:        hexutil.Bytes(test_helpers.MockLog1.Data),
-					Transaction: graphql.TransactionResp{Hash: test_helpers.MockByzantiumTransactions[0].Hash()},
-					ReceiptCID:  test_helpers.ByzantiumRctCID.String(),
-					Status:      int32(test_helpers.MockByzantiumReceipts[0].Status),
 				},
 			}
 

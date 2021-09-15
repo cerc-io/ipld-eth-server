@@ -9,7 +9,6 @@ CREATE TABLE eth.receipt_cids (
   post_state            VARCHAR(66),
   post_status           INTEGER,
   log_root              VARCHAR(66),
-  gas_used              INTEGER NOT NULL,
   UNIQUE (tx_id)
 );
 

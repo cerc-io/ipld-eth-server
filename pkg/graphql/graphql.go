@@ -1046,7 +1046,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	rctLog, err := r.backend.DecomposeGQLLogs(filteredLogs)
+	rctLog := decomposeGQLLogs(filteredLogs)
 	if err != nil {
 		return nil, err
 	}
@@ -1067,4 +1067,48 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 	}
 
 	return &ret, nil
+}
+
+type logsCID struct {
+	Log         *types.Log
+	CID         string
+	RctCID      string
+	LogLeafData []byte
+	RctStatus   uint64
+}
+
+// decomposeGQLLogs return logs for graphql.
+func decomposeGQLLogs(logCIDs []eth.LogResult) []logsCID {
+	logs := make([]logsCID, len(logCIDs))
+	for i, l := range logCIDs {
+		topics := make([]common.Hash, 0)
+		if l.Topic0 != "" {
+			topics = append(topics, common.HexToHash(l.Topic0))
+		}
+		if l.Topic1 != "" {
+			topics = append(topics, common.HexToHash(l.Topic1))
+		}
+		if l.Topic2 != "" {
+			topics = append(topics, common.HexToHash(l.Topic2))
+		}
+		if l.Topic3 != "" {
+			topics = append(topics, common.HexToHash(l.Topic3))
+		}
+
+		logs[i] = logsCID{
+			Log: &types.Log{
+				Address: common.HexToAddress(l.Address),
+				Topics:  topics,
+				Data:    l.Data,
+				Index:   uint(l.Index),
+				TxHash:  common.HexToHash(l.TxHash),
+			},
+			CID:         l.LeafCID,
+			RctCID:      l.RctCID,
+			LogLeafData: l.LogLeafData,
+			RctStatus:   l.RctStatus,
+		}
+	}
+
+	return logs
 }

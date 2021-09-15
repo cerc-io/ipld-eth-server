@@ -97,7 +97,7 @@ var _ = Describe("eth state reading tests", func() {
 			IntermediateStateNodes:   true,
 			IntermediateStorageNodes: true,
 		}
-		canonicalHeader := blocks[2].Header()
+		canonicalHeader := blocks[1].Header()
 		expectedCanonicalHeader = map[string]interface{}{
 			"number":           (*hexutil.Big)(canonicalHeader.Number),
 			"hash":             canonicalHeader.Hash(),

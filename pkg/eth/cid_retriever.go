@@ -316,8 +316,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	id := 1
 	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
        			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, 
-       			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.gas, data, eth.receipt_cids.cid, eth.receipt_cids.post_status,
-       			eth.receipt_cids.gas_used,header_cids.block_number
+       			eth.log_cids.log_data, eth.transaction_cids.tx_hash, data, eth.receipt_cids.cid, eth.receipt_cids.post_status
 				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
 				WHERE eth.log_cids.receipt_id = receipt_cids.id
 				AND receipt_cids.tx_id = transaction_cids.id
@@ -376,7 +375,7 @@ func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilte
 	return logCIDs, nil
 }
 
-// RetrieveRctCIDs retrieves and returns all the rct cIDs at the provided blockHeight or block hash that conform to the provided
+// RetrieveRctCIDs retrieves and returns all of the rct cids at the provided blockheight or block hash that conform to the provided
 // filter parameters and correspond to the provided tx ids
 func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash, trxIds []int64) ([]models.ReceiptModel, error) {
 	log.Debug("retrieving receipt cids for block ", blockNumber)
