@@ -177,7 +177,7 @@ var (
 	Trx3CID, _           = ipld.RawdataToCid(ipld.MEthTx, Tx3, multihash.KECCAK_256)
 	Trx3MhKey            = shared.MultihashKeyFromCID(Trx3CID)
 	Trx4CID, _           = ipld.RawdataToCid(ipld.MEthTx, Tx4, multihash.KECCAK_256)
-	Trx4MhKey            = shared.MultihashKeyFromCID(Trx3CID)
+	Trx4MhKey            = shared.MultihashKeyFromCID(Trx4CID)
 	Rct1CID              = rctCIDs[0]
 	Rct1MhKey            = shared.MultihashKeyFromCID(Rct1CID)
 	Rct2CID              = rctCIDs[1]
@@ -266,10 +266,10 @@ var (
 			CID:    Trx4CID.String(),
 			MhKey:  Trx4MhKey,
 			Src:    SenderAddr.Hex(),
-			Dst:    "",
-			Index:  2,
-			TxHash: MockTransactions[2].Hash().String(),
-			Data:   MockContractByteCode,
+			Dst:    AnotherAddress1.String(),
+			Index:  3,
+			TxHash: MockTransactions[3].Hash().String(),
+			Data:   []byte{},
 		},
 	}
 	MockRctMeta = []models.ReceiptModel{
