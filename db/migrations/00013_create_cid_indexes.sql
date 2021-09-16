@@ -91,8 +91,8 @@ DROP INDEX eth.state_header_id_index;
 -- receipt indexes
 DROP INDEX eth.rct_contract_hash_index;
 DROP INDEX eth.rct_contract_index;
-DROP INDEX eth.rct_mh_index;
-DROP INDEX eth.rct_cid_index;
+DROP INDEX eth.rct_leaf_mh_index;
+DROP INDEX eth.rct_leaf_cid_index;
 DROP INDEX eth.rct_tx_id_index;
 
 -- transaction indexes
