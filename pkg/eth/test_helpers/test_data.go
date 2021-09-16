@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	"github.com/ethereum/go-ethereum/statediff/testhelpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
@@ -47,6 +48,7 @@ import (
 // Test variables
 var (
 	// block data
+	db          *postgres.DB
 	BlockNumber = big.NewInt(1)
 	MockHeader  = types.Header{
 		Time:        0,
@@ -165,36 +167,36 @@ var (
 	Tx3 = GetTxnRlp(2, MockTransactions)
 	Tx4 = GetTxnRlp(3, MockTransactions)
 
-	Rct1 = GetRctRlp(0, MockReceipts)
-	Rct2 = GetRctRlp(1, MockReceipts)
-	Rct3 = GetRctRlp(2, MockReceipts)
-	Rct4 = GetRctRlp(3, MockReceipts)
-
-	HeaderCID, _  = ipld.RawdataToCid(ipld.MEthHeader, MockHeaderRlp, multihash.KECCAK_256)
-	HeaderMhKey   = shared.MultihashKeyFromCID(HeaderCID)
-	Trx1CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx1, multihash.KECCAK_256)
-	Trx1MhKey     = shared.MultihashKeyFromCID(Trx1CID)
-	Trx2CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx2, multihash.KECCAK_256)
-	Trx2MhKey     = shared.MultihashKeyFromCID(Trx2CID)
-	Trx3CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx3, multihash.KECCAK_256)
-	Trx3MhKey     = shared.MultihashKeyFromCID(Trx3CID)
-	Trx4CID, _    = ipld.RawdataToCid(ipld.MEthTx, Tx4, multihash.KECCAK_256)
-	Trx4MhKey     = shared.MultihashKeyFromCID(Trx4CID)
-	Rct1CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct1, multihash.KECCAK_256)
-	Rct1MhKey     = shared.MultihashKeyFromCID(Rct1CID)
-	Rct2CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct2, multihash.KECCAK_256)
-	Rct2MhKey     = shared.MultihashKeyFromCID(Rct2CID)
-	Rct3CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct3, multihash.KECCAK_256)
-	Rct3MhKey     = shared.MultihashKeyFromCID(Rct3CID)
-	Rct4CID, _    = ipld.RawdataToCid(ipld.MEthTxReceipt, Rct4, multihash.KECCAK_256)
-	Rct4MhKey     = shared.MultihashKeyFromCID(Rct4CID)
-	State1CID, _  = ipld.RawdataToCid(ipld.MEthStateTrie, ContractLeafNode, multihash.KECCAK_256)
-	State1MhKey   = shared.MultihashKeyFromCID(State1CID)
-	State2CID, _  = ipld.RawdataToCid(ipld.MEthStateTrie, AccountLeafNode, multihash.KECCAK_256)
-	State2MhKey   = shared.MultihashKeyFromCID(State2CID)
-	StorageCID, _ = ipld.RawdataToCid(ipld.MEthStorageTrie, StorageLeafNode, multihash.KECCAK_256)
-	StorageMhKey  = shared.MultihashKeyFromCID(StorageCID)
-	MockTrxMeta   = []models.TxModel{
+	rctCIDs, rctIPLDData = eth.FetchRctLeafNodeData(MockReceipts)
+	HeaderCID, _         = ipld.RawdataToCid(ipld.MEthHeader, MockHeaderRlp, multihash.KECCAK_256)
+	HeaderMhKey          = shared.MultihashKeyFromCID(HeaderCID)
+	Trx1CID, _           = ipld.RawdataToCid(ipld.MEthTx, Tx1, multihash.KECCAK_256)
+	Trx1MhKey            = shared.MultihashKeyFromCID(Trx1CID)
+	Trx2CID, _           = ipld.RawdataToCid(ipld.MEthTx, Tx2, multihash.KECCAK_256)
+	Trx2MhKey            = shared.MultihashKeyFromCID(Trx2CID)
+	Trx3CID, _           = ipld.RawdataToCid(ipld.MEthTx, Tx3, multihash.KECCAK_256)
+	Trx3MhKey            = shared.MultihashKeyFromCID(Trx3CID)
+	Trx4CID, _           = ipld.RawdataToCid(ipld.MEthTx, Tx4, multihash.KECCAK_256)
+	Trx4MhKey            = shared.MultihashKeyFromCID(Trx3CID)
+	Rct1CID              = rctCIDs[0]
+	Rct1MhKey            = shared.MultihashKeyFromCID(Rct1CID)
+	Rct2CID              = rctCIDs[1]
+	Rct2MhKey            = shared.MultihashKeyFromCID(Rct2CID)
+	Rct3CID              = rctCIDs[2]
+	Rct3MhKey            = shared.MultihashKeyFromCID(Rct3CID)
+	Rct4CID              = rctCIDs[3]
+	Rct4MhKey            = shared.MultihashKeyFromCID(Rct4CID)
+	State1CID, _         = ipld.RawdataToCid(ipld.MEthStateTrie, ContractLeafNode, multihash.KECCAK_256)
+	State1MhKey          = shared.MultihashKeyFromCID(State1CID)
+	State2CID, _         = ipld.RawdataToCid(ipld.MEthStateTrie, AccountLeafNode, multihash.KECCAK_256)
+	State2MhKey          = shared.MultihashKeyFromCID(State2CID)
+	StorageCID, _        = ipld.RawdataToCid(ipld.MEthStorageTrie, StorageLeafNode, multihash.KECCAK_256)
+	StorageMhKey         = shared.MultihashKeyFromCID(StorageCID)
+	Rct1IPLD             = rctIPLDData[0]
+	Rct2IPLD             = rctIPLDData[1]
+	Rct3IPLD             = rctIPLDData[2]
+	Rct4IPLD             = rctIPLDData[3]
+	MockTrxMeta          = []models.TxModel{
 		{
 			CID:    "", // This is empty until we go to publish to ipfs
 			MhKey:  "",
@@ -272,52 +274,53 @@ var (
 	}
 	MockRctMeta = []models.ReceiptModel{
 		{
-			CID:          "",
-			MhKey:        "",
+			LeafCID:      "",
+			LeafMhKey:    "",
 			Contract:     "",
 			ContractHash: "",
 		},
 		{
-			CID:          "",
-			MhKey:        "",
+			LeafCID:      "",
+			LeafMhKey:    "",
 			Contract:     "",
 			ContractHash: "",
 		},
 		{
-			CID:          "",
-			MhKey:        "",
+			LeafCID:      "",
+			LeafMhKey:    "",
 			Contract:     ContractAddress.String(),
 			ContractHash: ContractHash,
 		},
 		{
-			CID:          "",
-			MhKey:        "",
+			LeafCID:      "",
+			LeafMhKey:    "",
 			Contract:     "",
 			ContractHash: "",
 		},
 	}
+
 	MockRctMetaPostPublish = []models.ReceiptModel{
 		{
-			CID:          Rct1CID.String(),
-			MhKey:        Rct1MhKey,
+			LeafCID:      Rct1CID.String(),
+			LeafMhKey:    Rct1MhKey,
 			Contract:     "",
 			ContractHash: "",
 		},
 		{
-			CID:          Rct2CID.String(),
-			MhKey:        Rct2MhKey,
+			LeafCID:      Rct2CID.String(),
+			LeafMhKey:    Rct2MhKey,
 			Contract:     "",
 			ContractHash: "",
 		},
 		{
-			CID:          Rct3CID.String(),
-			MhKey:        Rct3MhKey,
+			LeafCID:      Rct3CID.String(),
+			LeafMhKey:    Rct3MhKey,
 			Contract:     ContractAddress.String(),
 			ContractHash: ContractHash,
 		},
 		{
-			CID:          Rct4CID.String(),
-			MhKey:        Rct4MhKey,
+			LeafCID:      Rct4CID.String(),
+			LeafMhKey:    Rct4MhKey,
 			Contract:     "",
 			ContractHash: "",
 		},
@@ -478,10 +481,6 @@ var (
 	Trx2IPLD, _    = blocks.NewBlockWithCid(Tx2, Trx2CID)
 	Trx3IPLD, _    = blocks.NewBlockWithCid(Tx3, Trx3CID)
 	Trx4IPLD, _    = blocks.NewBlockWithCid(Tx4, Trx4CID)
-	Rct1IPLD, _    = blocks.NewBlockWithCid(Rct1, Rct1CID)
-	Rct2IPLD, _    = blocks.NewBlockWithCid(Rct2, Rct2CID)
-	Rct3IPLD, _    = blocks.NewBlockWithCid(Rct3, Rct3CID)
-	Rct4IPLD, _    = blocks.NewBlockWithCid(Rct4, Rct4CID)
 	State1IPLD, _  = blocks.NewBlockWithCid(ContractLeafNode, State1CID)
 	State2IPLD, _  = blocks.NewBlockWithCid(AccountLeafNode, State2CID)
 	StorageIPLD, _ = blocks.NewBlockWithCid(StorageLeafNode, StorageCID)
@@ -512,20 +511,20 @@ var (
 		},
 		Receipts: []ipfs.BlockModel{
 			{
-				Data: Rct1IPLD.RawData(),
-				CID:  Rct1IPLD.Cid().String(),
+				Data: Rct1IPLD,
+				CID:  Rct1CID.String(),
 			},
 			{
-				Data: Rct2IPLD.RawData(),
-				CID:  Rct2IPLD.Cid().String(),
+				Data: Rct2IPLD,
+				CID:  Rct2CID.String(),
 			},
 			{
-				Data: Rct3IPLD.RawData(),
-				CID:  Rct3IPLD.Cid().String(),
+				Data: Rct3IPLD,
+				CID:  Rct3CID.String(),
 			},
 			{
-				Data: Rct4IPLD.RawData(),
-				CID:  Rct4IPLD.Cid().String(),
+				Data: Rct4IPLD,
+				CID:  Rct4CID.String(),
 			},
 		},
 		StateNodes: []eth.StateNode{

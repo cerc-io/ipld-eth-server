@@ -153,13 +153,14 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]ipfs
 	log.Debug("fetching receipt iplds")
 	rctIPLDs := make([]ipfs.BlockModel, len(cids))
 	for i, c := range cids {
-		rctBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
+		rctBytes, err := shared.FetchIPLDByMhKey(tx, c.LeafMhKey)
 		if err != nil {
 			return nil, err
 		}
+		//nodeVal, err := DecodeLeafNode(rctBytes)
 		rctIPLDs[i] = ipfs.BlockModel{
 			Data: rctBytes,
-			CID:  c.CID,
+			CID:  c.LeafCID,
 		}
 	}
 	return rctIPLDs, nil

@@ -376,7 +376,12 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	var receipts []*types.Receipt
 	for _, rctIPLD := range rctIPLDs {
 		var receipt types.Receipt
-		err = receipt.UnmarshalBinary(rctIPLD.Data)
+		nodeVal, err := DecodeLeafNode(rctIPLD.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		err = receipt.UnmarshalBinary(nodeVal)
 		if err != nil {
 			return nil, err
 		}
@@ -476,7 +481,12 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var receipts []*types.Receipt
 	for _, rctIPLD := range rctIPLDs {
 		var receipt types.Receipt
-		err = receipt.UnmarshalBinary(rctIPLD.Data)
+		nodeVal, err := DecodeLeafNode(rctIPLD.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		err = receipt.UnmarshalBinary(nodeVal)
 		if err != nil {
 			return nil, err
 		}

@@ -52,10 +52,10 @@ var _ = Describe("Filterer", func() {
 			Expect(shared.IPLDsContainBytes(iplds.Transactions, test_helpers.Tx1)).To(BeTrue())
 			Expect(shared.IPLDsContainBytes(iplds.Transactions, test_helpers.Tx2)).To(BeTrue())
 			Expect(shared.IPLDsContainBytes(iplds.Transactions, test_helpers.Tx3)).To(BeTrue())
-			Expect(len(iplds.Receipts)).To(Equal(4))
-			Expect(shared.IPLDsContainBytes(iplds.Receipts, test_helpers.Rct1)).To(BeTrue())
-			Expect(shared.IPLDsContainBytes(iplds.Receipts, test_helpers.Rct2)).To(BeTrue())
-			Expect(shared.IPLDsContainBytes(iplds.Receipts, test_helpers.Rct3)).To(BeTrue())
+			Expect(len(iplds.Receipts)).To(Equal(3))
+			Expect(shared.IPLDsContainBytes(iplds.Receipts, test_helpers.Rct1IPLD)).To(BeTrue())
+			Expect(shared.IPLDsContainBytes(iplds.Receipts, test_helpers.Rct2IPLD)).To(BeTrue())
+			Expect(shared.IPLDsContainBytes(iplds.Receipts, test_helpers.Rct3IPLD)).To(BeTrue())
 			Expect(len(iplds.StateNodes)).To(Equal(2))
 			for _, stateNode := range iplds.StateNodes {
 				Expect(stateNode.Type).To(Equal(sdtypes.Leaf))
@@ -87,8 +87,8 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds1.StateNodes)).To(Equal(0))
 			Expect(len(iplds1.Receipts)).To(Equal(1))
 			Expect(iplds1.Receipts[0]).To(Equal(ipfs.BlockModel{
-				Data: test_helpers.Rct1IPLD.RawData(),
-				CID:  test_helpers.Rct1IPLD.Cid().String(),
+				Data: test_helpers.Rct1IPLD,
+				CID:  test_helpers.Rct1CID.String(),
 			}))
 
 			iplds2, err := filterer.Filter(rctTopicsFilter, test_helpers.MockConvertedPayload)
@@ -102,8 +102,8 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds2.StateNodes)).To(Equal(0))
 			Expect(len(iplds2.Receipts)).To(Equal(1))
 			Expect(iplds2.Receipts[0]).To(Equal(ipfs.BlockModel{
-				Data: test_helpers.Rct1IPLD.RawData(),
-				CID:  test_helpers.Rct1IPLD.Cid().String(),
+				Data: test_helpers.Rct1IPLD,
+				CID:  test_helpers.Rct1CID.String(),
 			}))
 
 			iplds3, err := filterer.Filter(rctTopicsAndAddressFilter, test_helpers.MockConvertedPayload)
@@ -117,8 +117,8 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds3.StateNodes)).To(Equal(0))
 			Expect(len(iplds3.Receipts)).To(Equal(1))
 			Expect(iplds3.Receipts[0]).To(Equal(ipfs.BlockModel{
-				Data: test_helpers.Rct1IPLD.RawData(),
-				CID:  test_helpers.Rct1IPLD.Cid().String(),
+				Data: test_helpers.Rct1IPLD,
+				CID:  test_helpers.Rct1CID.String(),
 			}))
 
 			iplds4, err := filterer.Filter(rctAddressesAndTopicFilter, test_helpers.MockConvertedPayload)
@@ -132,8 +132,8 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds4.StateNodes)).To(Equal(0))
 			Expect(len(iplds4.Receipts)).To(Equal(1))
 			Expect(iplds4.Receipts[0]).To(Equal(ipfs.BlockModel{
-				Data: test_helpers.Rct2IPLD.RawData(),
-				CID:  test_helpers.Rct2IPLD.Cid().String(),
+				Data: test_helpers.Rct2IPLD,
+				CID:  test_helpers.Rct2CID.String(),
 			}))
 
 			iplds5, err := filterer.Filter(rctsForAllCollectedTrxs, test_helpers.MockConvertedPayload)
@@ -148,10 +148,10 @@ var _ = Describe("Filterer", func() {
 			Expect(shared.IPLDsContainBytes(iplds5.Transactions, test_helpers.Tx3)).To(BeTrue())
 			Expect(len(iplds5.StorageNodes)).To(Equal(0))
 			Expect(len(iplds5.StateNodes)).To(Equal(0))
-			Expect(len(iplds5.Receipts)).To(Equal(4))
-			Expect(shared.IPLDsContainBytes(iplds5.Receipts, test_helpers.Rct1)).To(BeTrue())
-			Expect(shared.IPLDsContainBytes(iplds5.Receipts, test_helpers.Rct2)).To(BeTrue())
-			Expect(shared.IPLDsContainBytes(iplds5.Receipts, test_helpers.Rct3)).To(BeTrue())
+			Expect(len(iplds5.Receipts)).To(Equal(3))
+			Expect(shared.IPLDsContainBytes(iplds5.Receipts, test_helpers.Rct1IPLD)).To(BeTrue())
+			Expect(shared.IPLDsContainBytes(iplds5.Receipts, test_helpers.Rct2IPLD)).To(BeTrue())
+			Expect(shared.IPLDsContainBytes(iplds5.Receipts, test_helpers.Rct3IPLD)).To(BeTrue())
 
 			iplds6, err := filterer.Filter(rctsForSelectCollectedTrxs, test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
@@ -165,8 +165,8 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds6.StateNodes)).To(Equal(0))
 			Expect(len(iplds6.Receipts)).To(Equal(1))
 			Expect(iplds4.Receipts[0]).To(Equal(ipfs.BlockModel{
-				Data: test_helpers.Rct2IPLD.RawData(),
-				CID:  test_helpers.Rct2IPLD.Cid().String(),
+				Data: test_helpers.Rct2IPLD,
+				CID:  test_helpers.Rct2CID.String(),
 			}))
 
 			iplds7, err := filterer.Filter(stateFilter, test_helpers.MockConvertedPayload)
