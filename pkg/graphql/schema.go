@@ -67,11 +67,17 @@ const schema string = `
         # Transaction is the transaction that generated this log entry.
         transaction: Transaction
 
-        # CID for the Receipt IPLD block this Log exists in.
+        # CID for the leaf node IPLD block of the log.
         cid: String!
 
-        # IPLD block data for the Receipt this Log exists in.
+        # ReceiptCID for the Receipt IPLD block this Log exists in.
+        receiptCID: String!
+
+        # IPLD block data for the Log Leaf node.
         ipldBlock: Bytes!
+
+        # Status of the Receipt IPLD block this Log exists in.
+        status: Int!
     }
 
     # Transaction is an Ethereum transaction.

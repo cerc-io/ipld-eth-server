@@ -18,13 +18,13 @@ package shared
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipfs-blockstore"
 	"github.com/ipfs/go-ipfs-ds-help"
 	node "github.com/ipfs/go-ipld-format"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs/ipld"
 )
 
 // HandleZeroAddrPointer will return an emtpy string for a nil address pointer

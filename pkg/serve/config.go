@@ -23,15 +23,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
-
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
-	"github.com/vulcanize/ipld-eth-indexer/utils"
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -39,24 +35,25 @@ import (
 
 // Env variables
 const (
-	SERVER_WS_PATH   = "SERVER_WS_PATH"
-	SERVER_IPC_PATH  = "SERVER_IPC_PATH"
-	SERVER_HTTP_PATH = "SERVER_HTTP_PATH"
+	serverWsPath   = "SERVER_WS_PATH"
+	serverIpcPath  = "SERVER_IPC_PATH"
+	serverHTTPPath = "SERVER_HTTP_PATH"
 
-	SERVER_MAX_IDLE_CONNECTIONS = "SERVER_MAX_IDLE_CONNECTIONS"
-	SERVER_MAX_OPEN_CONNECTIONS = "SERVER_MAX_OPEN_CONNECTIONS"
-	SERVER_MAX_CONN_LIFETIME    = "SERVER_MAX_CONN_LIFETIME"
+	serverMaxIdleConnections = "SERVER_MAX_IDLE_CONNECTIONS"
+	serverMaxOpenConnections = "SERVER_MAX_OPEN_CONNECTIONS"
+	serverMaxConnLifetime    = "SERVER_MAX_CONN_LIFETIME"
 
-	ETH_DEFAULT_SENDER_ADDR = "ETH_DEFAULT_SENDER_ADDR"
-	ETH_RPC_GAS_CAP         = "ETH_RPC_GAS_CAP"
-	ETH_CHAIN_CONFIG        = "ETH_CHAIN_CONFIG"
-	ETH_SUPPORTS_STATEDIFF  = "ETH_SUPPORTS_STATEDIFF"
+	ethDefaultSenderAddr = "ETH_DEFAULT_SENDER_ADDR"
+	ethRPCGasCap         = "ETH_RPC_GAS_CAP"
+	ethChainConfig       = "ETH_CHAIN_CONFIG"
+	ethSupportsStatediff = "ETH_SUPPORTS_STATEDIFF"
 )
 
 // Config struct
 type Config struct {
 	DB       *postgres.DB
-	DBConfig postgres.Config
+	DBConfig postgres.ConnectionConfig
+	DBParams postgres.ConnectionParams
 
 	WSEnabled  bool
 	WSEndpoint string
@@ -89,17 +86,16 @@ type Config struct {
 func NewConfig() (*Config, error) {
 	c := new(Config)
 
-	viper.BindEnv("ethereum.httpPath", shared.ETH_HTTP_PATH)
-	viper.BindEnv("ethereum.defaultSender", ETH_DEFAULT_SENDER_ADDR)
-	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
-	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
-	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
+	viper.BindEnv("ethereum.httpPath", ethHTTPPath)
+	viper.BindEnv("ethereum.defaultSender", ethDefaultSenderAddr)
+	viper.BindEnv("ethereum.rpcGasCap", ethRPCGasCap)
+	viper.BindEnv("ethereum.chainConfig", ethChainConfig)
+	viper.BindEnv("ethereum.supportsStateDiff", ethSupportsStatediff)
 
-	c.DBConfig.Init()
-
+	c.dbInit()
 	ethHTTP := viper.GetString("ethereum.httpPath")
 	ethHTTPEndpoint := fmt.Sprintf("http://%s", ethHTTP)
-	nodeInfo, cli, err := shared.GetEthNodeAndClient(ethHTTPEndpoint)
+	nodeInfo, cli, err := getEthNodeAndClient(ethHTTPEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -184,9 +180,13 @@ func NewConfig() (*Config, error) {
 	c.IpldGraphqlEnabled = ipldGraphqlEnabled
 
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB := utils.LoadPostgres(c.DBConfig, nodeInfo, false)
-	prom.RegisterDBCollector(c.DBConfig.Name, serveDB.DB)
-	c.DB = &serveDB
+	serveDB, err := postgres.NewDB(postgres.DbConnectionString(c.DBParams), c.DBConfig, nodeInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	prom.RegisterDBCollector(c.DBParams.Name, serveDB.DB)
+	c.DB = serveDB
 
 	defaultSenderStr := viper.GetString("ethereum.defaultSender")
 	if defaultSenderStr != "" {
@@ -208,11 +208,31 @@ func NewConfig() (*Config, error) {
 	return c, err
 }
 
-func overrideDBConnConfig(con *postgres.Config) {
-	viper.BindEnv("database.server.maxIdle", SERVER_MAX_IDLE_CONNECTIONS)
-	viper.BindEnv("database.server.maxOpen", SERVER_MAX_OPEN_CONNECTIONS)
-	viper.BindEnv("database.server.maxLifetime", SERVER_MAX_CONN_LIFETIME)
+func overrideDBConnConfig(con *postgres.ConnectionConfig) {
+	viper.BindEnv("database.server.maxIdle", serverMaxIdleConnections)
+	viper.BindEnv("database.server.maxOpen", serverMaxOpenConnections)
+	viper.BindEnv("database.server.maxLifetime", serverMaxConnLifetime)
 	con.MaxIdle = viper.GetInt("database.server.maxIdle")
 	con.MaxOpen = viper.GetInt("database.server.maxOpen")
 	con.MaxLifetime = viper.GetInt("database.server.maxLifetime")
+}
+
+func (d *Config) dbInit() {
+	viper.BindEnv("database.name", databaseName)
+	viper.BindEnv("database.hostname", databaseHostname)
+	viper.BindEnv("database.port", databasePort)
+	viper.BindEnv("database.user", databaseUser)
+	viper.BindEnv("database.password", databasePassword)
+	viper.BindEnv("database.maxIdle", databaseMaxIdleConnections)
+	viper.BindEnv("database.maxOpen", databaseMaxOpenConnections)
+	viper.BindEnv("database.maxLifetime", databaseMaxOpenConnLifetime)
+
+	d.DBParams.Name = viper.GetString("database.name")
+	d.DBParams.Hostname = viper.GetString("database.hostname")
+	d.DBParams.Port = viper.GetInt("database.port")
+	d.DBParams.User = viper.GetString("database.user")
+	d.DBParams.Password = viper.GetString("database.password")
+	d.DBConfig.MaxIdle = viper.GetInt("database.maxIdle")
+	d.DBConfig.MaxOpen = viper.GetInt("database.maxOpen")
+	d.DBConfig.MaxLifetime = viper.GetInt("database.maxLifetime")
 }

@@ -17,10 +17,9 @@
 package eth
 
 import (
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	. "github.com/onsi/gomega"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
 )
 
 // TearDownDB is used to tear down the watcher dbs after tests
@@ -40,13 +39,15 @@ func TearDownDB(db *postgres.DB) {
 	Expect(err).NotTo(HaveOccurred())
 	_, err = tx.Exec(`DELETE FROM blocks`)
 	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM eth.log_cids`)
+	Expect(err).NotTo(HaveOccurred())
 
 	err = tx.Commit()
 	Expect(err).NotTo(HaveOccurred())
 }
 
 // TxModelsContainsCID used to check if a list of TxModels contains a specific cid string
-func TxModelsContainsCID(txs []eth.TxModel, cid string) bool {
+func TxModelsContainsCID(txs []models.TxModel, cid string) bool {
 	for _, tx := range txs {
 		if tx.CID == cid {
 			return true
@@ -56,7 +57,7 @@ func TxModelsContainsCID(txs []eth.TxModel, cid string) bool {
 }
 
 // ListContainsBytes used to check if a list of byte arrays contains a particular byte array
-func ReceiptModelsContainsCID(rcts []eth.ReceiptModel, cid string) bool {
+func ReceiptModelsContainsCID(rcts []models.ReceiptModel, cid string) bool {
 	for _, rct := range rcts {
 		if rct.CID == cid {
 			return true

@@ -29,7 +29,7 @@ import (
 func StartHTTPEndpoint(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeouts rpc.HTTPTimeouts) (*rpc.Server, error) {
 
 	srv := rpc.NewServer()
-	err := node.RegisterApisFromWhitelist(apis, modules, srv, false)
+	err := node.RegisterApis(apis, modules, srv, false)
 	if err != nil {
 		utils.Fatalf("Could not register HTTP API: %w", err)
 	}

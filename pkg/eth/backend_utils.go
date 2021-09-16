@@ -26,17 +26,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 )
 
 // RPCMarshalHeader converts the given header to the RPC output.
 // This function is eth/internal so we have to make our own version here...
-func RPCMarshalHeader(head *types.Header) map[string]interface{} {
+func RPCMarshalHeader(head *types.Header, extractMiner bool) map[string]interface{} {
+	if extractMiner {
+		if err := recoverMiner(head); err != nil {
+			return nil
+		}
+	}
+
 	headerMap := map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
 		"hash":             head.Hash(),
@@ -66,8 +71,8 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
-func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header())
+func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool, extractMiner bool) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header(), extractMiner)
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
@@ -100,8 +105,8 @@ func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool) (map[string]i
 }
 
 // RPCMarshalBlockWithUncleHashes marshals the block with the provided uncle hashes
-func RPCMarshalBlockWithUncleHashes(block *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header())
+func RPCMarshalBlockWithUncleHashes(block *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool, extractMiner bool) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header(), extractMiner)
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
@@ -123,8 +128,8 @@ func RPCMarshalBlockWithUncleHashes(block *types.Block, uncleHashes []common.Has
 		}
 		fields["transactions"] = transactions
 	}
-	fields["uncles"] = uncleHashes
 
+	fields["uncles"] = uncleHashes
 	return fields, nil
 }
 
@@ -271,122 +276,6 @@ func newRPCTransactionFromBlockIndex(b *types.Block, index uint64) *RPCTransacti
 	return NewRPCTransaction(txs[index], b.Hash(), b.NumberU64(), index, b.BaseFee())
 }
 
-// extractLogsOfInterest returns logs from the receipt IPLD
-func extractLogsOfInterest(config *params.ChainConfig, blockHash common.Hash, blockNumber uint64,
-	txs types.Transactions, rctIPLDs []ipfs.BlockModel, filter ReceiptFilter) ([]*types.Log, error) {
-	receipts := make(types.Receipts, len(rctIPLDs))
-
-	for i, rctBytes := range rctIPLDs {
-		rct := new(types.Receipt)
-		if err := rct.UnmarshalBinary(rctBytes.Data); err != nil {
-			return nil, err
-		}
-		receipts[i] = rct
-	}
-
-	err := receipts.DeriveFields(config, blockHash, blockNumber, txs)
-	if err != nil {
-		return nil, err
-	}
-
-	var unfilteredLogs []*types.Log
-	for _, receipt := range receipts {
-		unfilteredLogs = append(unfilteredLogs, receipt.Logs...)
-	}
-
-	adders := make([]common.Address, len(filter.LogAddresses))
-	for i, addr := range filter.LogAddresses {
-		adders[i] = common.HexToAddress(addr)
-	}
-
-	topics := make([][]common.Hash, len(filter.Topics))
-	for i, v := range filter.Topics {
-		topics[i] = make([]common.Hash, len(v))
-		for j, topic := range v {
-			topics[i][j] = common.HexToHash(topic)
-		}
-	}
-
-	logs := filterLogs(unfilteredLogs, nil, nil, adders, topics)
-	return logs, nil
-}
-
-func includes(addresses []common.Address, a common.Address) bool {
-	for _, addr := range addresses {
-		if addr == a {
-			return true
-		}
-	}
-
-	return false
-}
-
-// filterLogs creates a slice of logs matching the given criteria.
-func filterLogs(logs []*types.Log, fromBlock, toBlock *big.Int, addresses []common.Address, topics [][]common.Hash) []*types.Log {
-	var ret []*types.Log
-Logs:
-	for _, log := range logs {
-		if fromBlock != nil && fromBlock.Int64() >= 0 && fromBlock.Uint64() > log.BlockNumber {
-			continue
-		}
-		if toBlock != nil && toBlock.Int64() >= 0 && toBlock.Uint64() < log.BlockNumber {
-			continue
-		}
-
-		if len(addresses) > 0 && !includes(addresses, log.Address) {
-			continue
-		}
-		// If the to filtered topics is greater than the amount of topics in logs, skip.
-		if len(topics) > len(log.Topics) {
-			continue
-		}
-		for i, sub := range topics {
-			match := len(sub) == 0 // empty rule set == wildcard
-			for _, topic := range sub {
-				if log.Topics[i] == topic {
-					match = true
-					break
-				}
-			}
-			if !match {
-				continue Logs
-			}
-		}
-		ret = append(ret, log)
-	}
-	return ret
-}
-
-// returns true if the log matches on the filter
-func wantedLog(wantedTopics [][]string, actualTopics []common.Hash) bool {
-	// actualTopics will always have length <= 4
-	// wantedTopics will always have length 4
-	matches := 0
-	for i, actualTopic := range actualTopics {
-		// If we have topics in this filter slot, count as a match if the actualTopic matches one of the ones in this filter slot
-		if len(wantedTopics[i]) > 0 {
-			matches += sliceContainsHash(wantedTopics[i], actualTopic)
-		} else {
-			// Filter slot is empty, not matching any topics at this slot => counts as a match
-			matches++
-		}
-	}
-	if matches == len(actualTopics) {
-		return true
-	}
-	return false
-}
-
-// returns 1 if the slice contains the hash, 0 if it does not
-func sliceContainsHash(slice []string, hash common.Hash) int {
-	for _, str := range slice {
-		if str == hash.String() {
-			return 1
-		}
-	}
-	return 0
-}
-
 func toFilterArg(q ethereum.FilterQuery) (interface{}, error) {
 	arg := map[string]interface{}{
 		"address": q.Addresses,
@@ -413,4 +302,25 @@ func toBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
+}
+
+func recoverMiner(header *types.Header) error {
+	// Retrieve the signature from the header extra-data
+	if len(header.Extra) < crypto.SignatureLength {
+		return errMissingSignature
+	}
+
+	signature := header.Extra[len(header.Extra)-crypto.SignatureLength:]
+
+	// Recover the public key and the Ethereum address
+	pubkey, err := crypto.Ecrecover(clique.SealHash(header).Bytes(), signature)
+	if err != nil {
+		return err
+	}
+
+	var signer common.Address
+	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
+	header.Coinbase = signer
+
+	return nil
 }

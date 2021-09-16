@@ -19,7 +19,7 @@ package shared
 import (
 	"bytes"
 
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 )
 
 // IPLDsContainBytes used to check if a list of strings contains a particular string

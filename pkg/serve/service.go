@@ -20,23 +20,20 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-
-	"github.com/vulcanize/ipld-eth-server/pkg/net"
-
-	"github.com/ethereum/go-ethereum/core/vm"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	ethnode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	log "github.com/sirupsen/logrus"
-
-	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
-
+	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/net"
 )
 
 const (
@@ -52,7 +49,7 @@ type Server interface {
 	APIs() []rpc.API
 	Protocols() []p2p.Protocol
 	// Pub-Sub handling event loop
-	Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth2.ConvertedPayload)
+	Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth.ConvertedPayload)
 	// Method to subscribe to the service
 	Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings)
 	// Method to unsubscribe from the service
@@ -107,6 +104,11 @@ func NewServer(settings *Config) (Server, error) {
 		VmConfig:      vm.Config{},
 		DefaultSender: settings.DefaultSender,
 		RPCGasCap:     settings.RPCGasCap,
+		CacheConfig: pgipfsethdb.CacheConfig{
+			Name:           "ipld-eth-server",
+			Size:           3000000, // 3MB
+			ExpiryDuration: time.Hour,
+		},
 	})
 	return sap, err
 }
@@ -145,7 +147,7 @@ func (sap *Service) APIs() []rpc.API {
 // It filters and sends this data to any subscribers to the service
 // This process can also be stood up alone, without an screenAndServePayload attached to a Sync process
 // and it will hang on the WaitGroup indefinitely, allowing the Service to serve historical data requests only
-func (sap *Service) Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth2.ConvertedPayload) {
+func (sap *Service) Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth.ConvertedPayload) {
 	sap.serveWg = wg
 	go func() {
 		wg.Add(1)
@@ -164,7 +166,7 @@ func (sap *Service) Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth2.
 }
 
 // filterAndServe filters the payload according to each subscription type and sends to the subscriptions
-func (sap *Service) filterAndServe(payload eth2.ConvertedPayload) {
+func (sap *Service) filterAndServe(payload eth.ConvertedPayload) {
 	log.Debug("sending eth ipld payload to subscriptions")
 	sap.Lock()
 	sap.serveWg.Add(1)
@@ -337,7 +339,7 @@ func (sap *Service) Unsubscribe(id rpc.ID) {
 func (sap *Service) Start() error {
 	log.Info("starting eth ipld server")
 	wg := new(sync.WaitGroup)
-	payloadChan := make(chan eth2.ConvertedPayload, PayloadChanBufferSize)
+	payloadChan := make(chan eth.ConvertedPayload, PayloadChanBufferSize)
 	sap.Serve(wg, payloadChan)
 	return nil
 }

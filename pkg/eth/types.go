@@ -22,9 +22,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/ipfs"
 )
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
@@ -146,10 +146,43 @@ type StorageNode struct {
 // Passed to IPLDFetcher
 type CIDWrapper struct {
 	BlockNumber  *big.Int
-	Header       eth.HeaderModel
-	Uncles       []eth.UncleModel
-	Transactions []eth.TxModel
-	Receipts     []eth.ReceiptModel
-	StateNodes   []eth.StateNodeModel
-	StorageNodes []eth.StorageNodeWithStateKeyModel
+	Header       models.HeaderModel
+	Uncles       []models.UncleModel
+	Transactions []models.TxModel
+	Receipts     []models.ReceiptModel
+	StateNodes   []models.StateNodeModel
+	StorageNodes []models.StorageNodeWithStateKeyModel
+}
+
+// ConvertedPayload is a custom type which packages raw ETH data for publishing to IPFS and filtering to subscribers
+// Returned by PayloadConverter
+// Passed to IPLDPublisher and ResponseFilterer
+type ConvertedPayload struct {
+	TotalDifficulty *big.Int
+	Block           *types.Block
+	TxMetaData      []models.TxModel
+	Receipts        types.Receipts
+	ReceiptMetaData []models.ReceiptModel
+	StateNodes      []sdtypes.StateNode
+	StorageNodes    map[string][]sdtypes.StorageNode
+}
+
+// LogResult represent a log.
+type LogResult struct {
+	LeafCID     string `db:"leaf_cid"`
+	ReceiptID   int64  `db:"receipt_id"`
+	Address     string `db:"address"`
+	Index       int64  `db:"index"`
+	Data        []byte `db:"log_data"`
+	Topic0      string `db:"topic0"`
+	Topic1      string `db:"topic1"`
+	Topic2      string `db:"topic2"`
+	Topic3      string `db:"topic3"`
+	LogLeafData []byte `db:"data"`
+	RctCID      string `db:"cid"`
+	RctStatus   uint64 `db:"post_status"`
+	BlockNumber string `db:"block_number"`
+	BlockHash   string `db:"block_hash"`
+	TxnIndex    int64  `db:"txn_index"`
+	TxHash      string `db:"tx_hash"`
 }

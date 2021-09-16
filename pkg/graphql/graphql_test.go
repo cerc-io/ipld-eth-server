@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -28,19 +29,32 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
+	"github.com/ethereum/go-ethereum/statediff/indexer"
+	"github.com/ethereum/go-ethereum/statediff/indexer/node"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 
-	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
 )
+
+// SetupDB is use to setup a db for watcher tests
+func SetupDB() (*postgres.DB, error) {
+	uri := postgres.DbConnectionString(postgres.ConnectionParams{
+		User:     "vdbm",
+		Password: "password",
+		Hostname: "localhost",
+		Name:     "vulcanize_testing",
+		Port:     8077,
+	})
+	return postgres.NewDB(uri, postgres.ConnectionConfig{}, node.Info{})
+}
 
 var _ = Describe("GraphQL", func() {
 	const (
@@ -66,13 +80,18 @@ var _ = Describe("GraphQL", func() {
 
 	It("test init", func() {
 		var err error
-		db, err = shared.SetupDB()
+		db, err = SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		transformer := eth2.NewStateDiffTransformer(chainConfig, db)
+		transformer := indexer.NewStateDiffIndexer(chainConfig, db)
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000),
+			CacheConfig: pgipfsethdb.CacheConfig{
+				Name:           "graphql_test",
+				Size:           3000000, // 3MB
+				ExpiryDuration: time.Hour,
+			},
 		})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -109,35 +128,43 @@ var _ = Describe("GraphQL", func() {
 			var diff statediff.StateObject
 			diff, err = builder.BuildStateDiffObject(args, params)
 			Expect(err).ToNot(HaveOccurred())
-			diffRlp, err := rlp.EncodeToBytes(diff)
+
+			tx, err := transformer.PushBlock(block, rcts, mockTD)
 			Expect(err).ToNot(HaveOccurred())
-			blockRlp, err := rlp.EncodeToBytes(block)
-			Expect(err).ToNot(HaveOccurred())
-			receiptsRlp, err := rlp.EncodeToBytes(rcts)
-			Expect(err).ToNot(HaveOccurred())
-			payload := statediff.Payload{
-				StateObjectRlp:  diffRlp,
-				BlockRlp:        blockRlp,
-				ReceiptsRlp:     receiptsRlp,
-				TotalDifficulty: mockTD,
+
+			for _, node := range diff.Nodes {
+				err = transformer.PushStateNode(tx, node)
+				Expect(err).ToNot(HaveOccurred())
 			}
 
-			_, err = transformer.Transform(0, payload)
+			err = tx.Close(err)
 			Expect(err).ToNot(HaveOccurred())
 		}
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher := eth2.NewIPLDPublisher(db)
+		indexAndPublisher := indexer.NewStateDiffIndexer(chainConfig, db)
 		blockHash = test_helpers.MockBlock.Hash()
 		contractAddress = test_helpers.ContractAddr
 
-		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
+		tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+		Expect(err).ToNot(HaveOccurred())
+
+		err = tx.Close(err)
 		Expect(err).ToNot(HaveOccurred())
 
 		// The non-canonical header has a child
-		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayloadForChild)
+		tx, err = indexAndPublisher.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
-		err = publishCode(db, test_helpers.ContractCodeHash, test_helpers.ContractCode)
+
+		ccHash := sdtypes.CodeAndCodeHash{
+			Hash: test_helpers.CodeHash,
+			Code: test_helpers.ContractCode,
+		}
+
+		err = indexAndPublisher.PushCodeAndCodeHash(tx, ccHash)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = tx.Close(err)
 		Expect(err).ToNot(HaveOccurred())
 
 		graphQLServer, err = graphql.New(backend, gqlEndPoint, nil, []string{"*"}, rpc.HTTPTimeouts{})
@@ -156,7 +183,7 @@ var _ = Describe("GraphQL", func() {
 
 	Describe("eth_getLogs", func() {
 		It("Retrieves logs that matches the provided blockHash and contract address", func() {
-			logs, err := client.GetLogs(ctx, blockHash, contractAddress)
+			logs, err := client.GetLogs(ctx, blockHash, &contractAddress)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedLogs := []graphql.LogResponse{
@@ -164,13 +191,39 @@ var _ = Describe("GraphQL", func() {
 					Topics:      test_helpers.MockLog1.Topics,
 					Data:        hexutil.Bytes(test_helpers.MockLog1.Data),
 					Transaction: graphql.TransactionResp{Hash: test_helpers.MockTransactions[0].Hash()},
+					ReceiptCID:  test_helpers.Rct1CID.String(),
+					Status:      int32(test_helpers.MockReceipts[0].Status),
 				},
 			}
+
 			Expect(logs).To(Equal(expectedLogs))
 		})
 
+		It("Retrieves logs for the failed receipt status that matches the provided blockHash and another contract address", func() {
+			logs, err := client.GetLogs(ctx, blockHash, &test_helpers.AnotherAddress2)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedLogs := []graphql.LogResponse{
+				{
+					Topics:      test_helpers.MockLog6.Topics,
+					Data:        hexutil.Bytes(test_helpers.MockLog6.Data),
+					Transaction: graphql.TransactionResp{Hash: test_helpers.MockTransactions[3].Hash()},
+					ReceiptCID:  test_helpers.Rct4CID.String(),
+					Status:      int32(test_helpers.MockReceipts[3].Status),
+				},
+			}
+
+			Expect(logs).To(Equal(expectedLogs))
+		})
+
+		It("Retrieves all the logs for the receipt that matches the provided blockHash and nil contract address", func() {
+			logs, err := client.GetLogs(ctx, blockHash, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(logs)).To(Equal(6))
+		})
+
 		It("Retrieves logs with random hash", func() {
-			logs, err := client.GetLogs(ctx, randomHash, contractAddress)
+			logs, err := client.GetLogs(ctx, randomHash, &contractAddress)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(0))
 		})
@@ -208,23 +261,3 @@ var _ = Describe("GraphQL", func() {
 		})
 	})
 })
-
-func publishCode(db *postgres.DB, codeHash common.Hash, code []byte) error {
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
-
-	mhKey, err := shared.MultihashKeyFromKeccak256(codeHash)
-	if err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-
-	if err := shared.PublishDirect(tx, mhKey, code); err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-
-	return tx.Commit()
-}

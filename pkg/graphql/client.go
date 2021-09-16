@@ -24,6 +24,8 @@ type LogResponse struct {
 	Topics      []common.Hash   `json:"topics"`
 	Data        hexutil.Bytes   `json:"data"`
 	Transaction TransactionResp `json:"transaction"`
+	ReceiptCID  string          `json:"receiptCID"`
+	Status      int32           `json:"status"`
 }
 
 type TransactionResp struct {
@@ -43,18 +45,23 @@ func NewClient(endpoint string) *Client {
 	return &Client{client: client}
 }
 
-func (c *Client) GetLogs(ctx context.Context, hash common.Hash, address common.Address) ([]LogResponse, error) {
-	getLogsQuery := fmt.Sprintf(`
-		query{
-			getLogs(blockHash: "%s", contract: "%s") {
+func (c *Client) GetLogs(ctx context.Context, hash common.Hash, address *common.Address) ([]LogResponse, error) {
+	params := fmt.Sprintf(`blockHash: "%s"`, hash.String())
+	if address != nil {
+		params += fmt.Sprintf(`, contract: "%s"`, address.String())
+	}
+
+	getLogsQuery := fmt.Sprintf(`query{
+			getLogs(%s) {
 				data
 				topics
 				transaction {
 					hash
 				}
+				status
+				receiptCID
 			}
-		}
-	`, hash.String(), address.String())
+		}`, params)
 
 	req := gqlclient.NewRequest(getLogsQuery)
 	req.Header.Set("Cache-Control", "no-cache")

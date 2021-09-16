@@ -20,6 +20,7 @@ import (
 	"context"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -30,28 +31,27 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/indexer"
+	"github.com/ethereum/go-ethereum/statediff/indexer/node"
+	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	eth2 "github.com/vulcanize/ipld-eth-indexer/pkg/eth"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/postgres"
-	"github.com/vulcanize/ipld-eth-indexer/pkg/shared"
-
+	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 )
 
 var (
-	randomAddr      = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
-	randomHash      = crypto.Keccak256Hash(randomAddr.Bytes())
-	number          = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
-	londonBlockNum  = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
-	wrongNumber     = rpc.BlockNumber(number + 1)
-	blockHash       = test_helpers.MockBlock.Header().Hash()
-	londonBlockHash = test_helpers.MockLondonBlock.Header().Hash()
-	baseFee         = test_helpers.MockLondonBlock.BaseFee()
-	ctx             = context.Background()
-	expectedBlock   = map[string]interface{}{
+	randomAddr     = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
+	randomHash     = crypto.Keccak256Hash(randomAddr.Bytes())
+	number         = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
+	londonBlockNum = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
+	wrongNumber    = number + 1
+	blockHash      = test_helpers.MockBlock.Header().Hash()
+	baseFee        = test_helpers.MockLondonBlock.BaseFee()
+	ctx            = context.Background()
+	expectedBlock  = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
 		"hash":             test_helpers.MockBlock.Hash(),
 		"parentHash":       test_helpers.MockBlock.ParentHash(),
@@ -150,7 +150,7 @@ var (
 		"contractAddress":   nil,
 		"logs":              test_helpers.MockReceipts[0].Logs,
 		"logsBloom":         test_helpers.MockReceipts[0].Bloom,
-		"root":              hexutil.Bytes(test_helpers.MockReceipts[0].PostState),
+		"status":            hexutil.Uint(test_helpers.MockReceipts[0].Status),
 	}
 	expectedReceipt2 = map[string]interface{}{
 		"blockHash":         blockHash,
@@ -182,6 +182,18 @@ var (
 	}
 )
 
+// SetupDB is use to setup a db for watcher tests
+func SetupDB() (*postgres.DB, error) {
+	uri := postgres.DbConnectionString(postgres.ConnectionParams{
+		User:     "vdbm",
+		Password: "password",
+		Hostname: "localhost",
+		Name:     "vulcanize_testing",
+		Port:     8077,
+	})
+	return postgres.NewDB(uri, postgres.ConnectionConfig{}, node.Info{})
+}
+
 var _ = Describe("API", func() {
 	var (
 		db          *postgres.DB
@@ -191,21 +203,45 @@ var _ = Describe("API", func() {
 	// Test db setup, rather than using BeforeEach we only need to setup once since the tests do not mutate the database
 	// Note: if you focus one of the tests be sure to focus this and the defered It()
 	It("test init", func() {
-		var err error
-		db, err = shared.SetupDB()
+		var (
+			err error
+			tx  *indexer.BlockTx
+		)
+
+		db, err = SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		indexAndPublisher := eth2.NewIPLDPublisher(db)
+		indexAndPublisher := indexer.NewStateDiffIndexer(chainConfig, db)
 		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VmConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
+			CacheConfig: pgipfsethdb.CacheConfig{
+				Name:           "api_test",
+				Size:           3000000, // 3MB
+				ExpiryDuration: time.Hour,
+			},
 		})
 		Expect(err).ToNot(HaveOccurred())
 		api = eth.NewPublicEthAPI(backend, nil, false)
-		err = indexAndPublisher.Publish(test_helpers.MockConvertedPayload)
+		tx, err = indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
-		err = publishCode(db, test_helpers.ContractCodeHash, test_helpers.ContractCode)
+
+		for _, node := range test_helpers.MockStateNodes {
+			err = indexAndPublisher.PushStateNode(tx, node)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		ccHash := sdtypes.CodeAndCodeHash{
+			Hash: test_helpers.ContractCodeHash,
+			Code: test_helpers.ContractCode,
+		}
+
+		err = indexAndPublisher.PushCodeAndCodeHash(tx, ccHash)
 		Expect(err).ToNot(HaveOccurred())
+
+		err = tx.Close(err)
+		Expect(err).ToNot(HaveOccurred())
+
 		uncles := test_helpers.MockBlock.Uncles()
 		uncleHashes := make([]common.Hash, len(uncles))
 		for i, uncle := range uncles {
@@ -213,7 +249,13 @@ var _ = Describe("API", func() {
 		}
 		expectedBlock["uncles"] = uncleHashes
 
-		err = indexAndPublisher.Publish(test_helpers.MockConvertedLondonPayload)
+		// setting chain config to for london block
+		chainConfig.LondonBlock = big.NewInt(2)
+		indexAndPublisher = indexer.NewStateDiffIndexer(chainConfig, db)
+		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
+		Expect(err).ToNot(HaveOccurred())
+
+		err = tx.Close(err)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -339,8 +381,7 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, ok := block["baseFee"]
 			Expect(ok).To(Equal(false))
-
-			block, err = api.GetBlockByHash(ctx, londonBlockHash, false)
+			block, err = api.GetBlockByHash(ctx, test_helpers.MockLondonBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
 		})
@@ -440,14 +481,14 @@ var _ = Describe("API", func() {
 	Describe("eth_getBlockTransactionCountByNumber", func() {
 		It("Retrieves the number of transactions in the canonical block with the provided number", func() {
 			count := api.GetBlockTransactionCountByNumber(ctx, number)
-			Expect(uint64(*count)).To(Equal(uint64(3)))
+			Expect(uint64(*count)).To(Equal(uint64(4)))
 		})
 	})
 
 	Describe("eth_getBlockTransactionCountByHash", func() {
 		It("Retrieves the number of transactions in the block with the provided hash ", func() {
 			count := api.GetBlockTransactionCountByHash(ctx, blockHash)
-			Expect(uint64(*count)).To(Equal(uint64(3)))
+			Expect(uint64(*count)).To(Equal(uint64(4)))
 		})
 	})
 
@@ -490,7 +531,7 @@ var _ = Describe("API", func() {
 		})
 
 		It("Retrieves the GasFeeCap and GasTipCap for dynamic transaction from the london block hash", func() {
-			tx := api.GetTransactionByBlockHashAndIndex(ctx, londonBlockHash, 0)
+			tx := api.GetTransactionByBlockHashAndIndex(ctx, test_helpers.MockLondonBlock.Hash(), 0)
 			Expect(tx).ToNot(BeNil())
 			Expect(tx.GasFeeCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasFeeCap())))
 			Expect(tx.GasTipCap).To(Equal((*hexutil.Big)(test_helpers.MockLondonTransactions[0].GasTipCap())))
@@ -610,13 +651,71 @@ var _ = Describe("API", func() {
 			crit := filters.FilterCriteria{
 				Topics: [][]common.Hash{
 					{
-						common.HexToHash("0x04"),
+						common.HexToHash("0x0c"),
+					},
+					{
+						common.HexToHash("0x0a"),
+					},
+					{
+						common.HexToHash("0x0b"),
 					},
 				},
 				FromBlock: test_helpers.MockBlock.Number(),
 				ToBlock:   test_helpers.MockBlock.Number(),
 			}
 			logs, err := api.GetLogs(ctx, crit)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(logs)).To(Equal(0))
+
+			crit = filters.FilterCriteria{
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x08"),
+					},
+					{
+						common.HexToHash("0x0a"),
+					},
+					{
+						common.HexToHash("0x0c"),
+					},
+				},
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
+			}
+			logs, err = api.GetLogs(ctx, crit)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(logs)).To(Equal(0))
+
+			crit = filters.FilterCriteria{
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x09"),
+					},
+					{
+						common.HexToHash("0x0a"),
+					},
+					{
+						common.HexToHash("0x0b"),
+					},
+				},
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
+			}
+			logs, err = api.GetLogs(ctx, crit)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(logs)).To(Equal(1))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog4}))
+
+			crit = filters.FilterCriteria{
+				Topics: [][]common.Hash{
+					{
+						common.HexToHash("0x04"),
+					},
+				},
+				FromBlock: test_helpers.MockBlock.Number(),
+				ToBlock:   test_helpers.MockBlock.Number(),
+			}
+			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(1))
 			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1}))
@@ -775,8 +874,8 @@ var _ = Describe("API", func() {
 			}
 			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
+			Expect(len(logs)).To(Equal(6))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2, test_helpers.MockLog3, test_helpers.MockLog4, test_helpers.MockLog5, test_helpers.MockLog6}))
 		})
 
 		It("Uses the provided blockhash if one is provided", func() {
@@ -911,8 +1010,8 @@ var _ = Describe("API", func() {
 			}
 			logs, err = api.GetLogs(ctx, crit)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(logs)).To(Equal(2))
-			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2}))
+			Expect(len(logs)).To(Equal(6))
+			Expect(logs).To(Equal([]*types.Log{test_helpers.MockLog1, test_helpers.MockLog2, test_helpers.MockLog3, test_helpers.MockLog4, test_helpers.MockLog5, test_helpers.MockLog6}))
 		})
 
 		It("Filters on contract address if any are provided", func() {
@@ -1034,20 +1133,3 @@ var _ = Describe("API", func() {
 		})
 	})
 })
-
-func publishCode(db *postgres.DB, codeHash common.Hash, code []byte) error {
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
-	mhKey, err := shared.MultihashKeyFromKeccak256(codeHash)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := shared.PublishDirect(tx, mhKey, code); err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
-}
