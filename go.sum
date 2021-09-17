@@ -1317,8 +1317,9 @@ github.com/vulcanize/gap-filler v0.3.1 h1:N5d+jCJo/VTWFvBSbTD7biRhK/OqDZzi1tgA85
 github.com/vulcanize/gap-filler v0.3.1/go.mod h1:qowG1cgshVpBqMokiWro/1xhh0uypw7oAu8FQ42JMy4=
 github.com/vulcanize/go-ethereum v1.10.8-statediff-0.0.26 h1:1UBVQpeJnHkmSKxXanbNGE8w+LR0iZhfGr0QrQ62+C4=
 github.com/vulcanize/go-ethereum v1.10.8-statediff-0.0.26/go.mod h1:nXs5fPBjAVzBmIGtrc0f7akQwkXI5Mi+6I1QcbD2br0=
-github.com/vulcanize/ipfs-ethdb v0.0.3 h1:Rflz7/PbZUao7Oyv9iy4VMhynDuxZ8Yy0SypovRqO8c=
 github.com/vulcanize/ipfs-ethdb v0.0.3/go.mod h1:VHyO1HhUYRtxsQ0EpF06VGGP8w4zGjvd+hXL6GK35xw=
+github.com/vulcanize/ipfs-ethdb v0.0.4-0.20210824131459-7bb49801fc12 h1:IKqHA89qA+VZBYt1nZ1EInVrAgB3iA5U+klkF4l8mn4=
+github.com/vulcanize/ipfs-ethdb v0.0.4-0.20210824131459-7bb49801fc12/go.mod h1:IueWysMbZu0uFmu+ia6mEnyWsTvwe2q2lbYdy2muRUM=
 github.com/warpfork/go-wish v0.0.0-20180510122957-5ad1f5abf436/go.mod h1:x6AKhvSSexNrVSrViXSHUEbICjmGXhtgABaHIySUSGw=
 github.com/warpfork/go-wish v0.0.0-20190328234359-8b3e70f8e830/go.mod h1:x6AKhvSSexNrVSrViXSHUEbICjmGXhtgABaHIySUSGw=
 github.com/warpfork/go-wish v0.0.0-20200122115046-b9ea61034e4a h1:G++j5e0OC488te356JvdhaM8YS6nMsjLAYF7JxCv07w=
