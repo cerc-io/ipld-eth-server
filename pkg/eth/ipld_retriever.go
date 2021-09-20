@@ -361,12 +361,12 @@ func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]stri
 			return nil, nil, err
 		}
 		rcts[i] = nodeVal
-		//rcts[i] = res.Data
 	}
 	return cids, rcts, nil
 }
 
-// RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash
+// RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
+// cid returned corresponds to the leaf node data which contains the receipt.
 func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
 	rctResults := make([]rctIpldResult, 0)
 	if err := r.db.Select(&rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
@@ -383,14 +383,14 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string,
 			return nil, nil, nil, err
 		}
 		rcts[i] = nodeVal
-		//rcts[i] = res.Data
 		txs[i] = common.HexToHash(res.TxHash)
 	}
 
 	return cids, rcts, txs, nil
 }
 
-// RetrieveReceiptsByBlockNumber returns the cids and rlp bytes for the receipts corresponding to the provided block hash
+// RetrieveReceiptsByBlockNumber returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
+// cid returned corresponds to the leaf node data which contains the receipt.
 func (r *IPLDRetriever) RetrieveReceiptsByBlockNumber(number uint64) ([]string, [][]byte, error) {
 	rctResults := make([]rctIpldResult, 0)
 	if err := r.db.Select(&rctResults, RetrieveReceiptsByBlockNumberPgStr, number); err != nil {
@@ -405,15 +405,23 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockNumber(number uint64) ([]string, 
 			return nil, nil, err
 		}
 		rcts[i] = nodeVal
-		//rcts[i] = res.Data
 	}
 	return cids, rcts, nil
 }
 
-// RetrieveReceiptByHash returns the cid and rlp bytes for the receipt corresponding to the provided tx hash
+// RetrieveReceiptByHash returns the cid and rlp bytes for the receipt corresponding to the provided tx hash.
+// cid returned corresponds to the leaf node data which contains the receipt.
 func (r *IPLDRetriever) RetrieveReceiptByHash(hash common.Hash) (string, []byte, error) {
 	rctResult := new(rctIpldResult)
-	return rctResult.LeafCID, rctResult.Data, r.db.Get(rctResult, RetrieveReceiptByTxHashPgStr, hash.Hex())
+	if err := r.db.Select(&rctResult, RetrieveReceiptByTxHashPgStr, hash.Hex()); err != nil {
+		return "", nil, err
+	}
+
+	nodeVal, err := DecodeLeafNode(rctResult.Data)
+	if err != nil {
+		return "", nil, err
+	}
+	return rctResult.LeafCID, nodeVal, nil
 }
 
 type nodeInfo struct {

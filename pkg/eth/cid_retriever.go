@@ -321,7 +321,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 				WHERE eth.log_cids.receipt_id = receipt_cids.id
 				AND receipt_cids.tx_id = transaction_cids.id
  				AND transaction_cids.header_id = header_cids.id
- 				AND receipt_cids.leaf_mh_key = blocks.key AND header_cids.block_hash = $1`
+ 				AND log_cids.leaf_mh_key = blocks.key AND header_cids.block_hash = $1`
 
 	args = append(args, blockHash.String())
 	id++

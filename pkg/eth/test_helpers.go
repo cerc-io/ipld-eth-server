@@ -56,7 +56,7 @@ func TxModelsContainsCID(txs []models.TxModel, cid string) bool {
 	return false
 }
 
-// ListContainsBytes used to check if a list of byte arrays contains a particular byte array
+// ReceiptModelsContainsCID used to check if a list of ReceiptModel contains a specific cid string
 func ReceiptModelsContainsCID(rcts []models.ReceiptModel, cid string) bool {
 	for _, rct := range rcts {
 		if rct.LeafCID == cid {
