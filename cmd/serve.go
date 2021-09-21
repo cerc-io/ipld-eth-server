@@ -23,14 +23,16 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/mailgun/groupcache/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-
 	"github.com/vulcanize/gap-filler/pkg/mux"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
 	srpc "github.com/vulcanize/ipld-eth-server/pkg/rpc"
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
@@ -84,6 +86,18 @@ func serve() {
 	err = startIpldGraphQL(serverConfig)
 	if err != nil {
 		logWithCommand.Fatal(err)
+	}
+
+	err = startGroupCacheService(serverConfig)
+	if err != nil {
+		logWithCommand.Fatal(err)
+	}
+
+	if serverConfig.StateValidationEnabled {
+		go startStateTrieValidator(serverConfig, server)
+		logWithCommand.Info("state validator enabled")
+	} else {
+		logWithCommand.Info("state validator disabled")
 	}
 
 	shutdown := make(chan os.Signal)
@@ -200,6 +214,83 @@ func startIpldGraphQL(settings *s.Config) error {
 	return nil
 }
 
+func startGroupCacheService(settings *s.Config) error {
+	gcc := settings.GroupCache
+
+	if gcc.Pool.Enabled {
+		logWithCommand.Info("starting up groupcache pool HTTTP server")
+
+		pool := groupcache.NewHTTPPoolOpts(gcc.Pool.HttpEndpoint, &groupcache.HTTPPoolOptions{})
+		pool.Set(gcc.Pool.PeerHttpEndpoints...)
+
+		httpURL, err := url.Parse(gcc.Pool.HttpEndpoint)
+		if err != nil {
+			return err
+		}
+
+		server := http.Server{
+			Addr:    httpURL.Host,
+			Handler: pool,
+		}
+
+		// Start a HTTP server to listen for peer requests from the groupcache
+		go server.ListenAndServe()
+
+		logWithCommand.Infof("groupcache pool endpoint opened for url %s", httpURL)
+	} else {
+		logWithCommand.Info("Groupcache pool is disabled")
+	}
+
+	return nil
+}
+
+func startStateTrieValidator(config *s.Config, server s.Server) {
+	validateEveryNthBlock := config.StateValidationEveryNthBlock
+
+	var lastBlockNumber uint64
+	backend := server.Backend()
+
+	for {
+		time.Sleep(5 * time.Second)
+
+		block, err := backend.CurrentBlock()
+		if err != nil {
+			log.Errorln("Error fetching current block for state trie validator")
+			continue
+		}
+
+		stateRoot := block.Root()
+		blockNumber := block.NumberU64()
+		blockHash := block.Hash()
+
+		if validateEveryNthBlock <= 0 || // Used for static replicas where block number doesn't progress.
+			(blockNumber > lastBlockNumber) && (blockNumber%validateEveryNthBlock == 0) {
+
+			// The validate trie call will take a long time on mainnet, e.g. a few hours.
+			if err = backend.ValidateTrie(stateRoot); err != nil {
+				log.Fatalf("Error validating trie for block number %d hash %s state root %s",
+					blockNumber,
+					blockHash,
+					stateRoot,
+				)
+			}
+
+			log.Infof("Successfully validated trie for block number %d hash %s state root %s",
+				blockNumber,
+				blockHash,
+				stateRoot,
+			)
+
+			if validateEveryNthBlock <= 0 {
+				// Static replica, sleep a long-ish time (1/2 of cache expiry time) since we only need to keep the cache warm.
+				time.Sleep((time.Minute * time.Duration(config.GroupCache.StateDB.CacheExpiryInMins)) / 2)
+			}
+
+			lastBlockNumber = blockNumber
+		}
+	}
+}
+
 func parseRpcAddresses(value string) ([]*rpc.Client, error) {
 	rpcAddresses := strings.Split(value, ",")
 	rpcClients := make([]*rpc.Client, 0, len(rpcAddresses))
@@ -224,12 +315,7 @@ func parseRpcAddresses(value string) ([]*rpc.Client, error) {
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	// database credentials
-	serveCmd.PersistentFlags().String("database-name", "vulcanize_public", "database name")
-	serveCmd.PersistentFlags().Int("database-port", 5432, "database port")
-	serveCmd.PersistentFlags().String("database-hostname", "localhost", "database hostname")
-	serveCmd.PersistentFlags().String("database-user", "", "database user")
-	serveCmd.PersistentFlags().String("database-password", "", "database password")
+	addDatabaseFlags(serveCmd)
 
 	// flags for all config variables
 	// eth graphql and json-rpc parameters
@@ -260,14 +346,19 @@ func init() {
 	serveCmd.PersistentFlags().String("eth-chain-config", "", "json chain config file location")
 	serveCmd.PersistentFlags().Bool("eth-supports-state-diff", false, "whether or not the proxy ethereum client supports statediffing endpoints")
 
-	// and their bindings
-	// database
-	viper.BindPFlag("database.name", serveCmd.PersistentFlags().Lookup("database-name"))
-	viper.BindPFlag("database.port", serveCmd.PersistentFlags().Lookup("database-port"))
-	viper.BindPFlag("database.hostname", serveCmd.PersistentFlags().Lookup("database-hostname"))
-	viper.BindPFlag("database.user", serveCmd.PersistentFlags().Lookup("database-user"))
-	viper.BindPFlag("database.password", serveCmd.PersistentFlags().Lookup("database-password"))
+	// groupcache flags
+	serveCmd.PersistentFlags().Bool("gcache-pool-enabled", false, "turn on the groupcache pool")
+	serveCmd.PersistentFlags().String("gcache-pool-http-path", "", "http url for groupcache node")
+	serveCmd.PersistentFlags().StringArray("gcache-pool-http-peers", []string{}, "http urls for groupcache peers")
+	serveCmd.PersistentFlags().Int("gcache-statedb-cache-size", 16, "state DB cache size in MB")
+	serveCmd.PersistentFlags().Int("gcache-statedb-cache-expiry", 60, "state DB cache expiry time in mins")
+	serveCmd.PersistentFlags().Int("gcache-statedb-log-stats-interval", 60, "state DB cache stats log interval in secs")
 
+	// state validator flags
+	serveCmd.PersistentFlags().Bool("validator-enabled", false, "turn on the state validator")
+	serveCmd.PersistentFlags().Uint("validator-every-nth-block", 1500, "only validate every Nth block")
+
+	// and their bindings
 	// eth graphql server
 	viper.BindPFlag("eth.server.graphql", serveCmd.PersistentFlags().Lookup("eth-server-graphql"))
 	viper.BindPFlag("eth.server.graphqlPath", serveCmd.PersistentFlags().Lookup("eth-server-graphql-path"))
@@ -301,4 +392,16 @@ func init() {
 	viper.BindPFlag("ethereum.rpcGasCap", serveCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
 	viper.BindPFlag("ethereum.chainConfig", serveCmd.PersistentFlags().Lookup("eth-chain-config"))
 	viper.BindPFlag("ethereum.supportsStateDiff", serveCmd.PersistentFlags().Lookup("eth-supports-state-diff"))
+
+	// groupcache flags
+	viper.BindPFlag("groupcache.pool.enabled", serveCmd.PersistentFlags().Lookup("gcache-pool-enabled"))
+	viper.BindPFlag("groupcache.pool.httpEndpoint", serveCmd.PersistentFlags().Lookup("gcache-pool-http-path"))
+	viper.BindPFlag("groupcache.pool.peerHttpEndpoints", serveCmd.PersistentFlags().Lookup("gcache-pool-http-peers"))
+	viper.BindPFlag("groupcache.statedb.cacheSizeInMB", serveCmd.PersistentFlags().Lookup("gcache-statedb-cache-size"))
+	viper.BindPFlag("groupcache.statedb.cacheExpiryInMins", serveCmd.PersistentFlags().Lookup("gcache-statedb-cache-expiry"))
+	viper.BindPFlag("groupcache.statedb.logStatsIntervalInSecs", serveCmd.PersistentFlags().Lookup("gcache-statedb-log-stats-interval"))
+
+	// state validator flags
+	viper.BindPFlag("validator.enabled", serveCmd.PersistentFlags().Lookup("validator-enabled"))
+	viper.BindPFlag("validator.everyNthBlock", serveCmd.PersistentFlags().Lookup("validator-every-nth-block"))
 }

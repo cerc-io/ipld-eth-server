@@ -1,5 +1,5 @@
 // VulcanizeDB
-// Copyright © 2019 Vulcanize
+// Copyright © 2021 Vulcanize
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -16,14 +16,23 @@
 
 package shared
 
-const (
-	DefaultMaxBatchSize   uint64 = 100
-	DefaultMaxBatchNumber int64  = 50
+type PoolConfig struct {
+	Enabled           bool
+	HttpEndpoint      string
+	PeerHttpEndpoints []string
+}
 
-	GcachePoolEnabled             = "GCACHE_POOL_ENABLED"
-	GcachePoolHttpPath            = "GCACHE_POOL_HTTP_PATH"
-	GcachePoolHttpPeers           = "GCACHE_POOL_HTTP_PEERS"
-	GcacheStatedbCacheSize        = "GCACHE_STATEDB_CACHE_SIZE"
-	GcacheStatedbCacheExpiry      = "GCACHE_STATEDB_CACHE_EXPIRY"
-	GcacheStatedbLogStatsInterval = "GCACHE_STATEDB_LOG_STATS_INTERVAL"
-)
+type GroupConfig struct {
+	CacheSizeInMB          int
+	CacheExpiryInMins      int
+	LogStatsIntervalInSecs int
+
+	// Used in tests to override the cache name, to work around
+	// the "duplicate registration of group" error from groupcache
+	Name string
+}
+
+type GroupCacheConfig struct {
+	Pool    PoolConfig
+	StateDB GroupConfig
+}

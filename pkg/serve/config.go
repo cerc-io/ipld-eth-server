@@ -28,9 +28,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/pkg/prom"
+	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 // Env variables
@@ -47,6 +48,9 @@ const (
 	ethRPCGasCap         = "ETH_RPC_GAS_CAP"
 	ethChainConfig       = "ETH_CHAIN_CONFIG"
 	ethSupportsStatediff = "ETH_SUPPORTS_STATEDIFF"
+
+	ValidatorEnabled       = "VALIDATOR_ENABLED"
+	ValidatorEveryNthBlock = "VALIDATOR_EVERY_NTH_BLOCK"
 )
 
 // Config struct
@@ -79,6 +83,12 @@ type Config struct {
 	EthHttpEndpoint  string
 	Client           *rpc.Client
 	SupportStateDiff bool
+
+	// Cache configuration.
+	GroupCache *ethServerShared.GroupCacheConfig
+
+	StateValidationEnabled       bool
+	StateValidationEveryNthBlock uint64
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -205,6 +215,11 @@ func NewConfig() (*Config, error) {
 	} else {
 		c.ChainConfig, err = eth.ChainConfig(nodeInfo.ChainID)
 	}
+
+	c.loadGroupCacheConfig()
+
+	c.loadValidatorConfig()
+
 	return c, err
 }
 
@@ -217,7 +232,7 @@ func overrideDBConnConfig(con *postgres.ConnectionConfig) {
 	con.MaxLifetime = viper.GetInt("database.server.maxLifetime")
 }
 
-func (d *Config) dbInit() {
+func (c *Config) dbInit() {
 	viper.BindEnv("database.name", databaseName)
 	viper.BindEnv("database.hostname", databaseHostname)
 	viper.BindEnv("database.port", databasePort)
@@ -227,12 +242,43 @@ func (d *Config) dbInit() {
 	viper.BindEnv("database.maxOpen", databaseMaxOpenConnections)
 	viper.BindEnv("database.maxLifetime", databaseMaxOpenConnLifetime)
 
-	d.DBParams.Name = viper.GetString("database.name")
-	d.DBParams.Hostname = viper.GetString("database.hostname")
-	d.DBParams.Port = viper.GetInt("database.port")
-	d.DBParams.User = viper.GetString("database.user")
-	d.DBParams.Password = viper.GetString("database.password")
-	d.DBConfig.MaxIdle = viper.GetInt("database.maxIdle")
-	d.DBConfig.MaxOpen = viper.GetInt("database.maxOpen")
-	d.DBConfig.MaxLifetime = viper.GetInt("database.maxLifetime")
+	c.DBParams.Name = viper.GetString("database.name")
+	c.DBParams.Hostname = viper.GetString("database.hostname")
+	c.DBParams.Port = viper.GetInt("database.port")
+	c.DBParams.User = viper.GetString("database.user")
+	c.DBParams.Password = viper.GetString("database.password")
+	c.DBConfig.MaxIdle = viper.GetInt("database.maxIdle")
+	c.DBConfig.MaxOpen = viper.GetInt("database.maxOpen")
+	c.DBConfig.MaxLifetime = viper.GetInt("database.maxLifetime")
+}
+
+func (c *Config) loadGroupCacheConfig() {
+	viper.BindEnv("groupcache.pool.enabled", ethServerShared.GcachePoolEnabled)
+	viper.BindEnv("groupcache.pool.httpEndpoint", ethServerShared.GcachePoolHttpPath)
+	viper.BindEnv("groupcache.pool.peerHttpEndpoints", ethServerShared.GcachePoolHttpPeers)
+	viper.BindEnv("groupcache.statedb.cacheSizeInMB", ethServerShared.GcacheStatedbCacheSize)
+	viper.BindEnv("groupcache.statedb.cacheExpiryInMins", ethServerShared.GcacheStatedbCacheExpiry)
+	viper.BindEnv("groupcache.statedb.logStatsIntervalInSecs", ethServerShared.GcacheStatedbLogStatsInterval)
+
+	gcc := ethServerShared.GroupCacheConfig{}
+	gcc.Pool.Enabled = viper.GetBool("groupcache.pool.enabled")
+	if gcc.Pool.Enabled {
+		gcc.Pool.HttpEndpoint = viper.GetString("groupcache.pool.httpEndpoint")
+		gcc.Pool.PeerHttpEndpoints = viper.GetStringSlice("groupcache.pool.peerHttpEndpoints")
+	}
+
+	// Irrespective of whether the pool is enabled, we always use the hot/local cache.
+	gcc.StateDB.CacheSizeInMB = viper.GetInt("groupcache.statedb.cacheSizeInMB")
+	gcc.StateDB.CacheExpiryInMins = viper.GetInt("groupcache.statedb.cacheExpiryInMins")
+	gcc.StateDB.LogStatsIntervalInSecs = viper.GetInt("groupcache.statedb.logStatsIntervalInSecs")
+
+	c.GroupCache = &gcc
+}
+
+func (c *Config) loadValidatorConfig() {
+	viper.BindEnv("validator.enabled", ValidatorEnabled)
+	viper.BindEnv("validator.everyNthBlock", ValidatorEveryNthBlock)
+
+	c.StateValidationEnabled = viper.GetBool("validator.enabled")
+	c.StateValidationEveryNthBlock = viper.GetUint64("validator.everyNthBlock")
 }

@@ -21,7 +21,6 @@ import (
 	"context"
 	"io/ioutil"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,10 +36,10 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -80,12 +79,15 @@ var _ = Describe("eth state reading tests", func() {
 		transformer := indexer.NewStateDiffIndexer(chainConfig, db)
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
-			VmConfig:    vm.Config{},
+			VMConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
-			CacheConfig: pgipfsethdb.CacheConfig{
-				Name:           "eth_state",
-				Size:           3000000, // 3MB
-				ExpiryDuration: time.Hour,
+			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
+				StateDB: ethServerShared.GroupConfig{
+					Name:                   "eth_state_test",
+					CacheSizeInMB:          8,
+					CacheExpiryInMins:      60,
+					LogStatsIntervalInSecs: 0,
+				},
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())

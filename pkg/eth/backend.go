@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -41,9 +42,13 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
-	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
+	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	"github.com/ethereum/go-ethereum/trie"
-	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+	log "github.com/sirupsen/logrus"
+	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
+	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -83,6 +88,10 @@ const (
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
 
+const (
+	StateDBGroupCacheName = "statedb"
+)
+
 type Backend struct {
 	// underlying postgres db
 	DB *postgres.DB
@@ -100,17 +109,30 @@ type Backend struct {
 }
 
 type Config struct {
-	ChainConfig   *params.ChainConfig
-	VmConfig      vm.Config
-	DefaultSender *common.Address
-	RPCGasCap     *big.Int
-	CacheConfig   pgipfsethdb.CacheConfig
+	ChainConfig      *params.ChainConfig
+	VMConfig         vm.Config
+	DefaultSender    *common.Address
+	RPCGasCap        *big.Int
+	GroupCacheConfig *shared.GroupCacheConfig
 }
 
 func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
-	r := NewCIDRetriever(db)
+	gcc := c.GroupCacheConfig
 
-	ethDB := pgipfsethdb.NewDatabase(db.DB, c.CacheConfig)
+	groupName := gcc.StateDB.Name
+	if groupName == "" {
+		groupName = StateDBGroupCacheName
+	}
+
+	r := NewCIDRetriever(db)
+	ethDB := ipfsethdb.NewDatabase(db.DB, ipfsethdb.CacheConfig{
+		Name:           groupName,
+		Size:           gcc.StateDB.CacheSizeInMB * 1024 * 1024,
+		ExpiryDuration: time.Minute * time.Duration(gcc.StateDB.CacheExpiryInMins),
+	})
+
+	logStateDBStatsOnTimer(ethDB, gcc)
+
 	return &Backend{
 		DB:            db,
 		Retriever:     r,
@@ -292,10 +314,10 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
@@ -383,10 +405,10 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
@@ -592,7 +614,7 @@ func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.Sta
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmctx := core.NewEVMBlockContext(header, b, nil)
 	txContext := core.NewEVMTxContext(msg)
-	return vm.NewEVM(vmctx, txContext, state, b.Config.ChainConfig, b.Config.VmConfig), nil
+	return vm.NewEVM(vmctx, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), nil
 }
 
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash
@@ -704,10 +726,10 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			ethServerShared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
@@ -717,7 +739,7 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 		return nil, err
 	}
 	var mhKey string
-	mhKey, err = shared.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
+	mhKey, err = ethServerShared.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
 	if err != nil {
 		return nil, err
 	}
@@ -794,6 +816,10 @@ func (b *Backend) GetHeader(hash common.Hash, height uint64) *types.Header {
 	return header
 }
 
+func (b *Backend) ValidateTrie(stateRoot common.Hash) error {
+	return validator.NewValidator(nil, b.EthDB).ValidateTrie(stateRoot)
+}
+
 // RPCGasCap returns the configured gas cap for the rpc server
 func (b *Backend) RPCGasCap() *big.Int {
 	return b.Config.RPCGasCap
@@ -825,4 +851,19 @@ func (b *Backend) BloomStatus() (uint64, uint64) {
 
 func (b *Backend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	panic("implement me")
+}
+
+func logStateDBStatsOnTimer(ethDB *ipfsethdb.Database, gcc *shared.GroupCacheConfig) {
+	// No stats logging if interval isn't a positive integer.
+	if gcc.StateDB.LogStatsIntervalInSecs <= 0 {
+		return
+	}
+
+	ticker := time.NewTicker(time.Duration(gcc.StateDB.LogStatsIntervalInSecs) * time.Second)
+
+	go func() {
+		for range ticker.C {
+			log.Infof("%s groupcache stats: %+v", StateDBGroupCacheName, ethDB.GetCacheStats())
+		}
+	}()
 }

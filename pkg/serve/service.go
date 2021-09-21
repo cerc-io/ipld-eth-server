@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -31,7 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	log "github.com/sirupsen/logrus"
-	pgipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/net"
 )
@@ -100,15 +99,11 @@ func NewServer(settings *Config) (Server, error) {
 	sap.supportsStateDiffing = settings.SupportStateDiff
 	var err error
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
-		ChainConfig:   settings.ChainConfig,
-		VmConfig:      vm.Config{},
-		DefaultSender: settings.DefaultSender,
-		RPCGasCap:     settings.RPCGasCap,
-		CacheConfig: pgipfsethdb.CacheConfig{
-			Name:           "ipld-eth-server",
-			Size:           3000000, // 3MB
-			ExpiryDuration: time.Hour,
-		},
+		ChainConfig:      settings.ChainConfig,
+		VMConfig:         vm.Config{},
+		DefaultSender:    settings.DefaultSender,
+		RPCGasCap:        settings.RPCGasCap,
+		GroupCacheConfig: settings.GroupCache,
 	})
 	return sap, err
 }
