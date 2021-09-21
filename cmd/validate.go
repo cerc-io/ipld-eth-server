@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/viper"
 	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
 	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
 )
 

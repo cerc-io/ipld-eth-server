@@ -3,6 +3,7 @@ module github.com/vulcanize/ipld-eth-server
 go 1.13
 
 require (
+	github.com/daixiang0/gci v0.2.9 // indirect
 	github.com/ethereum/go-ethereum v1.10.8
 	github.com/graph-gophers/graphql-go v0.0.0-20201113091052-beb923fada29
 	github.com/ipfs/go-block-format v0.0.2

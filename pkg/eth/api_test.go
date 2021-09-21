@@ -213,7 +213,7 @@ var _ = Describe("API", func() {
 		indexAndPublisher := indexer.NewStateDiffIndexer(chainConfig, db)
 		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
-			VmConfig:    vm.Config{},
+			VMConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
 			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
 				StateDB: ethServerShared.GroupConfig{

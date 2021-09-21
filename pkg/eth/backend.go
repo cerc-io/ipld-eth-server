@@ -45,10 +45,10 @@ import (
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	"github.com/ethereum/go-ethereum/trie"
 	log "github.com/sirupsen/logrus"
-	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
-
 	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
+	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -110,7 +110,7 @@ type Backend struct {
 
 type Config struct {
 	ChainConfig      *params.ChainConfig
-	VmConfig         vm.Config
+	VMConfig         vm.Config
 	DefaultSender    *common.Address
 	RPCGasCap        *big.Int
 	GroupCacheConfig *shared.GroupCacheConfig
@@ -614,7 +614,7 @@ func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.Sta
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmctx := core.NewEVMBlockContext(header, b, nil)
 	txContext := core.NewEVMTxContext(msg)
-	return vm.NewEVM(vmctx, txContext, state, b.Config.ChainConfig, b.Config.VmConfig), nil
+	return vm.NewEVM(vmctx, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), nil
 }
 
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash
@@ -862,11 +862,8 @@ func logStateDBStatsOnTimer(ethDB *ipfsethdb.Database, gcc *shared.GroupCacheCon
 	ticker := time.NewTicker(time.Duration(gcc.StateDB.LogStatsIntervalInSecs) * time.Second)
 
 	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				log.Infof("%s groupcache stats: %+v", StateDBGroupCacheName, ethDB.GetCacheStats())
-			}
+		for range ticker.C {
+			log.Infof("%s groupcache stats: %+v", StateDBGroupCacheName, ethDB.GetCacheStats())
 		}
 	}()
 }

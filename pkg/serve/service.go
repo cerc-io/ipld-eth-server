@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	log "github.com/sirupsen/logrus"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/net"
 )
@@ -99,7 +100,7 @@ func NewServer(settings *Config) (Server, error) {
 	var err error
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:      settings.ChainConfig,
-		VmConfig:         vm.Config{},
+		VMConfig:         vm.Config{},
 		DefaultSender:    settings.DefaultSender,
 		RPCGasCap:        settings.RPCGasCap,
 		GroupCacheConfig: settings.GroupCache,

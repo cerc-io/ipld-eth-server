@@ -84,7 +84,7 @@ var _ = Describe("GraphQL", func() {
 		transformer := indexer.NewStateDiffIndexer(chainConfig, db)
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
-			VmConfig:    vm.Config{},
+			VMConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000),
 			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
 				StateDB: ethServerShared.GroupConfig{

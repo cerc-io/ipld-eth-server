@@ -30,9 +30,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-
 	"github.com/vulcanize/gap-filler/pkg/mux"
+
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
 	srpc "github.com/vulcanize/ipld-eth-server/pkg/rpc"
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
@@ -247,7 +247,7 @@ func startGroupCacheService(settings *s.Config) error {
 func startStateTrieValidator(config *s.Config, server s.Server) {
 	validateEveryNthBlock := config.StateValidationEveryNthBlock
 
-	var lastBlockNumber uint64 = 0
+	var lastBlockNumber uint64
 	backend := server.Backend()
 
 	for {
