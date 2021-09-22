@@ -396,7 +396,7 @@ var _ = Describe("Integration test", func() {
 		It("get storage after selfdestruct", func() {
 			totalSupplyIndex := "0x2"
 
-			tx, err := integration.DestoyContract(contract.Address)
+			tx, err := integration.DestroyContract(contract.Address)
 			Expect(err).ToNot(HaveOccurred())
 
 			time.Sleep(sleepInterval)
