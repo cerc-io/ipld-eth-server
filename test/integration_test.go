@@ -393,7 +393,7 @@ var _ = Describe("Integration test", func() {
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
 
-		It("get storage after selfdestruct", func() {
+		It("get storage after self destruct", func() {
 			totalSupplyIndex := "0x2"
 
 			tx, err := integration.DestroyContract(contract.Address)

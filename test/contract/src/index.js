@@ -1,6 +1,7 @@
 const fastify = require('fastify')({ logger: true });
 const hre = require("hardhat");
 
+
 // readiness check
 fastify.get('/v1/healthz', async (req, reply) => {
     reply
@@ -28,7 +29,11 @@ fastify.get('/v1/destroyContract', async (req, reply) => {
     const Token = await hre.ethers.getContractFactory("GLDToken");
     const token = await Token.attach(addr);
 
-    return token.destroy();
+    await token.destroy();
+    const blockNum = await hre.ethers.provider.getBlockNumber()
+    return {
+        blockNumber: blockNum,
+    }
 })
 
 fastify.get('/v1/sendEth', async (req, reply) => {
