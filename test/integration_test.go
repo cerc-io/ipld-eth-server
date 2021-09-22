@@ -399,6 +399,8 @@ var _ = Describe("Integration test", func() {
 			tx, err := integration.DestoyContract(contract.Address)
 			Expect(err).ToNot(HaveOccurred())
 
+			time.Sleep(sleepInterval)
+
 			gethStorage1, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber-1))
 			Expect(err).ToNot(HaveOccurred())
 			gethStorage2, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber))
