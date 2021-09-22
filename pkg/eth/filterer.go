@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
 
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
@@ -164,7 +165,12 @@ func checkTransactionAddrs(wantedSrc, wantedDst []string, actualSrc, actualDst s
 func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *IPLDs, payload ConvertedPayload, trxHashes []common.Hash) error {
 	if !receiptFilter.Off {
 		response.Receipts = make([]ipfs.BlockModel, 0, len(payload.Receipts))
-		for _, receipt := range payload.Receipts {
+		rctLeafCID, rctIPLDData, err := GetRctLeafNodeData(payload.Receipts)
+		if err != nil {
+			return err
+		}
+
+		for idx, receipt := range payload.Receipts {
 			// topics is always length 4
 			topics := make([][]string, 4)
 			contracts := make([]string, len(receipt.Logs))
@@ -177,18 +183,9 @@ func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *
 
 			// TODO: Verify this filter logic.
 			if checkReceipts(receipt, receiptFilter.Topics, topics, receiptFilter.LogAddresses, contracts, trxHashes) {
-				receiptBuffer := new(bytes.Buffer)
-				if err := receipt.EncodeRLP(receiptBuffer); err != nil {
-					return err
-				}
-				data := receiptBuffer.Bytes()
-				cid, err := ipld.RawdataToCid(ipld.MEthTxReceipt, data, multihash.KECCAK_256)
-				if err != nil {
-					return err
-				}
 				response.Receipts = append(response.Receipts, ipfs.BlockModel{
-					Data: data,
-					CID:  cid.String(),
+					Data: rctIPLDData[idx],
+					CID:  rctLeafCID[idx].String(),
 				})
 			}
 		}
@@ -328,4 +325,41 @@ func checkNodeKeys(wantedKeys []common.Hash, actualKey []byte) bool {
 		}
 	}
 	return false
+}
+
+// GetRctLeafNodeData converts the receipts to receipt trie and returns the receipt leaf node IPLD data and
+// corresponding CIDs
+func GetRctLeafNodeData(rcts types.Receipts) ([]cid.Cid, [][]byte, error) {
+	receiptTrie := ipld.NewRctTrie()
+	for idx, rct := range rcts {
+		ethRct, err := ipld.NewReceipt(rct)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err = receiptTrie.Add(idx, ethRct.RawData()); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	rctLeafNodes, keys, err := receiptTrie.GetLeafNodes()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ethRctleafNodeCids := make([]cid.Cid, len(rctLeafNodes))
+	ethRctleafNodeData := make([][]byte, len(rctLeafNodes))
+	for i, rln := range rctLeafNodes {
+		var idx uint
+
+		r := bytes.NewReader(keys[i].TrieKey)
+		err = rlp.Decode(r, &idx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ethRctleafNodeCids[idx] = rln.Cid()
+		ethRctleafNodeData[idx] = rln.RawData()
+	}
+
+	return ethRctleafNodeCids, ethRctleafNodeData, nil
 }

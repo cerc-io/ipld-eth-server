@@ -19,6 +19,9 @@ package eth
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/statediff/trie"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -81,29 +84,29 @@ const (
 									FROM eth.transaction_cids
 										INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
 									WHERE tx_hash = $1`
-	RetrieveReceiptsByTxHashesPgStr = `SELECT receipt_cids.cid, data
+	RetrieveReceiptsByTxHashesPgStr = `SELECT receipt_cids.leaf_cid, data
 									FROM eth.receipt_cids
 										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
-										INNER JOIN public.blocks ON (receipt_cids.mh_key = blocks.key)
+										INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.cid, data, eth.transaction_cids.tx_hash
+	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
 											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.id)
-											INNER JOIN public.blocks ON (receipt_cids.mh_key = blocks.key)
+											INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
 										WHERE block_hash = $1
 										ORDER BY eth.transaction_cids.index ASC`
-	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.cid, data
+	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.leaf_cid, data
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
 											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.id)
-											INNER JOIN public.blocks ON (receipt_cids.mh_key = blocks.key)
+											INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
 										WHERE block_number = $1
 										ORDER BY eth.transaction_cids.index ASC`
-	RetrieveReceiptByTxHashPgStr = `SELECT receipt_cids.cid, data
+	RetrieveReceiptByTxHashPgStr = `SELECT receipt_cids.leaf_cid, data
 									FROM eth.receipt_cids
 										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
-										INNER JOIN public.blocks ON (receipt_cids.mh_key = blocks.key)
+										INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
 									WHERE tx_hash = $1`
 	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, data, state_cids.node_type
 												FROM eth.state_cids
@@ -148,6 +151,12 @@ const (
 																	ORDER BY block_number DESC
 																	LIMIT 1`
 )
+
+type rctIpldResult struct {
+	LeafCID string `db:"leaf_cid"`
+	Data    []byte `db:"data"`
+	TxHash  string `db:"tx_hash"`
+}
 
 type ipldResult struct {
 	CID    string `db:"cid"`
@@ -316,9 +325,26 @@ func (r *IPLDRetriever) RetrieveTransactionByTxHash(hash common.Hash) (string, [
 	return txResult.CID, txResult.Data, r.db.Get(txResult, RetrieveTransactionByHashPgStr, hash.Hex())
 }
 
+// DecodeLeafNode decodes the leaf node data
+func DecodeLeafNode(node []byte) ([]byte, error) {
+	var nodeElements []interface{}
+	if err := rlp.DecodeBytes(node, &nodeElements); err != nil {
+		return nil, err
+	}
+	ty, err := trie.CheckKeyType(nodeElements)
+	if err != nil {
+		return nil, err
+	}
+
+	if ty != sdtypes.Leaf {
+		return nil, fmt.Errorf("expected leaf node but found %s", ty)
+	}
+	return nodeElements[1].([]byte), nil
+}
+
 // RetrieveReceiptsByTxHashes returns the cids and rlp bytes for the receipts corresponding to the provided tx hashes
 func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]string, [][]byte, error) {
-	rctResults := make([]ipldResult, 0)
+	rctResults := make([]rctIpldResult, 0)
 	hashStrs := make([]string, len(hashes))
 	for i, hash := range hashes {
 		hashStrs[i] = hash.Hex()
@@ -329,15 +355,20 @@ func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]stri
 	cids := make([]string, len(rctResults))
 	rcts := make([][]byte, len(rctResults))
 	for i, res := range rctResults {
-		cids[i] = res.CID
-		rcts[i] = res.Data
+		cids[i] = res.LeafCID
+		nodeVal, err := DecodeLeafNode(res.Data)
+		if err != nil {
+			return nil, nil, err
+		}
+		rcts[i] = nodeVal
 	}
 	return cids, rcts, nil
 }
 
-// RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash
+// RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
+// cid returned corresponds to the leaf node data which contains the receipt.
 func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
-	rctResults := make([]ipldResult, 0)
+	rctResults := make([]rctIpldResult, 0)
 	if err := r.db.Select(&rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, nil, err
 	}
@@ -346,33 +377,51 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string,
 	txs := make([]common.Hash, len(rctResults))
 
 	for i, res := range rctResults {
-		cids[i] = res.CID
-		rcts[i] = res.Data
+		cids[i] = res.LeafCID
+		nodeVal, err := DecodeLeafNode(res.Data)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rcts[i] = nodeVal
 		txs[i] = common.HexToHash(res.TxHash)
 	}
 
 	return cids, rcts, txs, nil
 }
 
-// RetrieveReceiptsByBlockNumber returns the cids and rlp bytes for the receipts corresponding to the provided block hash
+// RetrieveReceiptsByBlockNumber returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
+// cid returned corresponds to the leaf node data which contains the receipt.
 func (r *IPLDRetriever) RetrieveReceiptsByBlockNumber(number uint64) ([]string, [][]byte, error) {
-	rctResults := make([]ipldResult, 0)
+	rctResults := make([]rctIpldResult, 0)
 	if err := r.db.Select(&rctResults, RetrieveReceiptsByBlockNumberPgStr, number); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(rctResults))
 	rcts := make([][]byte, len(rctResults))
 	for i, res := range rctResults {
-		cids[i] = res.CID
-		rcts[i] = res.Data
+		cids[i] = res.LeafCID
+		nodeVal, err := DecodeLeafNode(res.Data)
+		if err != nil {
+			return nil, nil, err
+		}
+		rcts[i] = nodeVal
 	}
 	return cids, rcts, nil
 }
 
-// RetrieveReceiptByHash returns the cid and rlp bytes for the receipt corresponding to the provided tx hash
+// RetrieveReceiptByHash returns the cid and rlp bytes for the receipt corresponding to the provided tx hash.
+// cid returned corresponds to the leaf node data which contains the receipt.
 func (r *IPLDRetriever) RetrieveReceiptByHash(hash common.Hash) (string, []byte, error) {
-	rctResult := new(ipldResult)
-	return rctResult.CID, rctResult.Data, r.db.Get(rctResult, RetrieveReceiptByTxHashPgStr, hash.Hex())
+	rctResult := new(rctIpldResult)
+	if err := r.db.Select(&rctResult, RetrieveReceiptByTxHashPgStr, hash.Hex()); err != nil {
+		return "", nil, err
+	}
+
+	nodeVal, err := DecodeLeafNode(rctResult.Data)
+	if err != nil {
+		return "", nil, err
+	}
+	return rctResult.LeafCID, nodeVal, nil
 }
 
 type nodeInfo struct {

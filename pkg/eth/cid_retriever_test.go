@@ -239,6 +239,17 @@ var _ = Describe("Retriever", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("Retrieves all CIDs for the given blocknumber when provided an open filter", func() {
+			type rctCIDAndMHKeyResult struct {
+				LeafCID   string `db:"leaf_cid"`
+				LeafMhKey string `db:"leaf_mh_key"`
+			}
+			expectedRctCIDsAndLeafNodes := make([]rctCIDAndMHKeyResult, 0)
+			pgStr := `SELECT receipt_cids.leaf_cid, receipt_cids.leaf_mh_key FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
+				WHERE receipt_cids.tx_id = transaction_cids.id
+				AND transaction_cids.header_id = header_cids.id
+				AND header_cids.block_number = $1
+				ORDER BY transaction_cids.index`
+			err := db.Select(&expectedRctCIDsAndLeafNodes, pgStr, test_helpers.BlockNumber.Uint64())
 			cids, empty, err := retriever.Retrieve(openFilter, 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
@@ -254,9 +265,9 @@ var _ = Describe("Retriever", func() {
 			Expect(eth.TxModelsContainsCID(cids[0].Transactions, test_helpers.MockCIDWrapper.Transactions[1].CID)).To(BeTrue())
 			Expect(eth.TxModelsContainsCID(cids[0].Transactions, test_helpers.MockCIDWrapper.Transactions[2].CID)).To(BeTrue())
 			Expect(len(cids[0].Receipts)).To(Equal(4))
-			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, test_helpers.MockCIDWrapper.Receipts[0].CID)).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, test_helpers.MockCIDWrapper.Receipts[1].CID)).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, test_helpers.MockCIDWrapper.Receipts[2].CID)).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, expectedRctCIDsAndLeafNodes[0].LeafCID)).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, expectedRctCIDsAndLeafNodes[1].LeafCID)).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids[0].Receipts, expectedRctCIDsAndLeafNodes[2].LeafCID)).To(BeTrue())
 			Expect(len(cids[0].StateNodes)).To(Equal(2))
 
 			for _, stateNode := range cids[0].StateNodes {
@@ -279,6 +290,17 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Applies filters from the provided config.Subscription", func() {
+			type rctCIDAndMHKeyResult struct {
+				LeafCID   string `db:"leaf_cid"`
+				LeafMhKey string `db:"leaf_mh_key"`
+			}
+			expectedRctCIDsAndLeafNodes := make([]rctCIDAndMHKeyResult, 0)
+			pgStr := `SELECT receipt_cids.leaf_cid, receipt_cids.leaf_mh_key FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
+				WHERE receipt_cids.tx_id = transaction_cids.id
+				AND transaction_cids.header_id = header_cids.id
+				AND header_cids.block_number = $1
+				ORDER BY transaction_cids.index`
+			err := db.Select(&expectedRctCIDsAndLeafNodes, pgStr, test_helpers.BlockNumber.Uint64())
 			cids1, empty, err := retriever.Retrieve(rctAddressFilter, 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
@@ -292,6 +314,8 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID := test_helpers.MockCIDWrapper.Receipts[0]
 			expectedReceiptCID.ID = cids1[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids1[0].Receipts[0].TxID
+			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[0].LeafCID
+			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[0].LeafMhKey
 			Expect(cids1[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
 			cids2, empty, err := retriever.Retrieve(rctTopicsFilter, 1)
@@ -307,6 +331,8 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[0]
 			expectedReceiptCID.ID = cids2[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids2[0].Receipts[0].TxID
+			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[0].LeafCID
+			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[0].LeafMhKey
 			Expect(cids2[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
 			cids3, empty, err := retriever.Retrieve(rctTopicsAndAddressFilter, 1)
@@ -322,6 +348,8 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[0]
 			expectedReceiptCID.ID = cids3[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids3[0].Receipts[0].TxID
+			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[0].LeafCID
+			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[0].LeafMhKey
 			Expect(cids3[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
 			cids4, empty, err := retriever.Retrieve(rctAddressesAndTopicFilter, 1)
@@ -337,6 +365,8 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[1]
 			expectedReceiptCID.ID = cids4[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids4[0].Receipts[0].TxID
+			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[1].LeafCID
+			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[1].LeafMhKey
 			Expect(cids4[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
 			cids5, empty, err := retriever.Retrieve(rctsForAllCollectedTrxs, 1)
@@ -352,9 +382,9 @@ var _ = Describe("Retriever", func() {
 			Expect(len(cids5[0].StateNodes)).To(Equal(0))
 			Expect(len(cids5[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids5[0].Receipts)).To(Equal(4))
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, test_helpers.Rct1CID.String())).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, test_helpers.Rct2CID.String())).To(BeTrue())
-			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, test_helpers.Rct3CID.String())).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, expectedRctCIDsAndLeafNodes[0].LeafCID)).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, expectedRctCIDsAndLeafNodes[1].LeafCID)).To(BeTrue())
+			Expect(eth.ReceiptModelsContainsCID(cids5[0].Receipts, expectedRctCIDsAndLeafNodes[2].LeafCID)).To(BeTrue())
 
 			cids6, empty, err := retriever.Retrieve(rctsForSelectCollectedTrxs, 1)
 			Expect(err).ToNot(HaveOccurred())
@@ -373,6 +403,8 @@ var _ = Describe("Retriever", func() {
 			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[1]
 			expectedReceiptCID.ID = cids6[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids6[0].Receipts[0].TxID
+			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[1].LeafCID
+			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[1].LeafMhKey
 			Expect(cids6[0].Receipts[0]).To(Equal(expectedReceiptCID))
 
 			cids7, empty, err := retriever.Retrieve(stateFilter, 1)
