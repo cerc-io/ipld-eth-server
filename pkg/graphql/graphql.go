@@ -18,6 +18,7 @@
 package graphql
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -31,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 )
 
@@ -1010,8 +1012,9 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 
 		return nil, err
 	}
-	if len(rlpValue) == 0 {
-		return &StorageResult{value: make([]byte, 32), cid: cid, ipldBlock: ipldBlock}, nil
+
+	if bytes.Compare(rlpValue, eth.EmptyNodeValue) == 0 {
+		return &StorageResult{value: eth.EmptyNodeValue, cid: cid, ipldBlock: ipldBlock}, nil
 	}
 
 	var value interface{}

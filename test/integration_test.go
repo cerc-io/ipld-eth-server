@@ -9,12 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	integration "github.com/vulcanize/ipld-eth-server/test"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	integration "github.com/vulcanize/ipld-eth-server/test"
 )
 
 const nonExistingBlockHash = "0x111111111111111111111111111111111111111111111111111111111111111"
@@ -394,7 +395,6 @@ var _ = Describe("Integration test", func() {
 
 		It("get storage after selfdestruct", func() {
 			totalSupplyIndex := "0x2"
-			zeroHash := make([]byte, 32)
 
 			tx, err := integration.DestoyContract(contract.Address)
 			Expect(err).ToNot(HaveOccurred())
@@ -405,7 +405,7 @@ var _ = Describe("Integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(gethStorage1).NotTo(Equal(gethStorage2))
-			Expect(gethStorage2).To(Equal(zeroHash))
+			Expect(gethStorage2).To(Equal(eth.EmptyNodeValue))
 
 			ipldStorage1, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber-1))
 			Expect(err).ToNot(HaveOccurred())

@@ -152,6 +152,8 @@ const (
 																	LIMIT 1`
 )
 
+var EmptyNodeValue = make([]byte, common.HashLength)
+
 type rctIpldResult struct {
 	LeafCID string `db:"leaf_cid"`
 	Data    []byte `db:"data"`
@@ -440,7 +442,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 	}
 
 	if accountResult.NodeType == removedNode {
-		return "", []byte{}, nil
+		return "", EmptyNodeValue, nil
 	}
 
 	var i []interface{}
@@ -463,7 +465,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 	}
 
 	if accountResult.NodeType == removedNode {
-		return "", []byte{}, nil
+		return "", EmptyNodeValue, nil
 	}
 
 	var i []interface{}
@@ -485,7 +487,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 		return "", nil, nil, err
 	}
 	if storageResult.NodeType == removedNode {
-		return "", []byte{}, []byte{}, nil
+		return "", EmptyNodeValue, EmptyNodeValue, nil
 	}
 	var i []interface{}
 	if err := rlp.DecodeBytes(storageResult.Data, &i); err != nil {
@@ -508,7 +510,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 	}
 
 	if storageResult.NodeType == removedNode {
-		return "", []byte{}, nil
+		return "", EmptyNodeValue, nil
 	}
 	var i []interface{}
 	if err := rlp.DecodeBytes(storageResult.Data, &i); err != nil {
