@@ -127,7 +127,7 @@ const (
 													AND block_number <= $2
 													ORDER BY block_number DESC
 													LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed(state_leaf_key, block_number) AS state_leaf_removed
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
 																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
@@ -137,7 +137,7 @@ const (
 																	AND block_number <= $3
 																	ORDER BY block_number DESC
 																	LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed(state_leaf_key, block_number) AS state_leaf_removed
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
 																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
@@ -427,9 +427,10 @@ func (r *IPLDRetriever) RetrieveReceiptByHash(hash common.Hash) (string, []byte,
 }
 
 type nodeInfo struct {
-	CID      string `db:"cid"`
-	Data     []byte `db:"data"`
-	NodeType int    `db:"node_type"`
+	CID              string `db:"cid"`
+	Data             []byte `db:"data"`
+	NodeType         int    `db:"node_type"`
+	StateLeafRemoved bool   `db:"state_leaf_removed"`
 }
 
 // RetrieveAccountByAddressAndBlockHash returns the cid and rlp bytes for the account corresponding to the provided address and block hash
@@ -486,7 +487,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
 		return "", nil, nil, err
 	}
-	if storageResult.NodeType == removedNode {
+	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
 		return "", EmptyNodeValue, EmptyNodeValue, nil
 	}
 	var i []interface{}
@@ -509,7 +510,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 		return "", nil, err
 	}
 
-	if storageResult.NodeType == removedNode {
+	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
 		return "", EmptyNodeValue, nil
 	}
 	var i []interface{}

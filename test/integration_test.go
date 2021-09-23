@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -317,6 +318,8 @@ var _ = Describe("Integration test", func() {
 			contract, contractErr = integration.DeployContract()
 			erc20TotalSupply, bigIntResult = new(big.Int).SetString("1000000000000000000000", 10)
 
+			fmt.Printf("Deployed address: %d\n", contract.BlockNumber)
+
 			time.Sleep(sleepInterval)
 		})
 
@@ -393,13 +396,17 @@ var _ = Describe("Integration test", func() {
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
 
-		It("get storage after self destruct", func() {
+		FIt("get storage after self destruct", func() {
 			totalSupplyIndex := "0x2"
 
 			tx, err := integration.DestroyContract(contract.Address)
 			Expect(err).ToNot(HaveOccurred())
 
 			time.Sleep(sleepInterval)
+
+			fmt.Printf("Destroyed address: %d\n", tx.BlockNumber)
+
+			fmt.Printf("Contract Address: %s \n", contract.Address)
 
 			gethStorage1, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber-1))
 			Expect(err).ToNot(HaveOccurred())
@@ -416,6 +423,12 @@ var _ = Describe("Integration test", func() {
 
 			Expect(ipldStorage1).To(Equal(gethStorage1))
 			Expect(ipldStorage2).To(Equal(gethStorage2))
+
+			// Query the current block
+			ipldStorage3, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(ipldStorage2).To(Equal(ipldStorage3))
 		})
 	})
 

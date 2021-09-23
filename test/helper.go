@@ -15,9 +15,7 @@ type ContractDeployed struct {
 }
 
 type ContractDestroyed struct {
-	TransactionHash string `json:"txHash"`
-	BlockNumber     int64  `json:"blockNumber"`
-	BlockHash       string `json:"blockHash"`
+	BlockNumber int64 `json:"blockNumber"`
 }
 
 type Tx struct {
@@ -56,6 +54,7 @@ func DestroyContract(addr string) (*ContractDestroyed, error) {
 	}
 	defer res.Body.Close()
 
+	fmt.Println(res.Body)
 	var data ContractDestroyed
 	decoder := json.NewDecoder(res.Body)
 

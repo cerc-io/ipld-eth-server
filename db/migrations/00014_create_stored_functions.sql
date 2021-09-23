@@ -1,4 +1,20 @@
 -- +goose Up
+
+
+-- +goose StatementBegin
+-- returns if a storage node at the provided path was removed in the range >= the provided height and <= the provided block hash
+CREATE OR REPLACE FUNCTION was_state_leaf_removed(state_leaf_key BYTEA, block_num BIGINT) RETURNS BOOLEAN
+AS $$
+SELECT exists(SELECT 1
+              FROM eth.state_cids
+                       INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+              WHERE state_leaf_key = state_leaf_key
+                AND block_number <= block_num
+                AND state_cids.node_type = 3
+              LIMIT 1);
+$$ LANGUAGE SQL;
+-- +goose StatementEnd
+
 -- +goose StatementBegin
 CREATE TYPE child_result AS (
     has_child BOOLEAN,
@@ -115,6 +131,7 @@ LANGUAGE 'plpgsql';
 -- +goose StatementEnd
 
 -- +goose Down
+DROP FUNCTION was_state_leaf_removed;
 DROP FUNCTION canonical_header_id;
 DROP FUNCTION canonical_header_from_array;
 DROP FUNCTION has_child;
