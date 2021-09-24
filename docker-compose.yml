@@ -20,7 +20,7 @@ services:
     restart: on-failure
     depends_on:
       - db
-    image: vulcanize/statediff-migrations:0.7.0
+    image: vulcanize/statediff-migrations:v0.7.0
     environment:
       DATABASE_USER: vdbm
       DATABASE_NAME: vulcanize_public
