@@ -54,7 +54,6 @@ func DestroyContract(addr string) (*ContractDestroyed, error) {
 	}
 	defer res.Body.Close()
 
-	fmt.Println(res.Body)
 	var data ContractDestroyed
 	decoder := json.NewDecoder(res.Body)
 

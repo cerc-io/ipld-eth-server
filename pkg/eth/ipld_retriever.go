@@ -127,7 +127,7 @@ const (
 													AND block_number <= $2
 													ORDER BY block_number DESC
 													LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed(state_leaf_key, block_number) AS state_leaf_removed
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
 																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
@@ -137,7 +137,7 @@ const (
 																	AND block_number <= $3
 																	ORDER BY block_number DESC
 																	LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed(state_leaf_key, block_number) AS state_leaf_removed
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
 																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)

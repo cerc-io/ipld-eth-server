@@ -15,8 +15,6 @@ fastify.get('/v1/deployContract', async (req, reply) => {
     const token = await GLDToken.deploy();
     await token.deployed();
 
-    console.log(`Deployed block ${token.deployTransaction.blockNumber}`)
-
     return {
         address: token.address,
         txHash: token.deployTransaction.hash,
@@ -33,7 +31,6 @@ fastify.get('/v1/destroyContract', async (req, reply) => {
 
     await token.destroy();
     const blockNum = await hre.ethers.provider.getBlockNumber()
-    console.log(`Destroyed block ${blockNum}`)
 
     return {
         blockNumber: blockNum,

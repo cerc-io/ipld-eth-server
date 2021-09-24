@@ -20,7 +20,7 @@ services:
     restart: on-failure
     depends_on:
       - db
-    image: vulcanize/statediff-migrations:v0.7.0
+    image: vulcanize/statediff-migrations:0.7.0
     environment:
       DATABASE_USER: vdbm
       DATABASE_NAME: vulcanize_public
@@ -39,7 +39,6 @@ services:
      - vdb_db_eth_server:/var/lib/postgresql/data
     ports:
      - "127.0.0.1:8077:5432"
-    command: ["postgres", "-c", "log_statement=all"]
 
   eth-server:
     restart: unless-stopped
