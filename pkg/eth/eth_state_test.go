@@ -476,16 +476,16 @@ var _ = Describe("eth state reading tests", func() {
 		It("Returns empty slice if it tries to access a contract which does not exist", func() {
 			storage, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(0))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(storage).To(Equal(hexutil.Bytes(make([]byte, 32))))
+			Expect(storage).To(Equal(hexutil.Bytes(eth.EmptyNodeValue)))
 
 			storage, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.ContractSlotKeyHash.Hex(), rpc.BlockNumberOrHashWithNumber(1))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(storage).To(Equal(hexutil.Bytes(make([]byte, 32))))
+			Expect(storage).To(Equal(hexutil.Bytes(eth.EmptyNodeValue)))
 		})
 		It("Returns empty slice if it tries to access a contract slot which does not exist", func() {
 			storage, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, randomHash.Hex(), rpc.BlockNumberOrHashWithNumber(2))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(storage).To(Equal(hexutil.Bytes(make([]byte, 32))))
+			Expect(storage).To(Equal(hexutil.Bytes(eth.EmptyNodeValue)))
 		})
 		It("Retrieves the storage value at the provided contract address and storage leaf key at the block with the provided hash or number", func() {
 			// After deployment
@@ -506,7 +506,7 @@ var _ = Describe("eth state reading tests", func() {
 
 			val, err = api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(val).To(Equal(hexutil.Bytes{}))
+			Expect(val).To(Equal(hexutil.Bytes(eth.EmptyNodeValue)))
 		})
 		It("Throws an error for a non-existing block hash", func() {
 			_, err := api.GetStorageAt(ctx, test_helpers.ContractAddr, test_helpers.IndexOne, rpc.BlockNumberOrHashWithHash(randomHash, true))

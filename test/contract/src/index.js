@@ -1,6 +1,7 @@
 const fastify = require('fastify')({ logger: true });
 const hre = require("hardhat");
 
+
 // readiness check
 fastify.get('/v1/healthz', async (req, reply) => {
     reply
@@ -21,6 +22,20 @@ fastify.get('/v1/deployContract', async (req, reply) => {
         blockHash: token.deployTransaction.blockHash,
     }
 });
+
+fastify.get('/v1/destroyContract', async (req, reply) => {
+    const addr = req.query.addr;
+
+    const Token = await hre.ethers.getContractFactory("GLDToken");
+    const token = await Token.attach(addr);
+
+    await token.destroy();
+    const blockNum = await hre.ethers.provider.getBlockNumber()
+
+    return {
+        blockNumber: blockNum,
+    }
+})
 
 fastify.get('/v1/sendEth', async (req, reply) => {
     const to = req.query.to;

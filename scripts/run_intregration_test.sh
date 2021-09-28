@@ -5,8 +5,8 @@ set -o xtrace
 docker-compose down --remove-orphans --volumes
 
 # Build and start the containers.
-# Note: Build only if `ipld-eth-server` code is modified. Otherwise comment this line.
-docker build -t ipld-eth-server_eth-server:latest .
+# Note: Build only if `ipld-eth-server` or other container code is modified. Otherwise comment this line.
+docker-compose -f docker-compose.test.yml -f docker-compose.yml build eth-server
 docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d db dapptools contract eth-server
 
 export PGPASSWORD=password
