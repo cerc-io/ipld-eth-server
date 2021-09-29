@@ -26,7 +26,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
@@ -620,11 +619,11 @@ func (b *Backend) GetCanonicalHeader(number uint64) (string, []byte, error) {
 }
 
 // GetEVM constructs and returns a vm.EVM
-func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, error) {
-	state.SetBalance(msg.From(), math.MaxBig256)
-	vmctx := core.NewEVMBlockContext(header, b, nil)
+func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
+	vmError := func() error { return nil }
 	txContext := core.NewEVMTxContext(msg)
-	return vm.NewEVM(vmctx, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), nil
+	context := core.NewEVMBlockContext(header, b, nil)
+	return vm.NewEVM(context, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), vmError, nil
 }
 
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash

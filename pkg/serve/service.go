@@ -100,7 +100,7 @@ func NewServer(settings *Config) (Server, error) {
 	var err error
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:      settings.ChainConfig,
-		VMConfig:         vm.Config{},
+		VMConfig:         vm.Config{NoBaseFee: true},
 		DefaultSender:    settings.DefaultSender,
 		RPCGasCap:        settings.RPCGasCap,
 		GroupCacheConfig: settings.GroupCache,

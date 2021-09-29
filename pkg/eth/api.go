@@ -27,10 +27,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
@@ -819,50 +821,59 @@ func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Addre
 	}, state.Error()
 }
 
-// Call executes the given transaction on the state for the given block number.
-//
-// Additionally, the caller can specify a batch of contract for fields overriding.
-//
-// Note, this function doesn't make and changes in the state/blockchain and is
-// useful to execute and retrieve values.
-func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *map[common.Address]account) (hexutil.Bytes, error) {
-	var accounts map[common.Address]account
-	if overrides != nil {
-		accounts = *overrides
-	}
-	res, _, failed, err := DoCall(ctx, pea.B, args, blockNrOrHash, accounts, 5*time.Second, pea.B.Config.RPCGasCap)
-	if (failed || err != nil) && pea.rpc != nil {
-		var hex hexutil.Bytes
-		if err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
-			go pea.writeStateDiffAtOrFor(blockNrOrHash)
-			return hex, nil
-		}
-	}
-	if failed && err == nil {
-		return nil, errors.New("eth_call failed without error")
-	}
-	return (hexutil.Bytes)(res), err
+// revertError is an API error that encompassas an EVM revertal with JSON error
+// code and a binary data blob.
+type revertError struct {
+	error
+	reason string // revert reason hex encoded
 }
 
-func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides map[common.Address]account, timeout time.Duration, globalGasCap *big.Int) ([]byte, uint64, bool, error) {
-	defer func(start time.Time) {
-		logrus.Debugf("Executing EVM call finished %s runtime %s", time.Now().String(), time.Since(start).String())
-	}(time.Now())
-	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state == nil || err != nil {
-		return nil, 0, false, err
+// ErrorCode returns the JSON error code for a revertal.
+// See: https://github.com/ethereum/wiki/wiki/JSON-RPC-Error-Codes-Improvement-Proposal
+func (e *revertError) ErrorCode() int {
+	return 3
+}
+
+// ErrorData returns the hex encoded revert reason.
+func (e *revertError) ErrorData() interface{} {
+	return e.reason
+}
+
+func newRevertError(result *core.ExecutionResult) *revertError {
+	reason, errUnpack := abi.UnpackRevert(result.Revert())
+	err := errors.New("execution reverted")
+	if errUnpack == nil {
+		err = fmt.Errorf("execution reverted: %v", reason)
 	}
-	// Set sender address or use a default if none specified
-	var addr common.Address
-	if args.From == nil {
-		if b.Config.DefaultSender != nil {
-			addr = *b.Config.DefaultSender
-		}
-	} else {
-		addr = *args.From
+	return &revertError{
+		error:  err,
+		reason: hexutil.Encode(result.Revert()),
 	}
-	// Override the fields of specified contracts before execution.
-	for addr, account := range overrides {
+}
+
+// OverrideAccount indicates the overriding fields of account during the execution
+// of a message call.
+// Note, state and stateDiff can't be specified at the same time. If state is
+// set, message execution will only use the data in the given state. Otherwise
+// if statDiff is set, all diff will be applied first and then execute the call
+// message.
+type OverrideAccount struct {
+	Nonce     *hexutil.Uint64              `json:"nonce"`
+	Code      *hexutil.Bytes               `json:"code"`
+	Balance   **hexutil.Big                `json:"balance"`
+	State     *map[common.Hash]common.Hash `json:"state"`
+	StateDiff *map[common.Hash]common.Hash `json:"stateDiff"`
+}
+
+// StateOverride is the collection of overridden accounts.
+type StateOverride map[common.Address]OverrideAccount
+
+// Apply overrides the fields of specified accounts into the given state.
+func (diff *StateOverride) Apply(state *state.StateDB) error {
+	if diff == nil {
+		return nil
+	}
+	for addr, account := range *diff {
 		// Override account nonce.
 		if account.Nonce != nil {
 			state.SetNonce(addr, uint64(*account.Nonce))
@@ -876,7 +887,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 			state.SetBalance(addr, (*big.Int)(*account.Balance))
 		}
 		if account.State != nil && account.StateDiff != nil {
-			return nil, 0, false, fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
+			return fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
 		}
 		// Replace entire state if caller requires.
 		if account.State != nil {
@@ -889,73 +900,47 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 			}
 		}
 	}
-	// Set default gas & gas price if none were set
-	gas := uint64(math.MaxUint64 / 2)
-	if args.Gas != nil {
-		gas = uint64(*args.Gas)
+	return nil
+}
+
+// Call executes the given transaction on the state for the given block number.
+//
+// Additionally, the caller can specify a batch of contract for fields overriding.
+//
+// Note, this function doesn't make and changes in the state/blockchain and is
+// useful to execute and retrieve values.
+func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride) (hexutil.Bytes, error) {
+	result, err := DoCall(ctx, pea.B, args, blockNrOrHash, overrides, 5*time.Second, pea.B.Config.RPCGasCap.Uint64())
+
+	// If the result contains a revert reason, try to unpack and return it.
+	if err == nil && len(result.Revert()) > 0 {
+		// Doubt: Should we return this? This might indicate failure in VM.
+		err = newRevertError(result)
 	}
 
-	if globalGasCap != nil && globalGasCap.Uint64() < gas {
-		logrus.Warnf("Caller gas above allowance, capping; requested: %d, cap: %d", gas, globalGasCap)
-		gas = globalGasCap.Uint64()
-	}
-
-	var (
-		gasPrice  *big.Int
-		gasFeeCap *big.Int
-		gasTipCap *big.Int
-	)
-
-	if header.BaseFee == nil {
-		// If there's no basefee, then it must be a non-1559 execution
-		gasPrice = new(big.Int)
-		if args.GasPrice != nil {
-			gasPrice = args.GasPrice.ToInt()
-		}
-		gasFeeCap, gasTipCap = gasPrice, gasPrice
-	} else {
-		// A basefee is provided, necessitating 1559-type execution
-		if args.GasPrice != nil {
-			// User specified the legacy gas field, convert to 1559 gas typing
-			gasPrice = args.GasPrice.ToInt()
-			gasFeeCap, gasTipCap = gasPrice, gasPrice
-		} else {
-			// User specified 1559 gas feilds (or none), use those
-			gasFeeCap = new(big.Int)
-			if args.MaxFeePerGas != nil {
-				gasFeeCap = args.MaxFeePerGas.ToInt()
-			}
-			gasTipCap = new(big.Int)
-			if args.MaxPriorityFeePerGas != nil {
-				gasTipCap = args.MaxPriorityFeePerGas.ToInt()
-			}
-			// Backfill the legacy gasPrice for EVM execution, unless we're all zeroes
-			gasPrice = new(big.Int)
-			if gasFeeCap.BitLen() > 0 || gasTipCap.BitLen() > 0 {
-				gasPrice = math.BigMin(new(big.Int).Add(gasTipCap, header.BaseFee), gasFeeCap)
-			}
+	if err != nil && pea.rpc != nil {
+		var hex hexutil.Bytes
+		if err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
+			go pea.writeStateDiffAtOrFor(blockNrOrHash)
+			return hex, nil
 		}
 	}
+	return result.Return(), result.Err
+}
 
-	value := new(big.Int)
-	if args.Value != nil {
-		value = args.Value.ToInt()
+func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
+	defer func(start time.Time) {
+		logrus.Debugf("Executing EVM call finished %s runtime %s", time.Now().String(), time.Since(start).String())
+	}(time.Now())
+
+	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if state == nil || err != nil {
+		return nil, err
 	}
 
-	var data []byte
-	if args.Input != nil {
-		data = *args.Input
-	} else if args.Data != nil {
-		data = *args.Data
+	if err := overrides.Apply(state); err != nil {
+		return nil, err
 	}
-
-	var accessList types.AccessList
-	if args.AccessList != nil {
-		accessList = *args.AccessList
-	}
-
-	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, false)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -970,10 +955,16 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 	defer cancel()
 
 	// Get a new instance of the EVM.
-	evm, err := b.GetEVM(ctx, msg, state, header)
+	msg, err := args.ToMessage(globalGasCap, header.BaseFee)
 	if err != nil {
-		return nil, 0, false, err
+		return nil, err
 	}
+
+	evm, vmError, err := b.GetEVM(ctx, msg, state, header)
+	if err != nil {
+		return nil, err
+	}
+
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)
 	go func() {
@@ -981,18 +972,21 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		evm.Cancel()
 	}()
 
-	// Setup the gas pool (also for unmetered requests)
-	// and apply the message.
+	// Execute the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
 	result, err := core.ApplyMessage(evm, msg, gp)
-	if err != nil {
-		return nil, 0, false, fmt.Errorf("execution failed: %v", err)
+	if err := vmError(); err != nil {
+		return nil, err
 	}
+
 	// If the timer caused an abort, return an appropriate error message
 	if evm.Cancelled() {
-		return nil, 0, false, fmt.Errorf("execution aborted (timeout = %v)", timeout)
+		return nil, fmt.Errorf("execution aborted (timeout = %v)", timeout)
 	}
-	return result.Return(), result.UsedGas, result.Failed(), err
+	if err != nil {
+		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.Gas())
+	}
+	return result, nil
 }
 
 // writeStateDiffAtOrFor calls out to the proxy statediffing geth client to fill in a gap in the index
