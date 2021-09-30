@@ -923,7 +923,7 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 
 	if err != nil && pea.rpc != nil {
 		var hex hexutil.Bytes
-		if err = pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
+		if err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
 			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return hex, nil
 		}
