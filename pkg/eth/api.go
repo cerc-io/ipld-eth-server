@@ -913,19 +913,22 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 	result, err := DoCall(ctx, pea.B, args, blockNrOrHash, overrides, 5*time.Second, pea.B.Config.RPCGasCap.Uint64())
 
 	// If the result contains a revert reason, try to unpack and return it.
-	if err == nil && len(result.Revert()) > 0 {
-		// Doubt: Should we return this? This might indicate failure in VM.
-		err = newRevertError(result)
+	if err == nil {
+		if len(result.Revert()) > 0 {
+			err = newRevertError(result)
+		} else if result.Err != nil {
+			err = result.Err
+		}
 	}
 
 	if err != nil && pea.rpc != nil {
 		var hex hexutil.Bytes
-		if err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
+		if err = pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
 			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return hex, nil
 		}
 	}
-	return result.Return(), result.Err
+	return result.Return(), err
 }
 
 func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
