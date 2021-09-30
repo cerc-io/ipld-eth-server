@@ -17,14 +17,17 @@
 package eth
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+	"github.com/sirupsen/logrus"
 )
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
@@ -99,18 +102,94 @@ type CallArgs struct {
 	Input                *hexutil.Bytes    `json:"input"`
 }
 
-// account indicates the overriding fields of account during the execution of
-// a message call.
-// Note, state and stateDiff can't be specified at the same time. If state is
-// set, message execution will only use the data in the given state. Otherwise
-// if statDiff is set, all diff will be applied first and then execute the call
-// message.
-type account struct {
-	Nonce     *hexutil.Uint64              `json:"nonce"`
-	Code      *hexutil.Bytes               `json:"code"`
-	Balance   **hexutil.Big                `json:"balance"`
-	State     *map[common.Hash]common.Hash `json:"state"`
-	StateDiff *map[common.Hash]common.Hash `json:"stateDiff"`
+// from retrieves the transaction sender address.
+func (arg *CallArgs) from() common.Address {
+	if arg.From == nil {
+		return common.Address{}
+	}
+	return *arg.From
+}
+
+// data retrieves the transaction calldata. Input field is preferred.
+func (arg *CallArgs) data() []byte {
+	if arg.Input != nil {
+		return *arg.Input
+	}
+	if arg.Data != nil {
+		return *arg.Data
+	}
+	return nil
+}
+
+// ToMessage converts the transaction arguments to the Message type used by the
+// core evm. This method is used in calls and traces that do not require a real
+// live transaction.
+func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (types.Message, error) {
+	// Reject invalid combinations of pre- and post-1559 fee styles
+	if arg.GasPrice != nil && (arg.MaxFeePerGas != nil || arg.MaxPriorityFeePerGas != nil) {
+		return types.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+	}
+	// Set sender address or use zero address if none specified.
+	addr := arg.from()
+
+	// Set default gas & gas price if none were set
+	gas := globalGasCap
+	if gas == 0 {
+		gas = uint64(math.MaxUint64 / 2)
+	}
+	if arg.Gas != nil {
+		gas = uint64(*arg.Gas)
+	}
+	if globalGasCap != 0 && globalGasCap < gas {
+		logrus.Warn("Caller gas above allowance, capping", "requested", gas, "cap", globalGasCap)
+		gas = globalGasCap
+	}
+	var (
+		gasPrice  *big.Int
+		gasFeeCap *big.Int
+		gasTipCap *big.Int
+	)
+	if baseFee == nil {
+		// If there's no basefee, then it must be a non-1559 execution
+		gasPrice = new(big.Int)
+		if arg.GasPrice != nil {
+			gasPrice = arg.GasPrice.ToInt()
+		}
+		gasFeeCap, gasTipCap = gasPrice, gasPrice
+	} else {
+		// A basefee is provided, necessitating 1559-type execution
+		if arg.GasPrice != nil {
+			// User specified the legacy gas field, convert to 1559 gas typing
+			gasPrice = arg.GasPrice.ToInt()
+			gasFeeCap, gasTipCap = gasPrice, gasPrice
+		} else {
+			// User specified 1559 gas feilds (or none), use those
+			gasFeeCap = new(big.Int)
+			if arg.MaxFeePerGas != nil {
+				gasFeeCap = arg.MaxFeePerGas.ToInt()
+			}
+			gasTipCap = new(big.Int)
+			if arg.MaxPriorityFeePerGas != nil {
+				gasTipCap = arg.MaxPriorityFeePerGas.ToInt()
+			}
+			// Backfill the legacy gasPrice for EVM execution, unless we're all zeroes
+			gasPrice = new(big.Int)
+			if gasFeeCap.BitLen() > 0 || gasTipCap.BitLen() > 0 {
+				gasPrice = math.BigMin(new(big.Int).Add(gasTipCap, baseFee), gasFeeCap)
+			}
+		}
+	}
+	value := new(big.Int)
+	if arg.Value != nil {
+		value = arg.Value.ToInt()
+	}
+	data := arg.data()
+	var accessList types.AccessList
+	if arg.AccessList != nil {
+		accessList = *arg.AccessList
+	}
+	msg := types.NewMessage(addr, arg.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, true)
+	return msg, nil
 }
 
 // IPLDs is used to package raw IPLD block data fetched from IPFS and returned by the server

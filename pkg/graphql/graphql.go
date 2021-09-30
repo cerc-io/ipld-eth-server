@@ -835,16 +835,20 @@ func (b *Block) Call(ctx context.Context, args struct {
 			return nil, err
 		}
 	}
-	result, gas, failed, err := eth.DoCall(ctx, b.backend, args.Data, *b.numberOrHash, nil, 5*time.Second, b.backend.RPCGasCap())
+	result, err := eth.DoCall(ctx, b.backend, args.Data, *b.numberOrHash, nil, 5*time.Second, b.backend.RPCGasCap().Uint64())
+	if err != nil {
+		return nil, err
+	}
 	status := hexutil.Uint64(1)
-	if failed {
+	if result.Failed() {
 		status = 0
 	}
+
 	return &CallResult{
-		data:    hexutil.Bytes(result),
-		gasUsed: hexutil.Uint64(gas),
+		data:    result.ReturnData,
+		gasUsed: hexutil.Uint64(result.UsedGas),
 		status:  status,
-	}, err
+	}, nil
 }
 
 // Resolver is the top-level object in the GraphQL hierarchy.
