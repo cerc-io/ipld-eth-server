@@ -26,10 +26,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.6 // indirect
 	github.com/vulcanize/eth-ipfs-state-validator v0.0.1
 	github.com/vulcanize/gap-filler v0.3.1
-	github.com/vulcanize/ipfs-ethdb v0.0.4
+	github.com/vulcanize/ipfs-ethdb v0.0.5
 )
 
-replace (
-	github.com/ethereum/go-ethereum v1.10.9 => github.com/vulcanize/go-ethereum v1.10.9-statediff-0.0.27
-	github.com/vulcanize/ipfs-ethdb v0.0.4 => github.com/vulcanize/ipfs-ethdb v0.0.5-0.20211006095136-e57893f2c05f
-)
+replace github.com/ethereum/go-ethereum v1.10.9 => github.com/vulcanize/go-ethereum v1.10.9-statediff-0.0.27
