@@ -26,22 +26,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // RPCMarshalHeader converts the given header to the RPC output.
 // This function is eth/internal so we have to make our own version here...
-func RPCMarshalHeader(head *types.Header, extractMiner bool) map[string]interface{} {
-	if extractMiner {
-		if err := recoverMiner(head); err != nil {
-			return nil
-		}
-	}
-
+func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	headerMap := map[string]interface{}{
 		"number":           (*hexutil.Big)(head.Number),
 		"hash":             head.Hash(),
@@ -71,8 +63,8 @@ func RPCMarshalHeader(head *types.Header, extractMiner bool) map[string]interfac
 // RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
 // returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
 // transaction hashes.
-func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool, extractMiner bool) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header(), extractMiner)
+func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header())
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
@@ -105,8 +97,8 @@ func RPCMarshalBlock(block *types.Block, inclTx bool, fullTx bool, extractMiner 
 }
 
 // RPCMarshalBlockWithUncleHashes marshals the block with the provided uncle hashes
-func RPCMarshalBlockWithUncleHashes(block *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool, extractMiner bool) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header(), extractMiner)
+func RPCMarshalBlockWithUncleHashes(block *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header())
 	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
@@ -302,25 +294,4 @@ func toBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
-}
-
-func recoverMiner(header *types.Header) error {
-	// Retrieve the signature from the header extra-data
-	if len(header.Extra) < crypto.SignatureLength {
-		return errMissingSignature
-	}
-
-	signature := header.Extra[len(header.Extra)-crypto.SignatureLength:]
-
-	// Recover the public key and the Ethereum address
-	pubkey, err := crypto.Ecrecover(clique.SealHash(header).Bytes(), signature)
-	if err != nil {
-		return err
-	}
-
-	var signer common.Address
-	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
-	header.Coinbase = signer
-
-	return nil
 }

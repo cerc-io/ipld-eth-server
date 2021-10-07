@@ -76,7 +76,10 @@ var _ = Describe("eth state reading tests", func() {
 		var err error
 		db, err = SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		transformer := indexer.NewStateDiffIndexer(chainConfig, db)
+
+		transformer, err := indexer.NewStateDiffIndexer(chainConfig, db)
+		Expect(err).ToNot(HaveOccurred())
+
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VMConfig:    vm.Config{},
@@ -155,7 +158,8 @@ var _ = Describe("eth state reading tests", func() {
 		}
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher := indexer.NewStateDiffIndexer(chainConfig, db)
+		indexAndPublisher, err := indexer.NewStateDiffIndexer(chainConfig, db)
+		Expect(err).ToNot(HaveOccurred())
 
 		tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())

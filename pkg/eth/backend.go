@@ -627,7 +627,7 @@ func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.Sta
 }
 
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash
-func (b *Backend) GetAccountByNumberOrHash(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*state.Account, error) {
+func (b *Backend) GetAccountByNumberOrHash(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*types.StateAccount, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
 		return b.GetAccountByNumber(ctx, address, blockNr)
 	}
@@ -638,7 +638,7 @@ func (b *Backend) GetAccountByNumberOrHash(ctx context.Context, address common.A
 }
 
 // GetAccountByNumber returns the account object for the provided address at the canonical block at the provided height
-func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address, blockNumber rpc.BlockNumber) (*state.Account, error) {
+func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address, blockNumber rpc.BlockNumber) (*types.StateAccount, error) {
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
@@ -667,7 +667,7 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 }
 
 // GetAccountByHash returns the account object for the provided address at the block with the provided hash
-func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, hash common.Hash) (*state.Account, error) {
+func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, hash common.Hash) (*types.StateAccount, error) {
 	_, err := b.HeaderByHash(context.Background(), hash)
 	if err == sql.ErrNoRows {
 		return nil, errHeaderHashNotFound
@@ -680,7 +680,7 @@ func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, 
 		return nil, err
 	}
 
-	acct := new(state.Account)
+	acct := new(types.StateAccount)
 	return acct, rlp.DecodeBytes(accountRlp, acct)
 }
 

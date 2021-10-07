@@ -41,7 +41,9 @@ var _ = Describe("IPLDFetcher", func() {
 			)
 			db, err = SetupDB()
 			Expect(err).ToNot(HaveOccurred())
-			pubAndIndexer = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
+			pubAndIndexer, err = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
+			Expect(err).ToNot(HaveOccurred())
+
 			tx, err = pubAndIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			for _, node := range test_helpers.MockStateNodes {
 				err = pubAndIndexer.PushStateNode(tx, node)

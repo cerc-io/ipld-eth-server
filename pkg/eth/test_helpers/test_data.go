@@ -24,7 +24,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
@@ -341,7 +340,7 @@ var (
 	ContractCodeHash   = crypto.Keccak256Hash(MockContractByteCode)
 	contractPath       = common.Bytes2Hex([]byte{'\x06'})
 	ContractLeafKey    = testhelpers.AddressToLeafKey(ContractAddress)
-	ContractAccount, _ = rlp.EncodeToBytes(state.Account{
+	ContractAccount, _ = rlp.EncodeToBytes(types.StateAccount{
 		Nonce:    nonce1,
 		Balance:  big.NewInt(0),
 		CodeHash: ContractCodeHash.Bytes(),
@@ -359,7 +358,7 @@ var (
 	AccountCodeHash = common.HexToHash("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
 	AccountAddresss = common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e")
 	AccountLeafKey  = testhelpers.Account2LeafKey
-	Account, _      = rlp.EncodeToBytes(state.Account{
+	Account, _      = rlp.EncodeToBytes(types.StateAccount{
 		Nonce:    nonce0,
 		Balance:  AccountBalance,
 		CodeHash: AccountCodeHash.Bytes(),
