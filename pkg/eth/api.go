@@ -123,7 +123,7 @@ func (pea *PublicEthAPI) GetHeaderByHash(ctx context.Context, hash common.Hash) 
 
 // rpcMarshalHeader uses the generalized output filler, then adds the total difficulty field
 func (pea *PublicEthAPI) rpcMarshalHeader(header *types.Header) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(header, pea.B.Config.ChainConfig.Clique != nil)
+	fields := RPCMarshalHeader(header)
 	td, err := pea.B.GetTd(header.Hash())
 	if err != nil {
 		return nil, err
@@ -1077,7 +1077,7 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 
 // rpcMarshalBlock uses the generalized output filler, then adds the total difficulty field
 func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields, err := RPCMarshalBlock(b, inclTx, fullTx, pea.B.Config.ChainConfig.Clique != nil)
+	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
 	if err != nil {
 		return nil, err
 	}
@@ -1093,7 +1093,7 @@ func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx boo
 
 // rpcMarshalBlockWithUncleHashes uses the generalized output filler, then adds the total difficulty field
 func (pea *PublicEthAPI) rpcMarshalBlockWithUncleHashes(b *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields, err := RPCMarshalBlockWithUncleHashes(b, uncleHashes, inclTx, fullTx, pea.B.Config.ChainConfig.Clique != nil)
+	fields, err := RPCMarshalBlockWithUncleHashes(b, uncleHashes, inclTx, fullTx)
 	if err != nil {
 		return nil, err
 	}

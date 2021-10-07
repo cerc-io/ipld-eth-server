@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -129,7 +128,7 @@ func subscribe() {
 			}
 			// This assumes leafs only
 			for _, stateNode := range ethData.StateNodes {
-				var acct state.Account
+				var acct types.StateAccount
 				err = rlp.DecodeBytes(stateNode.IPLD.Data, &acct)
 				if err != nil {
 					logWithCommand.Error(err)

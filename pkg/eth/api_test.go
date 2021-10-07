@@ -210,7 +210,9 @@ var _ = Describe("API", func() {
 
 		db, err = SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		indexAndPublisher := indexer.NewStateDiffIndexer(chainConfig, db)
+
+		indexAndPublisher, err := indexer.NewStateDiffIndexer(chainConfig, db)
+		Expect(err).ToNot(HaveOccurred())
 		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VMConfig:    vm.Config{},
@@ -254,7 +256,9 @@ var _ = Describe("API", func() {
 
 		// setting chain config to for london block
 		chainConfig.LondonBlock = big.NewInt(2)
-		indexAndPublisher = indexer.NewStateDiffIndexer(chainConfig, db)
+		indexAndPublisher, err = indexer.NewStateDiffIndexer(chainConfig, db)
+		Expect(err).ToNot(HaveOccurred())
+
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
 

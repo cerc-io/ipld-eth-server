@@ -219,7 +219,9 @@ var _ = Describe("Retriever", func() {
 		var err error
 		db, err = SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		diffIndexer = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
+		diffIndexer, err = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
+		Expect(err).ToNot(HaveOccurred())
+
 		retriever = eth.NewCIDRetriever(db)
 	})
 	AfterEach(func() {

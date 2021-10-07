@@ -3,7 +3,7 @@ module github.com/vulcanize/ipld-eth-server
 go 1.13
 
 require (
-	github.com/ethereum/go-ethereum v1.10.8
+	github.com/ethereum/go-ethereum v1.10.9
 	github.com/graph-gophers/graphql-go v0.0.0-20201113091052-beb923fada29
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-cid v0.0.7
@@ -29,4 +29,7 @@ require (
 	github.com/vulcanize/ipfs-ethdb v0.0.4
 )
 
-replace github.com/ethereum/go-ethereum v1.10.8 => github.com/vulcanize/go-ethereum v1.10.8-statediff-0.0.26.0.20210920070539-b1f2fcf09700
+replace (
+	github.com/ethereum/go-ethereum v1.10.9 => github.com/vulcanize/go-ethereum v1.10.9-statediff-0.0.27
+	github.com/vulcanize/ipfs-ethdb v0.0.4 => github.com/vulcanize/ipfs-ethdb v0.0.5-0.20211006095136-e57893f2c05f
+)

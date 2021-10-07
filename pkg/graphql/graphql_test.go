@@ -81,7 +81,9 @@ var _ = Describe("GraphQL", func() {
 		var err error
 		db, err = SetupDB()
 		Expect(err).ToNot(HaveOccurred())
-		transformer := indexer.NewStateDiffIndexer(chainConfig, db)
+
+		transformer, err := indexer.NewStateDiffIndexer(chainConfig, db)
+		Expect(err).ToNot(HaveOccurred())
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
 			VMConfig:    vm.Config{},
@@ -144,7 +146,9 @@ var _ = Describe("GraphQL", func() {
 		}
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher := indexer.NewStateDiffIndexer(chainConfig, db)
+		indexAndPublisher, err := indexer.NewStateDiffIndexer(chainConfig, db)
+		Expect(err).ToNot(HaveOccurred())
+
 		blockHash = test_helpers.MockBlock.Hash()
 		contractAddress = test_helpers.ContractAddr
 
