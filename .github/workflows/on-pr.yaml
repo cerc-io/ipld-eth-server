@@ -28,7 +28,7 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - uses: actions/checkout@v2
       - name: Run database
-        run: docker-compose up -d db
+        run: docker-compose up -d ipld-eth-db
       - name: Test
         run: |
           sleep 10
@@ -52,7 +52,7 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - uses: actions/checkout@v2
       - name: Run database
-        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d db dapptools contract eth-server
+        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
       - name: Test
         run: |
           while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \

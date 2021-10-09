@@ -57,10 +57,6 @@ TEST_CONNECT_STRING_LOCAL = postgresql://$(USER)@$(HOST_NAME):$(PORT)/$(TEST_DB)
 test: | $(GINKGO) $(GOOSE)
 	go vet ./...
 	go fmt ./...
-	export PGPASSWORD=$(DATABASE_PASSWORD)
-	dropdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) --if-exists $(TEST_DB)
-	createdb -h $(DATABASE_HOSTNAME) -p $(DATABASE_PORT) -U $(DATABASE_USER) $(TEST_DB)
-	$(GOOSE) -dir db/migrations postgres "$(TEST_CONNECT_STRING)" up
 	$(GINKGO) -r --skipPackage=test
 
 .PHONY: integrationtest
