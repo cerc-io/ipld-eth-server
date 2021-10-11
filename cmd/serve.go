@@ -100,7 +100,7 @@ func serve() {
 		logWithCommand.Info("state validator disabled")
 	}
 
-	shutdown := make(chan os.Signal)
+	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt)
 	<-shutdown
 	if graphQL != nil {
