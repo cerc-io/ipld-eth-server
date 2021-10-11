@@ -8,7 +8,7 @@ services:
     image: vulcanize/dapptools:v0.30.0-v1.10.9-statediff-0.0.27
     environment:
       DB_USER: vdbm
-      DB_NAME: vulcanize_public
+      DB_NAME: vulcanize_testing
       DB_HOST: ipld-eth-db
       DB_PORT: 5432
       DB_PASSWORD: password
@@ -21,7 +21,7 @@ services:
     image: vulcanize/ipld-eth-db:v0.2.0
     environment:
       POSTGRES_USER: "vdbm"
-      POSTGRES_DB: "vulcanize_public"
+      POSTGRES_DB: "vulcanize_testing"
       POSTGRES_PASSWORD: "password"
     volumes:
      - vdb_db_eth_server:/var/lib/postgresql/data
@@ -44,7 +44,7 @@ services:
       ETH_SERVER_HTTPPATH: 0.0.0.0:8081
       VDB_COMMAND: "serve"
       ETH_CHAIN_CONFIG: "/tmp/chain.json"
-      DATABASE_NAME: "vulcanize_public"
+      DATABASE_NAME: "vulcanize_testing"
       DATABASE_HOSTNAME: "ipld-eth-db"
       DATABASE_PORT: 5432
       DATABASE_USER: "vdbm"

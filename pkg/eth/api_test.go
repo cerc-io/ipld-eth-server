@@ -188,7 +188,7 @@ func SetupDB() (*postgres.DB, error) {
 		User:     "vdbm",
 		Password: "password",
 		Hostname: "localhost",
-		Name:     "vulcanize_public",
+		Name:     "vulcanize_testing",
 		Port:     8077,
 	})
 	return postgres.NewDB(uri, postgres.ConnectionConfig{}, node.Info{})
