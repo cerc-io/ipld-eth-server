@@ -7,7 +7,7 @@ docker-compose down --remove-orphans --volumes
 # Build and start the containers.
 # Note: Build only if `ipld-eth-server` or other container code is modified. Otherwise comment this line.
 docker-compose -f docker-compose.test.yml -f docker-compose.yml build eth-server
-docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d db dapptools contract eth-server
+docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
 
 export PGPASSWORD=password
 export DATABASE_USER=vdbm

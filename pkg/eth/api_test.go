@@ -19,6 +19,7 @@ package eth_test
 import (
 	"context"
 	"math/big"
+	"os"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -184,12 +185,13 @@ var (
 
 // SetupDB is use to setup a db for watcher tests
 func SetupDB() (*postgres.DB, error) {
+	port, _ := strconv.Atoi(os.Getenv("DATABASE_PORT"))
 	uri := postgres.DbConnectionString(postgres.ConnectionParams{
-		User:     "vdbm",
-		Password: "password",
-		Hostname: "localhost",
-		Name:     "vulcanize_testing",
-		Port:     8077,
+		User:     os.Getenv("DATABASE_USER"),
+		Password: os.Getenv("DATABASE_PASSWORD"),
+		Hostname: os.Getenv("DATABASE_HOSTNAME"),
+		Name:     os.Getenv("DATABASE_NAME"),
+		Port:     port,
 	})
 	return postgres.NewDB(uri, postgres.ConnectionConfig{}, node.Info{})
 }

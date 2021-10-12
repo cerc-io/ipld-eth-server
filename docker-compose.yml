@@ -4,36 +4,24 @@ services:
   dapptools:
     restart: unless-stopped
     depends_on:
-      - statediff-migrations
+      - ipld-eth-db
     image: vulcanize/dapptools:v0.30.0-v1.10.9-statediff-0.0.27
     environment:
       DB_USER: vdbm
-      DB_NAME: vulcanize_public
-      DB_HOST: db
+      DB_NAME: vulcanize_testing
+      DB_HOST: ipld-eth-db
       DB_PORT: 5432
       DB_PASSWORD: password
     ports:
       - "127.0.0.1:8545:8545"
       - "127.0.0.1:8546:8546"
 
-  statediff-migrations:
-    restart: on-failure
-    depends_on:
-      - db
-    image: vulcanize/statediff-migrations:v0.8.0
-    environment:
-      DATABASE_USER: vdbm
-      DATABASE_NAME: vulcanize_public
-      DATABASE_HOSTNAME: db
-      DATABASE_PORT: 5432
-      DATABASE_PASSWORD: password
-
-  db:
+  ipld-eth-db:
     restart: always
-    image: postgres:10.12-alpine
+    image: vulcanize/ipld-eth-db:v0.2.0
     environment:
       POSTGRES_USER: "vdbm"
-      POSTGRES_DB: "vulcanize_public"
+      POSTGRES_DB: "vulcanize_testing"
       POSTGRES_PASSWORD: "password"
     volumes:
      - vdb_db_eth_server:/var/lib/postgresql/data
@@ -44,7 +32,7 @@ services:
   eth-server:
     restart: unless-stopped
     depends_on:
-      - db
+      - ipld-eth-db
     build:
       context: ./
       cache_from:
@@ -56,8 +44,8 @@ services:
       ETH_SERVER_HTTPPATH: 0.0.0.0:8081
       VDB_COMMAND: "serve"
       ETH_CHAIN_CONFIG: "/tmp/chain.json"
-      DATABASE_NAME: "vulcanize_public"
-      DATABASE_HOSTNAME: "db"
+      DATABASE_NAME: "vulcanize_testing"
+      DATABASE_HOSTNAME: "ipld-eth-db"
       DATABASE_PORT: 5432
       DATABASE_USER: "vdbm"
       DATABASE_PASSWORD: "password"
@@ -73,7 +61,7 @@ services:
   graphql:
     restart: unless-stopped
     depends_on:
-      - db
+      - ipld-eth-db
     image: vulcanize/postgraphile:v1.0.1
     environment:
       - PG_HOST=db
