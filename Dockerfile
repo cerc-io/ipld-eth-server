@@ -44,7 +44,6 @@ COPY --chown=5000:5000 --from=builder /go/src/github.com/vulcanize/ipld-eth-serv
 # keep binaries immutable
 COPY --from=builder /go/src/github.com/vulcanize/ipld-eth-server/ipld-eth-server ipld-eth-server
 COPY --from=builder /goose goose
-COPY --from=builder /go/src/github.com/vulcanize/ipld-eth-server/db/migrations migrations/vulcanizedb
 COPY --from=builder /go/src/github.com/vulcanize/ipld-eth-server/environments environments
 
 ENTRYPOINT ["/app/entrypoint.sh"]

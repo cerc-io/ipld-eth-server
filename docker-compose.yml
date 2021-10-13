@@ -50,7 +50,6 @@ services:
       DATABASE_USER: "vdbm"
       DATABASE_PASSWORD: "password"
       ETH_CHAIN_ID: 4
-      RUN_DB_MIGRATION: "no"
     volumes:
     - type: bind
       source: ./chain.json
