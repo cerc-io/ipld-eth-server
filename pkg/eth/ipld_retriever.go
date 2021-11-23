@@ -17,15 +17,16 @@
 package eth
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/statediff/trie"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
+	"github.com/ethereum/go-ethereum/statediff/trie_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/lib/pq"
 )
 
@@ -129,8 +130,8 @@ const (
 													LIMIT 1`
 	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
-																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
-																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+																		INNER JOIN eth.state_cids ON (storage_cids.header_id = state_cids.header_id AND storage_cids.state_path = state_cids.state_path)
+																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
 																		INNER JOIN public.blocks ON (storage_cids.mh_key = blocks.key)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
@@ -139,8 +140,8 @@ const (
 																	LIMIT 1`
 	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
-																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
-																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+																		INNER JOIN eth.state_cids ON (storage_cids.header_id = state_cids.header_id AND storage_cids.state_path = state_cids.state_path)
+																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
 																		INNER JOIN public.blocks ON (storage_cids.mh_key = blocks.key)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
@@ -167,23 +168,23 @@ type ipldResult struct {
 }
 
 type IPLDRetriever struct {
-	db *postgres.DB
+	db sql.Database
 }
 
-func NewIPLDRetriever(db *postgres.DB) *IPLDRetriever {
+func NewIPLDRetriever(db sql.Database) *IPLDRetriever {
 	return &IPLDRetriever{
 		db: db,
 	}
 }
 
 // RetrieveHeadersByHashes returns the cids and rlp bytes for the headers corresponding to the provided block hashes
-func (r *IPLDRetriever) RetrieveHeadersByHashes(hashes []common.Hash) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveHeadersByHashes(ctx context.Context, hashes []common.Hash) ([]string, [][]byte, error) {
 	headerResults := make([]ipldResult, 0)
 	hashStrs := make([]string, len(hashes))
 	for i, hash := range hashes {
 		hashStrs[i] = hash.Hex()
 	}
-	if err := r.db.Select(&headerResults, RetrieveHeadersByHashesPgStr, pq.Array(hashStrs)); err != nil {
+	if err := r.db.Select(ctx, &headerResults, RetrieveHeadersByHashesPgStr, pq.Array(hashStrs)); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(headerResults))
@@ -197,9 +198,9 @@ func (r *IPLDRetriever) RetrieveHeadersByHashes(hashes []common.Hash) ([]string,
 
 // RetrieveHeadersByBlockNumber returns the cids and rlp bytes for the headers corresponding to the provided block number
 // This can return more than one result since there can be more than one header (non-canonical headers)
-func (r *IPLDRetriever) RetrieveHeadersByBlockNumber(number uint64) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveHeadersByBlockNumber(ctx context.Context, number uint64) ([]string, [][]byte, error) {
 	headerResults := make([]ipldResult, 0)
-	if err := r.db.Select(&headerResults, RetrieveHeadersByBlockNumberPgStr, number); err != nil {
+	if err := r.db.Select(ctx, &headerResults, RetrieveHeadersByBlockNumberPgStr, number); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(headerResults))
@@ -212,19 +213,19 @@ func (r *IPLDRetriever) RetrieveHeadersByBlockNumber(number uint64) ([]string, [
 }
 
 // RetrieveHeaderByHash returns the cid and rlp bytes for the header corresponding to the provided block hash
-func (r *IPLDRetriever) RetrieveHeaderByHash(hash common.Hash) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveHeaderByHash(ctx context.Context, hash common.Hash) (string, []byte, error) {
 	headerResult := new(ipldResult)
-	return headerResult.CID, headerResult.Data, r.db.Get(headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
+	return headerResult.CID, headerResult.Data, r.db.Get(ctx, headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
 }
 
 // RetrieveUnclesByHashes returns the cids and rlp bytes for the uncles corresponding to the provided uncle hashes
-func (r *IPLDRetriever) RetrieveUnclesByHashes(hashes []common.Hash) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveUnclesByHashes(ctx context.Context, hashes []common.Hash) ([]string, [][]byte, error) {
 	uncleResults := make([]ipldResult, 0)
 	hashStrs := make([]string, len(hashes))
 	for i, hash := range hashes {
 		hashStrs[i] = hash.Hex()
 	}
-	if err := r.db.Select(&uncleResults, RetrieveUnclesByHashesPgStr, pq.Array(hashStrs)); err != nil {
+	if err := r.db.Select(ctx, &uncleResults, RetrieveUnclesByHashesPgStr, pq.Array(hashStrs)); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(uncleResults))
@@ -237,9 +238,9 @@ func (r *IPLDRetriever) RetrieveUnclesByHashes(hashes []common.Hash) ([]string, 
 }
 
 // RetrieveUnclesByBlockHash returns the cids and rlp bytes for the uncles corresponding to the provided block hash (of non-omner root block)
-func (r *IPLDRetriever) RetrieveUnclesByBlockHash(hash common.Hash) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveUnclesByBlockHash(ctx context.Context, hash common.Hash) ([]string, [][]byte, error) {
 	uncleResults := make([]ipldResult, 0)
-	if err := r.db.Select(&uncleResults, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := r.db.Select(ctx, &uncleResults, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(uncleResults))
@@ -252,9 +253,9 @@ func (r *IPLDRetriever) RetrieveUnclesByBlockHash(hash common.Hash) ([]string, [
 }
 
 // RetrieveUnclesByBlockNumber returns the cids and rlp bytes for the uncles corresponding to the provided block number (of non-omner root block)
-func (r *IPLDRetriever) RetrieveUnclesByBlockNumber(number uint64) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveUnclesByBlockNumber(ctx context.Context, number uint64) ([]string, [][]byte, error) {
 	uncleResults := make([]ipldResult, 0)
-	if err := r.db.Select(&uncleResults, RetrieveUnclesByBlockNumberPgStr, number); err != nil {
+	if err := r.db.Select(ctx, &uncleResults, RetrieveUnclesByBlockNumberPgStr, number); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(uncleResults))
@@ -267,19 +268,19 @@ func (r *IPLDRetriever) RetrieveUnclesByBlockNumber(number uint64) ([]string, []
 }
 
 // RetrieveUncleByHash returns the cid and rlp bytes for the uncle corresponding to the provided uncle hash
-func (r *IPLDRetriever) RetrieveUncleByHash(hash common.Hash) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveUncleByHash(ctx context.Context, hash common.Hash) (string, []byte, error) {
 	uncleResult := new(ipldResult)
-	return uncleResult.CID, uncleResult.Data, r.db.Get(uncleResult, RetrieveUncleByHashPgStr, hash.Hex())
+	return uncleResult.CID, uncleResult.Data, r.db.Get(ctx, uncleResult, RetrieveUncleByHashPgStr, hash.Hex())
 }
 
 // RetrieveTransactionsByHashes returns the cids and rlp bytes for the transactions corresponding to the provided tx hashes
-func (r *IPLDRetriever) RetrieveTransactionsByHashes(hashes []common.Hash) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveTransactionsByHashes(ctx context.Context, hashes []common.Hash) ([]string, [][]byte, error) {
 	txResults := make([]ipldResult, 0)
 	hashStrs := make([]string, len(hashes))
 	for i, hash := range hashes {
 		hashStrs[i] = hash.Hex()
 	}
-	if err := r.db.Select(&txResults, RetrieveTransactionsByHashesPgStr, pq.Array(hashStrs)); err != nil {
+	if err := r.db.Select(ctx, &txResults, RetrieveTransactionsByHashesPgStr, pq.Array(hashStrs)); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(txResults))
@@ -292,9 +293,9 @@ func (r *IPLDRetriever) RetrieveTransactionsByHashes(hashes []common.Hash) ([]st
 }
 
 // RetrieveTransactionsByBlockHash returns the cids and rlp bytes for the transactions corresponding to the provided block hash
-func (r *IPLDRetriever) RetrieveTransactionsByBlockHash(hash common.Hash) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveTransactionsByBlockHash(ctx context.Context, hash common.Hash) ([]string, [][]byte, error) {
 	txResults := make([]ipldResult, 0)
-	if err := r.db.Select(&txResults, RetrieveTransactionsByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := r.db.Select(ctx, &txResults, RetrieveTransactionsByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(txResults))
@@ -307,9 +308,9 @@ func (r *IPLDRetriever) RetrieveTransactionsByBlockHash(hash common.Hash) ([]str
 }
 
 // RetrieveTransactionsByBlockNumber returns the cids and rlp bytes for the transactions corresponding to the provided block number
-func (r *IPLDRetriever) RetrieveTransactionsByBlockNumber(number uint64) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveTransactionsByBlockNumber(ctx context.Context, number uint64) ([]string, [][]byte, error) {
 	txResults := make([]ipldResult, 0)
-	if err := r.db.Select(&txResults, RetrieveTransactionsByBlockNumberPgStr, number); err != nil {
+	if err := r.db.Select(ctx, &txResults, RetrieveTransactionsByBlockNumberPgStr, number); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(txResults))
@@ -322,9 +323,9 @@ func (r *IPLDRetriever) RetrieveTransactionsByBlockNumber(number uint64) ([]stri
 }
 
 // RetrieveTransactionByTxHash returns the cid and rlp bytes for the transaction corresponding to the provided tx hash
-func (r *IPLDRetriever) RetrieveTransactionByTxHash(hash common.Hash) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveTransactionByTxHash(ctx context.Context, hash common.Hash) (string, []byte, error) {
 	txResult := new(ipldResult)
-	return txResult.CID, txResult.Data, r.db.Get(txResult, RetrieveTransactionByHashPgStr, hash.Hex())
+	return txResult.CID, txResult.Data, r.db.Get(ctx, txResult, RetrieveTransactionByHashPgStr, hash.Hex())
 }
 
 // DecodeLeafNode decodes the leaf node data
@@ -333,7 +334,7 @@ func DecodeLeafNode(node []byte) ([]byte, error) {
 	if err := rlp.DecodeBytes(node, &nodeElements); err != nil {
 		return nil, err
 	}
-	ty, err := trie.CheckKeyType(nodeElements)
+	ty, err := trie_helpers.CheckKeyType(nodeElements)
 	if err != nil {
 		return nil, err
 	}
@@ -345,13 +346,13 @@ func DecodeLeafNode(node []byte) ([]byte, error) {
 }
 
 // RetrieveReceiptsByTxHashes returns the cids and rlp bytes for the receipts corresponding to the provided tx hashes
-func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(ctx context.Context, hashes []common.Hash) ([]string, [][]byte, error) {
 	rctResults := make([]rctIpldResult, 0)
 	hashStrs := make([]string, len(hashes))
 	for i, hash := range hashes {
 		hashStrs[i] = hash.Hex()
 	}
-	if err := r.db.Select(&rctResults, RetrieveReceiptsByTxHashesPgStr, pq.Array(hashStrs)); err != nil {
+	if err := r.db.Select(ctx, &rctResults, RetrieveReceiptsByTxHashesPgStr, pq.Array(hashStrs)); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(rctResults))
@@ -369,9 +370,9 @@ func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]stri
 
 // RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
 // cid returned corresponds to the leaf node data which contains the receipt.
-func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
+func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(ctx context.Context, hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
 	rctResults := make([]rctIpldResult, 0)
-	if err := r.db.Select(&rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := r.db.Select(ctx, &rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, nil, err
 	}
 	cids := make([]string, len(rctResults))
@@ -393,9 +394,9 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string,
 
 // RetrieveReceiptsByBlockNumber returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
 // cid returned corresponds to the leaf node data which contains the receipt.
-func (r *IPLDRetriever) RetrieveReceiptsByBlockNumber(number uint64) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveReceiptsByBlockNumber(ctx context.Context, number uint64) ([]string, [][]byte, error) {
 	rctResults := make([]rctIpldResult, 0)
-	if err := r.db.Select(&rctResults, RetrieveReceiptsByBlockNumberPgStr, number); err != nil {
+	if err := r.db.Select(ctx, &rctResults, RetrieveReceiptsByBlockNumberPgStr, number); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(rctResults))
@@ -413,9 +414,9 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockNumber(number uint64) ([]string, 
 
 // RetrieveReceiptByHash returns the cid and rlp bytes for the receipt corresponding to the provided tx hash.
 // cid returned corresponds to the leaf node data which contains the receipt.
-func (r *IPLDRetriever) RetrieveReceiptByHash(hash common.Hash) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveReceiptByHash(ctx context.Context, hash common.Hash) (string, []byte, error) {
 	rctResult := new(rctIpldResult)
-	if err := r.db.Select(&rctResult, RetrieveReceiptByTxHashPgStr, hash.Hex()); err != nil {
+	if err := r.db.Select(ctx, &rctResult, RetrieveReceiptByTxHashPgStr, hash.Hex()); err != nil {
 		return "", nil, err
 	}
 
@@ -435,10 +436,10 @@ type nodeInfo struct {
 
 // RetrieveAccountByAddressAndBlockHash returns the cid and rlp bytes for the account corresponding to the provided address and block hash
 // TODO: ensure this handles deleted accounts appropriately
-func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Address, hash common.Hash) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(ctx context.Context, address common.Address, hash common.Hash) (string, []byte, error) {
 	accountResult := new(nodeInfo)
 	leafKey := crypto.Keccak256Hash(address.Bytes())
-	if err := r.db.Get(accountResult, RetrieveAccountByLeafKeyAndBlockHashPgStr, leafKey.Hex(), hash.Hex()); err != nil {
+	if err := r.db.Get(ctx, accountResult, RetrieveAccountByLeafKeyAndBlockHashPgStr, leafKey.Hex(), hash.Hex()); err != nil {
 		return "", nil, err
 	}
 
@@ -458,10 +459,10 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 
 // RetrieveAccountByAddressAndBlockNumber returns the cid and rlp bytes for the account corresponding to the provided address and block number
 // This can return a non-canonical account
-func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Address, number uint64) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(ctx context.Context, address common.Address, number uint64) (string, []byte, error) {
 	accountResult := new(nodeInfo)
 	leafKey := crypto.Keccak256Hash(address.Bytes())
-	if err := r.db.Get(accountResult, RetrieveAccountByLeafKeyAndBlockNumberPgStr, leafKey.Hex(), number); err != nil {
+	if err := r.db.Get(ctx, accountResult, RetrieveAccountByLeafKeyAndBlockNumberPgStr, leafKey.Hex(), number); err != nil {
 		return "", nil, err
 	}
 
@@ -480,11 +481,11 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 }
 
 // RetrieveStorageAtByAddressAndStorageSlotAndBlockHash returns the cid and rlp bytes for the storage value corresponding to the provided address, storage slot, and block hash
-func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address common.Address, key, hash common.Hash) (string, []byte, []byte, error) {
+func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(ctx context.Context, address common.Address, key, hash common.Hash) (string, []byte, []byte, error) {
 	storageResult := new(nodeInfo)
 	stateLeafKey := crypto.Keccak256Hash(address.Bytes())
 	storageHash := crypto.Keccak256Hash(key.Bytes())
-	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
+	if err := r.db.Get(ctx, storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
 		return "", nil, nil, err
 	}
 	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
@@ -503,10 +504,10 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 
 // RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber returns the cid and rlp bytes for the storage value corresponding to the provided address, storage key, and block number
 // This can retrun a non-canonical value
-func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(address common.Address, storageLeafKey common.Hash, number uint64) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ctx context.Context, address common.Address, storageLeafKey common.Hash, number uint64) (string, []byte, error) {
 	storageResult := new(nodeInfo)
 	stateLeafKey := crypto.Keccak256Hash(address.Bytes())
-	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr, stateLeafKey.Hex(), storageLeafKey.Hex(), number); err != nil {
+	if err := r.db.Get(ctx, storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr, stateLeafKey.Hex(), storageLeafKey.Hex(), number); err != nil {
 		return "", nil, err
 	}
 

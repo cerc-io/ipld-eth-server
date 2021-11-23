@@ -23,12 +23,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ipfs/go-cid"
 	"github.com/multiformats/go-multihash"
-
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 )
 
 // Filterer interface for substituing mocks in tests
@@ -82,12 +81,12 @@ func (s *ResponseFilterer) filterHeaders(headerFilter HeaderFilter, response *IP
 		if err != nil {
 			return err
 		}
-		response.Header = ipfs.BlockModel{
+		response.Header = models.IPLDModel{
 			Data: headerRLP,
-			CID:  cid.String(),
+			Key:  cid.String(),
 		}
 		if headerFilter.Uncles {
-			response.Uncles = make([]ipfs.BlockModel, len(payload.Block.Body().Uncles))
+			response.Uncles = make([]models.IPLDModel, len(payload.Block.Body().Uncles))
 			for i, uncle := range payload.Block.Body().Uncles {
 				uncleRlp, err := rlp.EncodeToBytes(uncle)
 				if err != nil {
@@ -97,9 +96,9 @@ func (s *ResponseFilterer) filterHeaders(headerFilter HeaderFilter, response *IP
 				if err != nil {
 					return err
 				}
-				response.Uncles[i] = ipfs.BlockModel{
+				response.Uncles[i] = models.IPLDModel{
 					Data: uncleRlp,
-					CID:  cid.String(),
+					Key:  cid.String(),
 				}
 			}
 		}
@@ -119,7 +118,7 @@ func (s *ResponseFilterer) filterTransactions(trxFilter TxFilter, response *IPLD
 	if !trxFilter.Off {
 		trxLen := len(payload.Block.Body().Transactions)
 		trxHashes = make([]common.Hash, 0, trxLen)
-		response.Transactions = make([]ipfs.BlockModel, 0, trxLen)
+		response.Transactions = make([]models.IPLDModel, 0, trxLen)
 		for i, trx := range payload.Block.Body().Transactions {
 			// TODO: check if want corresponding receipt and if we do we must include this transaction
 			if checkTransactionAddrs(trxFilter.Src, trxFilter.Dst, payload.TxMetaData[i].Src, payload.TxMetaData[i].Dst) {
@@ -132,9 +131,9 @@ func (s *ResponseFilterer) filterTransactions(trxFilter TxFilter, response *IPLD
 				if err != nil {
 					return nil, err
 				}
-				response.Transactions = append(response.Transactions, ipfs.BlockModel{
+				response.Transactions = append(response.Transactions, models.IPLDModel{
 					Data: data,
-					CID:  cid.String(),
+					Key:  cid.String(),
 				})
 				trxHashes = append(trxHashes, trx.Hash())
 			}
@@ -164,7 +163,7 @@ func checkTransactionAddrs(wantedSrc, wantedDst []string, actualSrc, actualDst s
 
 func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *IPLDs, payload ConvertedPayload, trxHashes []common.Hash) error {
 	if !receiptFilter.Off {
-		response.Receipts = make([]ipfs.BlockModel, 0, len(payload.Receipts))
+		response.Receipts = make([]models.IPLDModel, 0, len(payload.Receipts))
 		rctLeafCID, rctIPLDData, err := GetRctLeafNodeData(payload.Receipts)
 		if err != nil {
 			return err
@@ -183,9 +182,9 @@ func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *
 
 			// TODO: Verify this filter logic.
 			if checkReceipts(receipt, receiptFilter.Topics, topics, receiptFilter.LogAddresses, contracts, trxHashes) {
-				response.Receipts = append(response.Receipts, ipfs.BlockModel{
+				response.Receipts = append(response.Receipts, models.IPLDModel{
 					Data: rctIPLDData[idx],
-					CID:  rctLeafCID[idx].String(),
+					Key:  rctLeafCID[idx].String(),
 				})
 			}
 		}
@@ -282,9 +281,9 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 				response.StateNodes = append(response.StateNodes, StateNode{
 					StateLeafKey: common.BytesToHash(stateNode.LeafKey),
 					Path:         stateNode.Path,
-					IPLD: ipfs.BlockModel{
+					IPLD: models.IPLDModel{
 						Data: stateNode.NodeValue,
-						CID:  cid.String(),
+						Key:  cid.String(),
 					},
 					Type: stateNode.NodeType,
 				})
@@ -300,9 +299,9 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 					response.StorageNodes = append(response.StorageNodes, StorageNode{
 						StateLeafKey:   common.BytesToHash(stateNode.LeafKey),
 						StorageLeafKey: common.BytesToHash(storageNode.LeafKey),
-						IPLD: ipfs.BlockModel{
+						IPLD: models.IPLDModel{
 							Data: storageNode.NodeValue,
-							CID:  cid.String(),
+							Key:  cid.String(),
 						},
 						Type: storageNode.NodeType,
 						Path: storageNode.Path,

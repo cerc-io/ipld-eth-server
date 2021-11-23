@@ -17,13 +17,14 @@
 package eth
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
@@ -33,60 +34,60 @@ import (
 
 // Retriever interface for substituting mocks in tests
 type Retriever interface {
-	RetrieveFirstBlockNumber() (int64, error)
-	RetrieveLastBlockNumber() (int64, error)
-	Retrieve(filter SubscriptionSettings, blockNumber int64) ([]CIDWrapper, bool, error)
+	RetrieveFirstBlockNumber(ctx context.Context) (int64, error)
+	RetrieveLastBlockNumber(ctx context.Context) (int64, error)
+	Retrieve(ctx context.Context, filter SubscriptionSettings, blockNumber int64) ([]CIDWrapper, bool, error)
 }
 
 // CIDRetriever satisfies the CIDRetriever interface for ethereum
 type CIDRetriever struct {
-	db *postgres.DB
+	db sql.Database
 }
 
 // NewCIDRetriever returns a pointer to a new CIDRetriever which supports the CIDRetriever interface
-func NewCIDRetriever(db *postgres.DB) *CIDRetriever {
+func NewCIDRetriever(db sql.Database) *CIDRetriever {
 	return &CIDRetriever{
 		db: db,
 	}
 }
 
 // RetrieveFirstBlockNumber is used to retrieve the first block number in the db
-func (ecr *CIDRetriever) RetrieveFirstBlockNumber() (int64, error) {
+func (ecr *CIDRetriever) RetrieveFirstBlockNumber(ctx context.Context) (int64, error) {
 	var blockNumber int64
-	err := ecr.db.Get(&blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number ASC LIMIT 1")
+	err := ecr.db.Get(ctx, &blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number ASC LIMIT 1")
 	return blockNumber, err
 }
 
 // RetrieveLastBlockNumber is used to retrieve the latest block number in the db
-func (ecr *CIDRetriever) RetrieveLastBlockNumber() (int64, error) {
+func (ecr *CIDRetriever) RetrieveLastBlockNumber(ctx context.Context) (int64, error) {
 	var blockNumber int64
-	err := ecr.db.Get(&blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number DESC LIMIT 1 ")
+	err := ecr.db.Get(ctx, &blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number DESC LIMIT 1 ")
 	return blockNumber, err
 }
 
 // Retrieve is used to retrieve all of the CIDs which conform to the passed StreamFilters
-func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64) ([]CIDWrapper, bool, error) {
+func (ecr *CIDRetriever) Retrieve(ctx context.Context, filter SubscriptionSettings, blockNumber int64) ([]CIDWrapper, bool, error) {
 	log.Debug("retrieving cids")
 
 	// Begin new db tx
-	tx, err := ecr.db.Beginx()
+	tx, err := ecr.db.Begin(ctx)
 	if err != nil {
 		return nil, true, err
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 		} else {
-			err = tx.Commit()
+			err = tx.Commit(ctx)
 		}
 	}()
 
 	// Retrieve cached header CIDs at this block height
 	var headers []models.HeaderModel
-	headers, err = ecr.RetrieveHeaderCIDs(tx, blockNumber)
+	headers, err = ecr.RetrieveHeaderCIDs(ctx, tx, blockNumber)
 	if err != nil {
 		log.Error("header cid retrieval error", err)
 		return nil, true, err
@@ -102,7 +103,7 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 			if filter.HeaderFilter.Uncles {
 				// Retrieve uncle cids for this header id
 				var uncleCIDs []models.UncleModel
-				uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(tx, header.ID)
+				uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(ctx, tx, header.BlockHash)
 				if err != nil {
 					log.Error("uncle cid retrieval error")
 					return nil, true, err
@@ -112,7 +113,7 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 		}
 		// Retrieve cached trx CIDs
 		if !filter.TxFilter.Off {
-			cw.Transactions, err = ecr.RetrieveTxCIDs(tx, filter.TxFilter, header.ID)
+			cw.Transactions, err = ecr.RetrieveTxCIDs(ctx, tx, filter.TxFilter, header.BlockHash)
 			if err != nil {
 				log.Error("transaction cid retrieval error")
 				return nil, true, err
@@ -121,13 +122,13 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 				empty = false
 			}
 		}
-		trxIds := make([]int64, len(cw.Transactions))
-		for j, tx := range cw.Transactions {
-			trxIds[j] = tx.ID
+		trxHashes := make([]string, len(cw.Transactions))
+		for j, t := range cw.Transactions {
+			trxHashes[j] = t.TxHash
 		}
 		// Retrieve cached receipt CIDs
 		if !filter.ReceiptFilter.Off {
-			cw.Receipts, err = ecr.RetrieveRctCIDsByHeaderID(tx, filter.ReceiptFilter, header.ID, trxIds)
+			cw.Receipts, err = ecr.RetrieveRctCIDsByHeaderID(ctx, tx, filter.ReceiptFilter, header.BlockHash, trxHashes)
 			if err != nil {
 				log.Error("receipt cid retrieval error")
 				return nil, true, err
@@ -138,7 +139,7 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 		}
 		// Retrieve cached state CIDs
 		if !filter.StateFilter.Off {
-			cw.StateNodes, err = ecr.RetrieveStateCIDs(tx, filter.StateFilter, header.ID)
+			cw.StateNodes, err = ecr.RetrieveStateCIDs(ctx, tx, filter.StateFilter, header.BlockHash)
 			if err != nil {
 				log.Error("state cid retrieval error")
 				return nil, true, err
@@ -149,7 +150,7 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 		}
 		// Retrieve cached storage CIDs
 		if !filter.StorageFilter.Off {
-			cw.StorageNodes, err = ecr.RetrieveStorageCIDs(tx, filter.StorageFilter, header.ID)
+			cw.StorageNodes, err = ecr.RetrieveStorageCIDs(ctx, tx, filter.StorageFilter, header.BlockHash)
 			if err != nil {
 				log.Error("storage cid retrieval error")
 				return nil, true, err
@@ -165,26 +166,27 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 }
 
 // RetrieveHeaderCIDs retrieves and returns all of the header cids at the provided blockheight
-func (ecr *CIDRetriever) RetrieveHeaderCIDs(tx *sqlx.Tx, blockNumber int64) ([]models.HeaderModel, error) {
+func (ecr *CIDRetriever) RetrieveHeaderCIDs(ctx context.Context, tx sql.Tx, blockNumber int64) ([]models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block ", blockNumber)
 	headers := make([]models.HeaderModel, 0)
 	pgStr := `SELECT * FROM eth.header_cids
 				WHERE block_number = $1`
-	return headers, tx.Select(&headers, pgStr, blockNumber)
+	return headers, tx.QueryRow(ctx, pgStr, blockNumber).Scan(&headers)
 }
 
 // RetrieveUncleCIDsByHeaderID retrieves and returns all of the uncle cids for the provided header
-func (ecr *CIDRetriever) RetrieveUncleCIDsByHeaderID(tx *sqlx.Tx, headerID int64) ([]models.UncleModel, error) {
+func (ecr *CIDRetriever) RetrieveUncleCIDsByHeaderID(ctx context.Context, tx sql.Tx, headerID string) ([]models.UncleModel, error) {
 	log.Debug("retrieving uncle cids for block id ", headerID)
 	headers := make([]models.UncleModel, 0)
 	pgStr := `SELECT * FROM eth.uncle_cids
 				WHERE header_id = $1`
-	return headers, tx.Select(&headers, pgStr, headerID)
+
+	return headers, tx.QueryRow(ctx, pgStr, headerID).Scan(headers)
 }
 
 // RetrieveTxCIDs retrieves and returns all of the trx cids at the provided blockheight that conform to the provided filter parameters
 // also returns the ids for the returned transaction cids
-func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID int64) ([]models.TxModel, error) {
+func (ecr *CIDRetriever) RetrieveTxCIDs(ctx context.Context, tx sql.Tx, txFilter TxFilter, headerID string) ([]models.TxModel, error) {
 	log.Debug("retrieving transaction cids for header id ", headerID)
 	args := make([]interface{}, 0, 3)
 	results := make([]models.TxModel, 0)
@@ -206,7 +208,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID
 		args = append(args, pq.Array(txFilter.Src))
 	}
 	pgStr += ` ORDER BY transaction_cids.index`
-	return results, tx.Select(&results, pgStr, args...)
+	return results, tx.QueryRow(ctx, pgStr, args...).Scan(results)
 }
 
 func topicFilterCondition(id *int, topics [][]string, args []interface{}, pgStr string, first bool) (string, []interface{}) {
@@ -242,7 +244,7 @@ func logFilterCondition(id *int, pgStr string, args []interface{}, rctFilter Rec
 	return pgStr, args
 }
 
-func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilter ReceiptFilter, trxIds []int64) (string, []interface{}) {
+func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilter ReceiptFilter, txHashes []string) (string, []interface{}) {
 	rctCond := " AND (receipt_cids.id = ANY ( "
 	logQuery := "SELECT receipt_id FROM eth.log_cids WHERE"
 	if len(rctFilter.LogAddresses) > 0 {
@@ -258,10 +260,10 @@ func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilte
 
 		pgStr += ")"
 
-		// Filter on txIDs if there are any and we are matching txs
-		if rctFilter.MatchTxs && len(trxIds) > 0 {
-			pgStr += fmt.Sprintf(` OR receipt_cids.tx_id = ANY($%d::INTEGER[])`, *id)
-			args = append(args, pq.Array(trxIds))
+		// Filter on txHashes if there are any, and we are matching txs
+		if rctFilter.MatchTxs && len(txHashes) > 0 {
+			pgStr += fmt.Sprintf(` OR receipt_cids.tx_id = ANY($%d::STRING[])`, *id)
+			args = append(args, pq.Array(txHashes))
 		}
 		pgStr += ")"
 	} else { // If there are no contract addresses to filter on
@@ -270,17 +272,17 @@ func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilte
 			pgStr += rctCond + logQuery
 			pgStr, args = topicFilterCondition(id, rctFilter.Topics, args, pgStr, true)
 			pgStr += ")"
-			// Filter on txIDs if there are any and we are matching txs
-			if rctFilter.MatchTxs && len(trxIds) > 0 {
-				pgStr += fmt.Sprintf(` OR receipt_cids.tx_id = ANY($%d::INTEGER[])`, *id)
-				args = append(args, pq.Array(trxIds))
+			// Filter on txHashes if there are any, and we are matching txs
+			if rctFilter.MatchTxs && len(txHashes) > 0 {
+				pgStr += fmt.Sprintf(` OR receipt_cids.tx_id = ANY($%d::STRING[])`, *id)
+				args = append(args, pq.Array(txHashes))
 			}
 			pgStr += ")"
-		} else if rctFilter.MatchTxs && len(trxIds) > 0 {
+		} else if rctFilter.MatchTxs && len(txHashes) > 0 {
 			// If there are no contract addresses or topics to filter on,
-			// Filter on txIDs if there are any and we are matching txs
-			pgStr += fmt.Sprintf(` AND receipt_cids.tx_id = ANY($%d::INTEGER[])`, *id)
-			args = append(args, pq.Array(trxIds))
+			// Filter on txHashes if there are any, and we are matching txs
+			pgStr += fmt.Sprintf(` AND receipt_cids.tx_id = ANY($%d::STRING[])`, *id)
+			args = append(args, pq.Array(txHashes))
 		}
 	}
 
@@ -289,7 +291,7 @@ func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilte
 
 // RetrieveRctCIDsByHeaderID retrieves and returns all of the rct cids at the provided header ID that conform to the provided
 // filter parameters and correspond to the provided tx ids
-func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter ReceiptFilter, headerID int64, trxIds []int64) ([]models.ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(ctx context.Context, tx sql.Tx, rctFilter ReceiptFilter, headerID string, trxHashes []string) ([]models.ReceiptModel, error) {
 	log.Debug("retrieving receipt cids for header id ", headerID)
 	args := make([]interface{}, 0, 4)
 	pgStr := `SELECT receipt_cids.id, receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
@@ -301,20 +303,20 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 	id := 2
 	args = append(args, headerID)
 
-	pgStr, args = receiptFilterConditions(&id, pgStr, args, rctFilter, trxIds)
+	pgStr, args = receiptFilterConditions(&id, pgStr, args, rctFilter, trxHashes)
 
 	pgStr += ` ORDER BY transaction_cids.index`
 	receiptCids := make([]models.ReceiptModel, 0)
-	return receiptCids, tx.Select(&receiptCids, pgStr, args...)
+	return receiptCids, tx.QueryRow(ctx, pgStr, args...).Scan(receiptCids)
 }
 
 // RetrieveFilteredGQLLogs retrieves and returns all the log cIDs provided blockHash that conform to the provided
 // filter parameters.
-func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]LogResult, error) {
+func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(ctx context.Context, tx sql.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	id := 1
-	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
+	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,  
        			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, 
        			eth.log_cids.log_data, eth.transaction_cids.tx_hash, data, eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status
 				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
@@ -330,20 +332,15 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	pgStr += ` ORDER BY log_cids.index`
 
 	logCIDs := make([]LogResult, 0)
-	err := tx.Select(&logCIDs, pgStr, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	return logCIDs, nil
+	return logCIDs, tx.QueryRow(ctx, pgStr, args...).Scan(&logCIDs)
 }
 
 // RetrieveFilteredLog retrieves and returns all the log cIDs provided blockHeight or blockHash that conform to the provided
 // filter parameters.
-func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
+func (ecr *CIDRetriever) RetrieveFilteredLog(ctx context.Context, tx sql.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
-	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
+	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,  
        			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, 
        			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index, 
        			header_cids.block_hash, header_cids.block_number
@@ -367,17 +364,12 @@ func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilte
 	pgStr += ` ORDER BY log_cids.index`
 
 	logCIDs := make([]LogResult, 0)
-	err := tx.Select(&logCIDs, pgStr, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	return logCIDs, nil
+	return logCIDs, tx.QueryRow(ctx, pgStr, args...).Scan(&logCIDs)
 }
 
 // RetrieveRctCIDs retrieves and returns all of the rct cids at the provided blockheight or block hash that conform to the provided
 // filter parameters and correspond to the provided tx ids
-func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash, trxIds []int64) ([]models.ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash, txHashes []string) ([]models.ReceiptModel, error) {
 	log.Debug("retrieving receipt cids for block ", blockNumber)
 	args := make([]interface{}, 0, 5)
 	pgStr := `SELECT receipt_cids.id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key, receipt_cids.tx_id
@@ -396,7 +388,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, b
 		id++
 	}
 
-	pgStr, args = receiptFilterConditions(&id, pgStr, args, rctFilter, trxIds)
+	pgStr, args = receiptFilterConditions(&id, pgStr, args, rctFilter, txHashes)
 
 	pgStr += ` ORDER BY transaction_cids.index`
 	receiptCids := make([]models.ReceiptModel, 0)
@@ -413,7 +405,7 @@ func hasTopics(topics [][]string) bool {
 }
 
 // RetrieveStateCIDs retrieves and returns all of the state node cids at the provided header ID that conform to the provided filter parameters
-func (ecr *CIDRetriever) RetrieveStateCIDs(tx *sqlx.Tx, stateFilter StateFilter, headerID int64) ([]models.StateNodeModel, error) {
+func (ecr *CIDRetriever) RetrieveStateCIDs(ctx context.Context, tx sql.Tx, stateFilter StateFilter, headerID string) ([]models.StateNodeModel, error) {
 	log.Debug("retrieving state cids for header id ", headerID)
 	args := make([]interface{}, 0, 2)
 	pgStr := `SELECT state_cids.id, state_cids.header_id,
@@ -434,19 +426,19 @@ func (ecr *CIDRetriever) RetrieveStateCIDs(tx *sqlx.Tx, stateFilter StateFilter,
 		pgStr += ` AND state_cids.node_type = 2`
 	}
 	stateNodeCIDs := make([]models.StateNodeModel, 0)
-	return stateNodeCIDs, tx.Select(&stateNodeCIDs, pgStr, args...)
+	return stateNodeCIDs, tx.QueryRow(ctx, pgStr, args...).Scan(&stateNodeCIDs)
 }
 
 // RetrieveStorageCIDs retrieves and returns all of the storage node cids at the provided header id that conform to the provided filter parameters
-func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageFilter, headerID int64) ([]models.StorageNodeWithStateKeyModel, error) {
+func (ecr *CIDRetriever) RetrieveStorageCIDs(ctx context.Context, tx sql.Tx, storageFilter StorageFilter, headerID string) ([]models.StorageNodeWithStateKeyModel, error) {
 	log.Debug("retrieving storage cids for header id ", headerID)
 	args := make([]interface{}, 0, 3)
 	pgStr := `SELECT storage_cids.id, storage_cids.state_id, storage_cids.storage_leaf_key, storage_cids.node_type,
  			storage_cids.cid, storage_cids.mh_key, storage_cids.storage_path, state_cids.state_leaf_key
  			FROM eth.storage_cids, eth.state_cids, eth.header_cids
-			WHERE storage_cids.state_id = state_cids.id 
-			AND state_cids.header_id = header_cids.id
-			AND header_cids.id = $1`
+			WHERE storage_cids.header_id = state_cids.header_id AND storage_cids.state_path = state_cids.state_path
+			AND state_cids.header_id = header_cids.block_hash
+			AND header_cids.block_hash = $1`
 	args = append(args, headerID)
 	id := 2
 	addrLen := len(storageFilter.Addresses)
@@ -467,53 +459,53 @@ func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageF
 		pgStr += ` AND storage_cids.node_type = 2`
 	}
 	storageNodeCIDs := make([]models.StorageNodeWithStateKeyModel, 0)
-	return storageNodeCIDs, tx.Select(&storageNodeCIDs, pgStr, args...)
+	return storageNodeCIDs, tx.QueryRow(ctx, pgStr, args...).Scan(&storageNodeCIDs)
 }
 
 // RetrieveBlockByHash returns all of the CIDs needed to compose an entire block, for a given block hash
-func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (models.HeaderModel, []models.UncleModel, []models.TxModel, []models.ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveBlockByHash(ctx context.Context, blockHash common.Hash) (models.HeaderModel, []models.UncleModel, []models.TxModel, []models.ReceiptModel, error) {
 	log.Debug("retrieving block cids for block hash ", blockHash.String())
 
 	// Begin new db tx
-	tx, err := ecr.db.Beginx()
+	tx, err := ecr.db.Begin(ctx)
 	if err != nil {
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 		} else {
-			err = tx.Commit()
+			err = tx.Commit(ctx)
 		}
 	}()
 
 	var headerCID models.HeaderModel
-	headerCID, err = ecr.RetrieveHeaderCIDByHash(tx, blockHash)
+	headerCID, err = ecr.RetrieveHeaderCIDByHash(ctx, tx, blockHash)
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
 	var uncleCIDs []models.UncleModel
-	uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID.ID)
+	uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(ctx, tx, headerCID.BlockHash)
 	if err != nil {
 		log.Error("uncle cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
 	var txCIDs []models.TxModel
-	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.ID)
+	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(ctx, tx, headerCID.BlockHash)
 	if err != nil {
 		log.Error("tx cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
-	txIDs := make([]int64, len(txCIDs))
+	txHashes := make([]string, len(txCIDs))
 	for i, txCID := range txCIDs {
-		txIDs[i] = txCID.ID
+		txHashes[i] = txCID.TxHash
 	}
 	var rctCIDs []models.ReceiptModel
-	rctCIDs, err = ecr.RetrieveReceiptCIDsByTxIDs(tx, txIDs)
+	rctCIDs, err = ecr.RetrieveReceiptCIDsByTxIDs(ctx, tx, txHashes)
 	if err != nil {
 		log.Error("rct cid retrieval error")
 	}
@@ -521,27 +513,27 @@ func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (models.Head
 }
 
 // RetrieveBlockByNumber returns all of the CIDs needed to compose an entire block, for a given block number
-func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (models.HeaderModel, []models.UncleModel, []models.TxModel, []models.ReceiptModel, error) {
+func (ecr *CIDRetriever) RetrieveBlockByNumber(ctx context.Context, blockNumber int64) (models.HeaderModel, []models.UncleModel, []models.TxModel, []models.ReceiptModel, error) {
 	log.Debug("retrieving block cids for block number ", blockNumber)
 
 	// Begin new db tx
-	tx, err := ecr.db.Beginx()
+	tx, err := ecr.db.Begin(ctx)
 	if err != nil {
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			shared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 			panic(p)
 		} else if err != nil {
-			shared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 		} else {
-			err = tx.Commit()
+			err = tx.Commit(ctx)
 		}
 	}()
 
 	var headerCID []models.HeaderModel
-	headerCID, err = ecr.RetrieveHeaderCIDs(tx, blockNumber)
+	headerCID, err = ecr.RetrieveHeaderCIDs(ctx, tx, blockNumber)
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
@@ -550,23 +542,23 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (models.Header
 		return models.HeaderModel{}, nil, nil, nil, fmt.Errorf("header cid retrieval error, no header CIDs found at block %d", blockNumber)
 	}
 	var uncleCIDs []models.UncleModel
-	uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID[0].ID)
+	uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(ctx, tx, headerCID[0].BlockHash)
 	if err != nil {
 		log.Error("uncle cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
 	var txCIDs []models.TxModel
-	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID[0].ID)
+	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(ctx, tx, headerCID[0].BlockHash)
 	if err != nil {
 		log.Error("tx cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
-	txIDs := make([]int64, len(txCIDs))
+	txHashes := make([]string, len(txCIDs))
 	for i, txCID := range txCIDs {
-		txIDs[i] = txCID.ID
+		txHashes[i] = txCID.TxHash
 	}
 	var rctCIDs []models.ReceiptModel
-	rctCIDs, err = ecr.RetrieveReceiptCIDsByTxIDs(tx, txIDs)
+	rctCIDs, err = ecr.RetrieveReceiptCIDsByTxIDs(ctx, tx, txHashes)
 	if err != nil {
 		log.Error("rct cid retrieval error")
 	}
@@ -574,27 +566,29 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (models.Header
 }
 
 // RetrieveHeaderCIDByHash returns the header for the given block hash
-func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.Hash) (models.HeaderModel, error) {
+func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(ctx context.Context, tx sql.Tx, blockHash common.Hash) (models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block hash ", blockHash.String())
 	pgStr := `SELECT * FROM eth.header_cids
 			WHERE block_hash = $1`
 	var headerCID models.HeaderModel
-	return headerCID, tx.Get(&headerCID, pgStr, blockHash.String())
+	return headerCID, tx.QueryRow(ctx, pgStr, blockHash.String()).Scan(&headerCID.CID, &headerCID.NodeID, &headerCID.BlockHash, &headerCID.BlockNumber,
+		&headerCID.BaseFee, &headerCID.Bloom, &headerCID.MhKey, &headerCID.ParentHash, &headerCID.RctRoot, &headerCID.Reward, &headerCID.StateRoot,
+		&headerCID.Timestamp, &headerCID.TimesValidated, &headerCID.TotalDifficulty, &headerCID.TxRoot, &headerCID.UncleRoot)
 }
 
 // RetrieveTxCIDsByHeaderID retrieves all tx CIDs for the given header id
-func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID int64) ([]models.TxModel, error) {
+func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(ctx context.Context, tx sql.Tx, headerID string) ([]models.TxModel, error) {
 	log.Debug("retrieving tx cids for block id ", headerID)
 	pgStr := `SELECT * FROM eth.transaction_cids
 			WHERE header_id = $1
 			ORDER BY index`
 	var txCIDs []models.TxModel
-	return txCIDs, tx.Select(&txCIDs, pgStr, headerID)
+	return txCIDs, tx.QueryRow(ctx, pgStr, headerID).(*sqlx.Row).Scan(&txCIDs)
 }
 
 // RetrieveReceiptCIDsByTxIDs retrieves receipt CIDs by their associated tx IDs
-func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txIDs []int64) ([]models.ReceiptModel, error) {
-	log.Debugf("retrieving receipt cids for tx ids %v", txIDs)
+func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(ctx context.Context, tx sql.Tx, txHashes []string) ([]models.ReceiptModel, error) {
+	log.Debugf("retrieving receipt cids for tx ids %v", txHashes)
 	pgStr := `SELECT receipt_cids.id, receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
  			receipt_cids.contract, receipt_cids.contract_hash
 			FROM eth.receipt_cids, eth.transaction_cids
@@ -602,5 +596,5 @@ func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txIDs []int64) 
 			AND receipt_cids.tx_id = transaction_cids.id
 			ORDER BY transaction_cids.index`
 	var rctCIDs []models.ReceiptModel
-	return rctCIDs, tx.Select(&rctCIDs, pgStr, pq.Array(txIDs))
+	return rctCIDs, tx.QueryRow(ctx, pgStr, pq.Array(txHashes)).Scan(rctCIDs)
 }

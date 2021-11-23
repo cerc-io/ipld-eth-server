@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -59,7 +58,7 @@ func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionS
 		// subscribe to events from the SyncPublishScreenAndServe service
 		payloadChannel := make(chan SubscriptionPayload, PayloadChanBufferSize)
 		quitChan := make(chan bool, 1)
-		go api.w.Subscribe(rpcSub.ID, payloadChannel, quitChan, params)
+		go api.w.Subscribe(ctx, rpcSub.ID, payloadChannel, quitChan, params)
 
 		// loop and await payloads and relay them to the subscriber using notifier
 		for {
@@ -83,7 +82,7 @@ func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionS
 	return rpcSub, nil
 }
 
-// Chain returns the chain type that this watcher instance supports
-func (api *PublicServerAPI) Chain() shared.ChainType {
-	return shared.Ethereum
-}
+//// Chain returns the chain type that this watcher instance supports
+//func (api *PublicServerAPI) Chain() shared.ChainType {
+//	return shared.Ethereum
+//}

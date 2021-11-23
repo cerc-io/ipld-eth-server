@@ -57,7 +57,7 @@ func validate() {
 	stateRoot := common.HexToHash(stateRootStr)
 	cacheSize := viper.GetInt("cacheSize")
 
-	ethDB := ipfsethdb.NewDatabase(config.DB.DB, ipfsethdb.CacheConfig{
+	ethDB := ipfsethdb.NewDatabase(config.DB, ipfsethdb.CacheConfig{
 		Name:           GroupName,
 		Size:           cacheSize * 1024 * 1024,
 		ExpiryDuration: time.Minute * time.Duration(CacheExpiryInMins),

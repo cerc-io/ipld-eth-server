@@ -612,7 +612,7 @@ func (b *Block) TotalDifficulty(ctx context.Context) (hexutil.Big, error) {
 		}
 		h = header.Hash()
 	}
-	td, err := b.backend.GetTd(h)
+	td, err := b.backend.GetTd(ctx, h)
 	if err != nil {
 		return hexutil.Big{}, err
 	}
@@ -1005,7 +1005,7 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 	Contract  common.Address
 	Slot      common.Hash
 }) (*StorageResult, error) {
-	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(args.Contract, args.Slot, args.BlockHash)
+	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(ctx, args.Contract, args.Slot, args.BlockHash)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -1042,17 +1042,17 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 	}
 
 	// Begin tx
-	tx, err := r.backend.DB.Beginx()
+	tx, err := r.backend.DB.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash)
+	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(ctx, tx, filter, &args.BlockHash)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 

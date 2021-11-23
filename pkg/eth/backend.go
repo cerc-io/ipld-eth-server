@@ -18,7 +18,6 @@ package eth
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"math/big"
@@ -39,13 +38,15 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
-	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+
 	"github.com/ethereum/go-ethereum/trie"
 	log "github.com/sirupsen/logrus"
 	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
 	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+
+	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
@@ -59,6 +60,7 @@ var (
 	// errMissingSignature is returned if a block's extra-data section doesn't seem
 	// to contain a 65 byte secp256k1 signature.
 	errMissingSignature = errors.New("extra-data 65 byte signature suffix missing")
+	errNoRows           = errors.New("sql: no rows in result set")
 )
 
 const (
@@ -75,8 +77,8 @@ const (
 			AND transaction_cids.header_id = header_cids.id
 			AND transaction_cids.tx_hash = $1`
 	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
-											WHERE state_accounts.state_id = state_cids.id
-											AND state_cids.header_id = header_cids.id
+											WHERE state_accounts.header_id = state_cids.header_id AND state_accounts.state_path = state_cids.state_path
+											AND state_cids.header_id = header_cids.block_hash
 											AND state_leaf_key = $1
 											AND block_number <= (SELECT block_number
 																FROM eth.header_cids
@@ -93,7 +95,7 @@ const (
 
 type Backend struct {
 	// underlying postgres db
-	DB *postgres.DB
+	DB sql.Database
 
 	// postgres db interfaces
 	Retriever     *CIDRetriever
@@ -115,7 +117,7 @@ type Config struct {
 	GroupCacheConfig *shared.GroupCacheConfig
 }
 
-func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
+func NewEthBackend(db sql.Database, c *Config) (*Backend, error) {
 	gcc := c.GroupCacheConfig
 
 	groupName := gcc.StateDB.Name
@@ -124,7 +126,7 @@ func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
 	}
 
 	r := NewCIDRetriever(db)
-	ethDB := ipfsethdb.NewDatabase(db.DB, ipfsethdb.CacheConfig{
+	ethDB := ipfsethdb.NewDatabase(db, ipfsethdb.CacheConfig{
 		Name:           groupName,
 		Size:           gcc.StateDB.CacheSizeInMB * 1024 * 1024,
 		ExpiryDuration: time.Minute * time.Duration(gcc.StateDB.CacheExpiryInMins),
@@ -153,13 +155,13 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumbe
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
-		number, err = b.Retriever.RetrieveLastBlockNumber()
+		number, err = b.Retriever.RetrieveLastBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if blockNumber == rpc.EarliestBlockNumber {
-		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		number, err = b.Retriever.RetrieveFirstBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +172,7 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumbe
 	if number < 0 {
 		return nil, errNegativeBlockNumber
 	}
-	_, canonicalHeaderRLP, err := b.GetCanonicalHeader(uint64(number))
+	_, canonicalHeaderRLP, err := b.GetCanonicalHeader(ctx, uint64(number))
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +183,7 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumbe
 
 // HeaderByHash gets the header for the provided block hash
 func (b *Backend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(hash)
+	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +204,7 @@ func (b *Backend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Bl
 		if header == nil {
 			return nil, errors.New("header for hash not found")
 		}
-		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+		canonicalHash, err := b.GetCanonicalHash(ctx, header.Number.Uint64())
 		if err != nil {
 			return nil, err
 		}
@@ -215,9 +217,9 @@ func (b *Backend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Bl
 }
 
 // GetTd gets the total difficulty at the given block hash
-func (b *Backend) GetTd(blockHash common.Hash) (*big.Int, error) {
+func (b *Backend) GetTd(ctx context.Context, blockHash common.Hash) (*big.Int, error) {
 	var tdStr string
-	err := b.DB.Get(&tdStr, RetrieveTD, blockHash.String())
+	err := b.DB.Get(ctx, &tdStr, RetrieveTD, blockHash.String())
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +249,7 @@ func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Blo
 		if header == nil {
 			return nil, errors.New("header for hash not found")
 		}
-		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+		canonicalHash, err := b.GetCanonicalHash(ctx, header.Number.Uint64())
 		if err != nil {
 			return nil, err
 		}
@@ -271,13 +273,13 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
-		number, err = b.Retriever.RetrieveLastBlockNumber()
+		number, err = b.Retriever.RetrieveLastBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if blockNumber == rpc.EarliestBlockNumber {
-		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		number, err = b.Retriever.RetrieveFirstBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -289,44 +291,44 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		return nil, errNegativeBlockNumber
 	}
 	// Get the canonical hash
-	canonicalHash, err := b.GetCanonicalHash(uint64(number))
+	canonicalHash, err := b.GetCanonicalHash(ctx, uint64(number))
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == errNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
 	// Retrieve all the CIDs for the block
 	// TODO: optimize this by retrieving iplds directly rather than the cids first (this is remanent from when we fetched iplds through ipfs blockservice interface)
-	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(canonicalHash)
+	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(ctx, canonicalHash)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == errNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
 
 	// Begin tx
-	tx, err := b.DB.Beginx()
+	tx, err := b.DB.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 			panic(p)
 		} else if err != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 		} else {
-			err = tx.Commit()
+			err = tx.Commit(ctx)
 		}
 	}()
 
 	// Fetch and decode the header IPLD
-	var headerIPLD ipfs.BlockModel
-	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
+	var headerIPLD models.IPLDModel
+	headerIPLD, err = b.Fetcher.FetchHeader(ctx, tx, headerCID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == errNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -337,8 +339,8 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		return nil, err
 	}
 	// Fetch and decode the uncle IPLDs
-	var uncleIPLDs []ipfs.BlockModel
-	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
+	var uncleIPLDs []models.IPLDModel
+	uncleIPLDs, err = b.Fetcher.FetchUncles(ctx, tx, uncleCIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -352,8 +354,8 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		uncles = append(uncles, &uncle)
 	}
 	// Fetch and decode the transaction IPLDs
-	var txIPLDs []ipfs.BlockModel
-	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
+	var txIPLDs []models.IPLDModel
+	txIPLDs, err = b.Fetcher.FetchTrxs(ctx, tx, txCIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -367,8 +369,8 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		transactions = append(transactions, &transaction)
 	}
 	// Fetch and decode the receipt IPLDs
-	var rctIPLDs []ipfs.BlockModel
-	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
+	var rctIPLDs []models.IPLDModel
+	rctIPLDs, err = b.Fetcher.FetchRcts(ctx, tx, rctCIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -394,35 +396,35 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 // detail, otherwise only the transaction hash is returned.
 func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	// Retrieve all the CIDs for the block
-	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(hash)
+	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(ctx, hash)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == errNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
 
 	// Begin tx
-	tx, err := b.DB.Beginx()
+	tx, err := b.DB.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 			panic(p)
 		} else if err != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 		} else {
-			err = tx.Commit()
+			err = tx.Commit(ctx)
 		}
 	}()
 
 	// Fetch and decode the header IPLD
-	var headerIPLD ipfs.BlockModel
-	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
+	var headerIPLD models.IPLDModel
+	headerIPLD, err = b.Fetcher.FetchHeader(ctx, tx, headerCID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == errNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -433,10 +435,10 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		return nil, err
 	}
 	// Fetch and decode the uncle IPLDs
-	var uncleIPLDs []ipfs.BlockModel
-	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
+	var uncleIPLDs []models.IPLDModel
+	uncleIPLDs, err = b.Fetcher.FetchUncles(ctx, tx, uncleCIDs)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == errNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -451,10 +453,10 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		uncles = append(uncles, &uncle)
 	}
 	// Fetch and decode the transaction IPLDs
-	var txIPLDs []ipfs.BlockModel
-	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
+	var txIPLDs []models.IPLDModel
+	txIPLDs, err = b.Fetcher.FetchTrxs(ctx, tx, txCIDs)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == errNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -469,10 +471,10 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		transactions = append(transactions, &transaction)
 	}
 	// Fetch and decode the receipt IPLDs
-	var rctIPLDs []ipfs.BlockModel
-	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
+	var rctIPLDs []models.IPLDModel
+	rctIPLDs, err = b.Fetcher.FetchRcts(ctx, tx, rctCIDs)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == errNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -504,7 +506,7 @@ func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*type
 		BlockNumber uint64 `db:"block_number"`
 		Index       uint64 `db:"index"`
 	}
-	if err := b.DB.Get(&tempTxStruct, RetrieveRPCTransaction, txHash.String()); err != nil {
+	if err := b.DB.Get(ctx, &tempTxStruct, RetrieveRPCTransaction, txHash.String()); err != nil {
 		return nil, common.Hash{}, 0, 0, err
 	}
 	var transaction types.Transaction
@@ -516,7 +518,7 @@ func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*type
 
 // GetReceipts retrieves receipts for provided block hash
 func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -534,7 +536,7 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 
 // GetLogs returns all the logs for the given block hash
 func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -567,7 +569,7 @@ func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHas
 		if header == nil {
 			return nil, nil, errors.New("header for hash not found")
 		}
-		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+		canonicalHash, err := b.GetCanonicalHash(ctx, header.Number.Uint64())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -599,9 +601,9 @@ func (b *Backend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNu
 }
 
 // GetCanonicalHash gets the canonical hash for the provided number, if there is one
-func (b *Backend) GetCanonicalHash(number uint64) (common.Hash, error) {
+func (b *Backend) GetCanonicalHash(ctx context.Context, number uint64) (common.Hash, error) {
 	var hashResult string
-	if err := b.DB.Get(&hashResult, RetrieveCanonicalBlockHashByNumber, number); err != nil {
+	if err := b.DB.Get(ctx, &hashResult, RetrieveCanonicalBlockHashByNumber, number); err != nil {
 		return common.Hash{}, err
 	}
 	return common.HexToHash(hashResult), nil
@@ -613,9 +615,9 @@ type rowResult struct {
 }
 
 // GetCanonicalHeader gets the canonical header for the provided number, if there is one
-func (b *Backend) GetCanonicalHeader(number uint64) (string, []byte, error) {
+func (b *Backend) GetCanonicalHeader(ctx context.Context, number uint64) (string, []byte, error) {
 	headerResult := new(rowResult)
-	return headerResult.CID, headerResult.Data, b.DB.QueryRowx(RetrieveCanonicalHeaderByNumber, number).StructScan(headerResult)
+	return headerResult.CID, headerResult.Data, b.DB.QueryRow(ctx, RetrieveCanonicalHeaderByNumber, number).Scan(&headerResult.CID, &headerResult.Data)
 }
 
 // GetEVM constructs and returns a vm.EVM
@@ -642,13 +644,13 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
-		number, err = b.Retriever.RetrieveLastBlockNumber()
+		number, err = b.Retriever.RetrieveLastBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if blockNumber == rpc.EarliestBlockNumber {
-		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		number, err = b.Retriever.RetrieveFirstBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -656,8 +658,8 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 	if blockNumber == rpc.PendingBlockNumber {
 		return nil, errPendingBlockNumber
 	}
-	hash, err := b.GetCanonicalHash(uint64(number))
-	if err == sql.ErrNoRows {
+	hash, err := b.GetCanonicalHash(ctx, uint64(number))
+	if err == errNoRows {
 		return nil, errHeaderNotFound
 	} else if err != nil {
 		return nil, err
@@ -669,13 +671,13 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 // GetAccountByHash returns the account object for the provided address at the block with the provided hash
 func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, hash common.Hash) (*types.StateAccount, error) {
 	_, err := b.HeaderByHash(context.Background(), hash)
-	if err == sql.ErrNoRows {
+	if err == errNoRows {
 		return nil, errHeaderHashNotFound
 	} else if err != nil {
 		return nil, err
 	}
 
-	_, accountRlp, err := b.IPLDRetriever.RetrieveAccountByAddressAndBlockHash(address, hash)
+	_, accountRlp, err := b.IPLDRetriever.RetrieveAccountByAddressAndBlockHash(ctx, address, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -700,13 +702,13 @@ func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, b
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
-		number, err = b.Retriever.RetrieveLastBlockNumber()
+		number, err = b.Retriever.RetrieveLastBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if blockNumber == rpc.EarliestBlockNumber {
-		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		number, err = b.Retriever.RetrieveFirstBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -714,7 +716,7 @@ func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, b
 	if blockNumber == rpc.PendingBlockNumber {
 		return nil, errPendingBlockNumber
 	}
-	hash, err := b.GetCanonicalHash(uint64(number))
+	hash, err := b.GetCanonicalHash(ctx, uint64(number))
 	if err != nil {
 		return nil, err
 	}
@@ -729,21 +731,21 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 	codeHash := make([]byte, 0)
 	leafKey := crypto.Keccak256Hash(address.Bytes())
 	// Begin tx
-	tx, err := b.DB.Beginx()
+	tx, err := b.DB.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 			panic(p)
 		} else if err != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(ctx, tx)
 		} else {
-			err = tx.Commit()
+			err = tx.Commit(ctx)
 		}
 	}()
-	err = tx.Get(&codeHash, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex())
+	err = tx.QueryRow(ctx, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex()).Scan(&codeHash)
 	if err != nil {
 		return nil, err
 	}
@@ -753,7 +755,7 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 		return nil, err
 	}
 	code := make([]byte, 0)
-	err = tx.Get(&code, RetrieveCodeByMhKey, mhKey)
+	err = tx.QueryRow(ctx, RetrieveCodeByMhKey, mhKey).Scan(&code)
 	return code, err
 }
 
@@ -773,13 +775,13 @@ func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
-		number, err = b.Retriever.RetrieveLastBlockNumber()
+		number, err = b.Retriever.RetrieveLastBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if blockNumber == rpc.EarliestBlockNumber {
-		number, err = b.Retriever.RetrieveFirstBlockNumber()
+		number, err = b.Retriever.RetrieveFirstBlockNumber(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -787,8 +789,8 @@ func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address
 	if blockNumber == rpc.PendingBlockNumber {
 		return nil, errPendingBlockNumber
 	}
-	hash, err := b.GetCanonicalHash(uint64(number))
-	if err == sql.ErrNoRows {
+	hash, err := b.GetCanonicalHash(ctx, uint64(number))
+	if err == errNoRows {
 		return nil, errHeaderNotFound
 	} else if err != nil {
 		return nil, err
@@ -800,13 +802,13 @@ func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address
 // GetStorageByHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided hash
 func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, key, hash common.Hash) (hexutil.Bytes, error) {
 	_, err := b.HeaderByHash(context.Background(), hash)
-	if err == sql.ErrNoRows {
+	if err == errNoRows {
 		return nil, errHeaderHashNotFound
 	} else if err != nil {
 		return nil, err
 	}
 
-	_, _, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
+	_, _, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(ctx, address, key, hash)
 	return storageRlp, err
 }
 

@@ -17,6 +17,7 @@
 package serve
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -28,7 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -50,7 +51,7 @@ type Server interface {
 	// Pub-Sub handling event loop
 	Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth.ConvertedPayload)
 	// Method to subscribe to the service
-	Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings)
+	Subscribe(ctx context.Context, id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings)
 	// Method to unsubscribe from the service
 	Unsubscribe(id rpc.ID)
 	// Backend exposes the server's backend
@@ -115,7 +116,7 @@ func (sap *Service) Protocols() []p2p.Protocol {
 
 // APIs returns the RPC descriptors the watcher service offers
 func (sap *Service) APIs() []rpc.API {
-	networkID, _ := strconv.ParseUint(sap.db.Node.NetworkID, 10, 64)
+	networkID, _ := strconv.ParseUint("sap.db.NodeID().NetworkID", 10, 64)
 	apis := []rpc.API{
 		{
 			Namespace: APIName,
@@ -205,7 +206,7 @@ func (sap *Service) filterAndServe(payload eth.ConvertedPayload) {
 
 // Subscribe is used by the API to remotely subscribe to the service loop
 // The params must be rlp serializable and satisfy the SubscriptionSettings() interface
-func (sap *Service) Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings) {
+func (sap *Service) Subscribe(ctx context.Context, id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings) {
 	sap.serveWg.Add(1)
 	defer sap.serveWg.Done()
 	log.Infof("new eth ipld subscription %s", id)
@@ -235,7 +236,7 @@ func (sap *Service) Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitCha
 	// If the subscription requests a backfill, use the Postgres index to lookup and retrieve historical data
 	// Otherwise we only filter new data as it is streamed in from the state diffing geth node
 	if params.BackFill || params.BackFillOnly {
-		if err := sap.sendHistoricalData(subscription, id, params); err != nil {
+		if err := sap.sendHistoricalData(ctx, subscription, id, params); err != nil {
 			sendNonBlockingErr(subscription, fmt.Errorf("eth ipld server subscription backfill error: %v", err))
 			sendNonBlockingQuit(subscription)
 			return
@@ -244,20 +245,20 @@ func (sap *Service) Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitCha
 }
 
 // sendHistoricalData sends historical data to the requesting subscription
-func (sap *Service) sendHistoricalData(sub Subscription, id rpc.ID, params eth.SubscriptionSettings) error {
+func (sap *Service) sendHistoricalData(ctx context.Context, sub Subscription, id rpc.ID, params eth.SubscriptionSettings) error {
 	log.Infof("sending eth ipld historical data to subscription %s", id)
 	// Retrieve cached CIDs relevant to this subscriber
 	var endingBlock int64
 	var startingBlock int64
 	var err error
-	startingBlock, err = sap.Retriever.RetrieveFirstBlockNumber()
+	startingBlock, err = sap.Retriever.RetrieveFirstBlockNumber(ctx)
 	if err != nil {
 		return err
 	}
 	if startingBlock < params.Start.Int64() {
 		startingBlock = params.Start.Int64()
 	}
-	endingBlock, err = sap.Retriever.RetrieveLastBlockNumber()
+	endingBlock, err = sap.Retriever.RetrieveLastBlockNumber(ctx)
 	if err != nil {
 		return err
 	}
@@ -276,7 +277,7 @@ func (sap *Service) sendHistoricalData(sub Subscription, id rpc.ID, params eth.S
 				return
 			default:
 			}
-			cidWrappers, empty, err := sap.Retriever.Retrieve(params, i)
+			cidWrappers, empty, err := sap.Retriever.Retrieve(ctx, params, i)
 			if err != nil {
 				sendNonBlockingErr(sub, fmt.Errorf("eth ipld server cid retrieval error at block %d\r%s", i, err.Error()))
 				continue
@@ -285,7 +286,7 @@ func (sap *Service) sendHistoricalData(sub Subscription, id rpc.ID, params eth.S
 				continue
 			}
 			for _, cids := range cidWrappers {
-				response, err := sap.IPLDFetcher.Fetch(cids)
+				response, err := sap.IPLDFetcher.Fetch(ctx, cids)
 				if err != nil {
 					sendNonBlockingErr(sub, fmt.Errorf("eth ipld server ipld fetching error at block %d\r%s", i, err.Error()))
 					continue

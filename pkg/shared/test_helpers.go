@@ -19,11 +19,11 @@ package shared
 import (
 	"bytes"
 
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 )
 
 // IPLDsContainBytes used to check if a list of strings contains a particular string
-func IPLDsContainBytes(iplds []ipfs.BlockModel, b []byte) bool {
+func IPLDsContainBytes(iplds []models.IPLDModel, b []byte) bool {
 	for _, ipld := range iplds {
 		if bytes.Equal(ipld.Data, b) {
 			return true

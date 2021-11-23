@@ -18,8 +18,9 @@ package eth_test
 
 import (
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/statediff/indexer"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
+	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
+	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -29,38 +30,39 @@ import (
 
 var _ = Describe("IPLDFetcher", func() {
 	var (
-		db            *postgres.DB
-		pubAndIndexer *indexer.StateDiffIndexer
+		db            sql.Database
+		pubAndIndexer interfaces.StateDiffIndexer
 		fetcher       *eth.IPLDFetcher
 	)
 	Describe("Fetch", func() {
 		BeforeEach(func() {
 			var (
 				err error
-				tx  *indexer.BlockTx
+				tx  interfaces.Batch
 			)
-			db, err = SetupDB()
+			goodInfo := node.Info{GenesisBlock: "GENESIS4", NetworkID: "4", ID: "4", ClientName: "geth4", ChainID: 4}
+			db, err = eth.Setup(ctx, goodInfo)
 			Expect(err).ToNot(HaveOccurred())
-			pubAndIndexer, err = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
+			pubAndIndexer, err = sql.NewStateDiffIndexer(ctx, params.TestChainConfig, db)
 			Expect(err).ToNot(HaveOccurred())
 
 			tx, err = pubAndIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			for _, node := range test_helpers.MockStateNodes {
-				err = pubAndIndexer.PushStateNode(tx, node)
+				err = pubAndIndexer.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 			fetcher = eth.NewIPLDFetcher(db)
 
 		})
 		AfterEach(func() {
-			eth.TearDownDB(db)
+			eth.TearDownDB(ctx, db)
 		})
 
 		It("Fetches and returns IPLDs for the CIDs provided in the CIDWrapper", func() {
-			iplds, err := fetcher.Fetch(*test_helpers.MockCIDWrapper)
+			iplds, err := fetcher.Fetch(ctx, *test_helpers.MockCIDWrapper)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds).ToNot(BeNil())
 			Expect(iplds.TotalDifficulty).To(Equal(test_helpers.MockConvertedPayload.TotalDifficulty))

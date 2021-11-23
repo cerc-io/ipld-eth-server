@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -32,9 +30,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
-	"github.com/ethereum/go-ethereum/statediff/indexer"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
 	"github.com/ethereum/go-ethereum/statediff/indexer/node"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,19 +41,6 @@ import (
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
 	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
-
-// SetupDB is use to setup a db for watcher tests
-func SetupDB() (*postgres.DB, error) {
-	port, _ := strconv.Atoi(os.Getenv("DATABASE_PORT"))
-	uri := postgres.DbConnectionString(postgres.ConnectionParams{
-		User:     os.Getenv("DATABASE_USER"),
-		Password: os.Getenv("DATABASE_PASSWORD"),
-		Hostname: os.Getenv("DATABASE_HOSTNAME"),
-		Name:     os.Getenv("DATABASE_NAME"),
-		Port:     port,
-	})
-	return postgres.NewDB(uri, postgres.ConnectionConfig{}, node.Info{})
-}
 
 var _ = Describe("GraphQL", func() {
 	const (
@@ -68,7 +52,7 @@ var _ = Describe("GraphQL", func() {
 		blocks          []*types.Block
 		receipts        []types.Receipts
 		chain           *core.BlockChain
-		db              *postgres.DB
+		db              sql.Database
 		blockHashes     []common.Hash
 		backend         *eth.Backend
 		graphQLServer   *graphql.Service
@@ -82,10 +66,11 @@ var _ = Describe("GraphQL", func() {
 
 	It("test init", func() {
 		var err error
-		db, err = SetupDB()
+		goodInfo := node.Info{GenesisBlock: "GENESIS5", NetworkID: "5", ID: "5", ClientName: "geth5", ChainID: 5}
+		db, err = eth.Setup(ctx, goodInfo)
 		Expect(err).ToNot(HaveOccurred())
 
-		transformer, err := indexer.NewStateDiffIndexer(chainConfig, db)
+		transformer, err := sql.NewStateDiffIndexer(ctx, chainConfig, db)
 		Expect(err).ToNot(HaveOccurred())
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -132,7 +117,7 @@ var _ = Describe("GraphQL", func() {
 				rcts = receipts[i-1]
 			}
 
-			var diff statediff.StateObject
+			var diff sdtypes.StateObject
 			diff, err = builder.BuildStateDiffObject(args, params)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -140,16 +125,16 @@ var _ = Describe("GraphQL", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, node := range diff.Nodes {
-				err = transformer.PushStateNode(tx, node)
+				err = transformer.PushStateNode(tx, node, block.Hash().String())
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 		}
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher, err := indexer.NewStateDiffIndexer(chainConfig, db)
+		indexAndPublisher, err := sql.NewStateDiffIndexer(ctx, chainConfig, db)
 		Expect(err).ToNot(HaveOccurred())
 
 		blockHash = test_helpers.MockBlock.Hash()
@@ -158,7 +143,7 @@ var _ = Describe("GraphQL", func() {
 		tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
 
-		err = tx.Close(err)
+		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
 
 		// The non-canonical header has a child
@@ -173,7 +158,7 @@ var _ = Describe("GraphQL", func() {
 		err = indexAndPublisher.PushCodeAndCodeHash(tx, ccHash)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = tx.Close(err)
+		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
 
 		graphQLServer, err = graphql.New(backend, gqlEndPoint, nil, []string{"*"}, rpc.HTTPTimeouts{})
@@ -186,7 +171,7 @@ var _ = Describe("GraphQL", func() {
 	defer It("test teardown", func() {
 		err := graphQLServer.Stop()
 		Expect(err).ToNot(HaveOccurred())
-		eth.TearDownDB(db)
+		eth.TearDownDB(ctx, db)
 		chain.Stop()
 	})
 

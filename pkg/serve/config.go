@@ -17,16 +17,18 @@
 package serve
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	"github.com/spf13/viper"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -56,8 +58,7 @@ const (
 // Config struct
 type Config struct {
 	DB       *postgres.DB
-	DBConfig postgres.ConnectionConfig
-	DBParams postgres.ConnectionParams
+	DBConfig postgres.Config
 
 	WSEnabled  bool
 	WSEndpoint string
@@ -190,13 +191,13 @@ func NewConfig() (*Config, error) {
 	c.IpldGraphqlEnabled = ipldGraphqlEnabled
 
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB, err := postgres.NewDB(postgres.DbConnectionString(c.DBParams), c.DBConfig, nodeInfo)
+	driver, err := postgres.NewPGXDriver(context.Background(), c.DBConfig, nodeInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	prom.RegisterDBCollector(c.DBParams.Name, serveDB.DB)
-	c.DB = serveDB
+	prom.RegisterDBCollector(c.DBConfig.DatabaseName, driver)
+	c.DB = postgres.NewPostgresDB(driver)
 
 	defaultSenderStr := viper.GetString("ethereum.defaultSender")
 	if defaultSenderStr != "" {
@@ -223,13 +224,13 @@ func NewConfig() (*Config, error) {
 	return c, err
 }
 
-func overrideDBConnConfig(con *postgres.ConnectionConfig) {
+func overrideDBConnConfig(con *postgres.Config) {
 	viper.BindEnv("database.server.maxIdle", serverMaxIdleConnections)
 	viper.BindEnv("database.server.maxOpen", serverMaxOpenConnections)
 	viper.BindEnv("database.server.maxLifetime", serverMaxConnLifetime)
 	con.MaxIdle = viper.GetInt("database.server.maxIdle")
-	con.MaxOpen = viper.GetInt("database.server.maxOpen")
-	con.MaxLifetime = viper.GetInt("database.server.maxLifetime")
+	con.MaxConns = viper.GetInt("database.server.maxOpen")
+	con.MaxConnLifetime = time.Duration(viper.GetInt("database.server.maxLifetime"))
 }
 
 func (c *Config) dbInit() {
@@ -242,14 +243,14 @@ func (c *Config) dbInit() {
 	viper.BindEnv("database.maxOpen", databaseMaxOpenConnections)
 	viper.BindEnv("database.maxLifetime", databaseMaxOpenConnLifetime)
 
-	c.DBParams.Name = viper.GetString("database.name")
-	c.DBParams.Hostname = viper.GetString("database.hostname")
-	c.DBParams.Port = viper.GetInt("database.port")
-	c.DBParams.User = viper.GetString("database.user")
-	c.DBParams.Password = viper.GetString("database.password")
+	c.DBConfig.DatabaseName = viper.GetString("database.name")
+	c.DBConfig.Hostname = viper.GetString("database.hostname")
+	c.DBConfig.Port = viper.GetInt("database.port")
+	c.DBConfig.Username = viper.GetString("database.user")
+	c.DBConfig.Password = viper.GetString("database.password")
 	c.DBConfig.MaxIdle = viper.GetInt("database.maxIdle")
-	c.DBConfig.MaxOpen = viper.GetInt("database.maxOpen")
-	c.DBConfig.MaxLifetime = viper.GetInt("database.maxLifetime")
+	c.DBConfig.MaxConns = viper.GetInt("database.maxOpen")
+	c.DBConfig.MaxConnLifetime = time.Duration(viper.GetInt("database.maxLifetime"))
 }
 
 func (c *Config) loadGroupCacheConfig() {

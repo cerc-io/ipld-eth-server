@@ -17,32 +17,43 @@
 package eth
 
 import (
+	"context"
+	"os"
+
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	. "github.com/onsi/gomega"
 )
 
+func Setup(ctx context.Context, info node.Info) (sql.Database, error) {
+	driver, err := postgres.NewPGXDriver(ctx, getConfig(), info)
+	Expect(err).NotTo(HaveOccurred())
+	return postgres.NewPostgresDB(driver), nil
+}
+
 // TearDownDB is used to tear down the watcher dbs after tests
-func TearDownDB(db *postgres.DB) {
-	tx, err := db.Beginx()
+func TearDownDB(ctx context.Context, db sql.Database) {
+	tx, err := db.Begin(ctx)
 	Expect(err).NotTo(HaveOccurred())
 
-	_, err = tx.Exec(`DELETE FROM eth.header_cids`)
+	_, err = tx.Exec(ctx, `DELETE FROM eth.header_cids`)
 	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.transaction_cids`)
+	_, err = tx.Exec(ctx, `DELETE FROM eth.transaction_cids`)
 	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.receipt_cids`)
+	_, err = tx.Exec(ctx, `DELETE FROM eth.receipt_cids`)
 	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.state_cids`)
+	_, err = tx.Exec(ctx, `DELETE FROM eth.state_cids`)
 	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.storage_cids`)
+	_, err = tx.Exec(ctx, `DELETE FROM eth.storage_cids`)
 	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM blocks`)
+	_, err = tx.Exec(ctx, `DELETE FROM blocks`)
 	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.log_cids`)
+	_, err = tx.Exec(ctx, `DELETE FROM eth.log_cids`)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = tx.Commit()
+	err = tx.Commit(ctx)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -64,4 +75,15 @@ func ReceiptModelsContainsCID(rcts []models.ReceiptModel, cid string) bool {
 		}
 	}
 	return false
+}
+
+func getConfig() postgres.Config {
+	return postgres.Config{
+		Hostname:     os.Getenv("DATABASE_HOSTNAME"),
+		Port:         8077,
+		DatabaseName: os.Getenv("DATABASE_NAME"),
+		Username:     os.Getenv("DATABASE_USER"),
+		Password:     os.Getenv("DATABASE_PASSWORD"),
+		Driver:       postgres.PGX,
+	}
 }

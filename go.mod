@@ -32,4 +32,8 @@ require (
 	golang.org/x/tools v0.1.7 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.10.11 => github.com/vulcanize/go-ethereum v1.10.11-statediff-0.0.27
+replace (
+	github.com/ethereum/go-ethereum v1.10.11 => /Users/arijitdas/go/src/github.com/ethereum/go-ethereum
+	github.com/vulcanize/eth-ipfs-state-validator v0.0.2 => /Users/arijitdas/go/src/github.com/Vulcanize/eth-ipfs-state-validator
+	github.com/vulcanize/ipfs-ethdb v0.0.5 => /Users/arijitdas/go/src/github.com/Vulcanize/ipfs-ethdb
+)

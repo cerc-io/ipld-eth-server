@@ -19,7 +19,6 @@ package eth_test
 import (
 	"context"
 	"math/big"
-	"os"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -31,9 +30,9 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
+	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
 	"github.com/ethereum/go-ethereum/statediff/indexer/node"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -183,22 +182,9 @@ var (
 	}
 )
 
-// SetupDB is use to setup a db for watcher tests
-func SetupDB() (*postgres.DB, error) {
-	port, _ := strconv.Atoi(os.Getenv("DATABASE_PORT"))
-	uri := postgres.DbConnectionString(postgres.ConnectionParams{
-		User:     os.Getenv("DATABASE_USER"),
-		Password: os.Getenv("DATABASE_PASSWORD"),
-		Hostname: os.Getenv("DATABASE_HOSTNAME"),
-		Name:     os.Getenv("DATABASE_NAME"),
-		Port:     port,
-	})
-	return postgres.NewDB(uri, postgres.ConnectionConfig{}, node.Info{})
-}
-
 var _ = Describe("API", func() {
 	var (
-		db          *postgres.DB
+		db          sql.Database
 		api         *eth.PublicEthAPI
 		chainConfig = params.TestChainConfig
 	)
@@ -207,13 +193,14 @@ var _ = Describe("API", func() {
 	It("test init", func() {
 		var (
 			err error
-			tx  *indexer.BlockTx
+			tx  interfaces.Batch
 		)
 
-		db, err = SetupDB()
+		goodInfo := node.Info{GenesisBlock: "GENESIS1", NetworkID: "1", ID: "1", ClientName: "geth5", ChainID: 1}
+		// DefaultConfig are default parameters for connecting to a Postgres sql
+		db, err = eth.Setup(ctx, goodInfo)
 		Expect(err).ToNot(HaveOccurred())
-
-		indexAndPublisher, err := indexer.NewStateDiffIndexer(chainConfig, db)
+		indexAndPublisher, err := sql.NewStateDiffIndexer(ctx, chainConfig, db)
 		Expect(err).ToNot(HaveOccurred())
 		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -234,7 +221,7 @@ var _ = Describe("API", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		for _, node := range test_helpers.MockStateNodes {
-			err = indexAndPublisher.PushStateNode(tx, node)
+			err = indexAndPublisher.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -246,7 +233,7 @@ var _ = Describe("API", func() {
 		err = indexAndPublisher.PushCodeAndCodeHash(tx, ccHash)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = tx.Close(err)
+		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
 
 		uncles := test_helpers.MockBlock.Uncles()
@@ -258,18 +245,18 @@ var _ = Describe("API", func() {
 
 		// setting chain config to for london block
 		chainConfig.LondonBlock = big.NewInt(2)
-		indexAndPublisher, err = indexer.NewStateDiffIndexer(chainConfig, db)
+		indexAndPublisher, err = sql.NewStateDiffIndexer(ctx, chainConfig, db)
 		Expect(err).ToNot(HaveOccurred())
 
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
 
-		err = tx.Close(err)
+		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	// Single test db tear down at end of all tests
-	defer It("test teardown", func() { eth.TearDownDB(db) })
+	defer It("test teardown", func() { eth.TearDownDB(ctx, db) })
 	/*
 
 	   Headers and blocks
@@ -285,10 +272,8 @@ var _ = Describe("API", func() {
 		It("Throws an error if a header cannot be found", func() {
 			header, err := api.GetHeaderByNumber(ctx, wrongNumber)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
+			Expect(err.Error()).To(ContainSubstring("no rows in result set"))
 			Expect(header).To(BeNil())
-			_, err = api.B.DB.Beginx()
-			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -306,7 +291,7 @@ var _ = Describe("API", func() {
 
 	Describe("eth_blockNumber", func() {
 		It("Retrieves the head block number", func() {
-			bn := api.BlockNumber()
+			bn := api.BlockNumber(ctx)
 			ubn := (uint64)(bn)
 			subn := strconv.FormatUint(ubn, 10)
 			Expect(subn).To(Equal(test_helpers.LondonBlockNum.String()))

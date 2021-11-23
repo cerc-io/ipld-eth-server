@@ -17,11 +17,14 @@
 package shared
 
 import (
+	"context"
+
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipfs-blockstore"
-	"github.com/ipfs/go-ipfs-ds-help"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
+	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	node "github.com/ipfs/go-ipld-format"
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
@@ -44,18 +47,18 @@ func HandleZeroAddr(to common.Address) string {
 }
 
 // Rollback sql transaction and log any error
-func Rollback(tx *sqlx.Tx) {
-	if err := tx.Rollback(); err != nil {
+func Rollback(ctx context.Context, tx sql.Tx) {
+	if err := tx.Rollback(ctx); err != nil {
 		logrus.Error(err)
 	}
 }
 
 // PublishIPLD is used to insert an ipld into Postgres blockstore with the provided tx
-func PublishIPLD(tx *sqlx.Tx, i node.Node) error {
+func PublishIPLD(ctx context.Context, tx sql.Tx, i node.Node) error {
 	dbKey := dshelp.MultihashToDsKey(i.Cid().Hash())
 	prefixedKey := blockstore.BlockPrefix.String() + dbKey.String()
 	raw := i.RawData()
-	_, err := tx.Exec(`INSERT INTO public.blocks (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, prefixedKey, raw)
+	_, err := tx.Exec(ctx, `INSERT INTO public.blocks (key, data) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`, prefixedKey, raw)
 	return err
 }
 
@@ -71,10 +74,10 @@ func FetchIPLD(tx *sqlx.Tx, cid string) ([]byte, error) {
 }
 
 // FetchIPLDByMhKey is used to retrieve an ipld from Postgres blockstore with the provided tx and mhkey string
-func FetchIPLDByMhKey(tx *sqlx.Tx, mhKey string) ([]byte, error) {
+func FetchIPLDByMhKey(ctx context.Context, tx sql.Tx, mhKey string) ([]byte, error) {
 	pgStr := `SELECT data FROM public.blocks WHERE key = $1`
 	var block []byte
-	return block, tx.Get(&block, pgStr, mhKey)
+	return block, tx.QueryRow(ctx, pgStr, mhKey).Scan(&block)
 }
 
 // MultihashKeyFromCID converts a cid into a blockstore-prefixed multihash db key string
