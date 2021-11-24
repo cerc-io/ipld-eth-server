@@ -218,8 +218,14 @@ var _ = Describe("Retriever", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		goodInfo := node.Info{GenesisBlock: "GENESIS2", NetworkID: "2", ID: "2", ClientName: "geth2", ChainID: 2}
-		db, err = eth.Setup(ctx, goodInfo)
+		testInfo := node.Info{
+			GenesisBlock: test_helpers.Genesis.Hash().String(),
+			NetworkID:    "2",
+			ID:           "2",
+			ClientName:   "geth",
+			ChainID:      params.TestChainConfig.ChainID.Uint64(),
+		}
+		db, err = eth.Setup(ctx, testInfo)
 		Expect(err).ToNot(HaveOccurred())
 		diffIndexer, err = sql.NewStateDiffIndexer(ctx, params.TestChainConfig, db)
 
@@ -301,8 +307,8 @@ var _ = Describe("Retriever", func() {
 			}
 			expectedRctCIDsAndLeafNodes := make([]rctCIDAndMHKeyResult, 0)
 			pgStr := `SELECT receipt_cids.leaf_cid, receipt_cids.leaf_mh_key FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
-				WHERE receipt_cids.tx_id = transaction_cids.id
-				AND transaction_cids.header_id = header_cids.id
+				WHERE receipt_cids.tx_id = transaction_cids.tx_hash
+				AND transaction_cids.header_id = header_cids.block_hash
 				AND header_cids.block_number = $1
 				ORDER BY transaction_cids.index`
 			err := db.Select(ctx, &expectedRctCIDsAndLeafNodes, pgStr, test_helpers.BlockNumber.Uint64())

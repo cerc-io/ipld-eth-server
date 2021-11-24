@@ -21,6 +21,7 @@ import (
 	"context"
 	"io/ioutil"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -74,8 +75,15 @@ var _ = Describe("eth state reading tests", func() {
 	It("test init", func() {
 		// db and type initializations
 		var err error
-		goodInfo := node.Info{GenesisBlock: "GENESIS3", NetworkID: "3", ID: "3", ClientName: "geth3", ChainID: 3}
-		db, err = eth.Setup(ctx, goodInfo)
+		testInfo := node.Info{
+			GenesisBlock: test_helpers.Genesis.Hash().String(),
+			NetworkID:    "3",
+			ID:           "3",
+			ClientName:   "geth",
+			ChainID:      params.TestChainConfig.ChainID.Uint64(),
+		}
+
+		db, err = eth.Setup(ctx, testInfo)
 		Expect(err).ToNot(HaveOccurred())
 
 		transformer, err := sql.NewStateDiffIndexer(ctx, chainConfig, db)
@@ -180,6 +188,8 @@ var _ = Describe("eth state reading tests", func() {
 		err = indexAndPublisher.PushCodeAndCodeHash(tx, hash)
 		Expect(err).ToNot(HaveOccurred())
 
+		// wait for tx batch process to complete.
+		time.Sleep(600 * time.Millisecond)
 		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
 	})

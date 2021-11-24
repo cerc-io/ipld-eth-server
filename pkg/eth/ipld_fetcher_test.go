@@ -40,8 +40,15 @@ var _ = Describe("IPLDFetcher", func() {
 				err error
 				tx  interfaces.Batch
 			)
-			goodInfo := node.Info{GenesisBlock: "GENESIS4", NetworkID: "4", ID: "4", ClientName: "geth4", ChainID: 4}
-			db, err = eth.Setup(ctx, goodInfo)
+			testInfo := node.Info{
+				GenesisBlock: test_helpers.Genesis.Hash().String(),
+				NetworkID:    "4",
+				ID:           "4",
+				ClientName:   "geth",
+				ChainID:      params.TestChainConfig.ChainID.Uint64(),
+			}
+
+			db, err = eth.Setup(ctx, testInfo)
 			Expect(err).ToNot(HaveOccurred())
 			pubAndIndexer, err = sql.NewStateDiffIndexer(ctx, params.TestChainConfig, db)
 			Expect(err).ToNot(HaveOccurred())

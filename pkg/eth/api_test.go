@@ -196,9 +196,14 @@ var _ = Describe("API", func() {
 			tx  interfaces.Batch
 		)
 
-		goodInfo := node.Info{GenesisBlock: "GENESIS1", NetworkID: "1", ID: "1", ClientName: "geth5", ChainID: 1}
-		// DefaultConfig are default parameters for connecting to a Postgres sql
-		db, err = eth.Setup(ctx, goodInfo)
+		testInfo := node.Info{
+			GenesisBlock: test_helpers.Genesis.Hash().String(),
+			NetworkID:    "1",
+			ID:           "1",
+			ClientName:   "geth",
+			ChainID:      params.TestChainConfig.ChainID.Uint64(),
+		}
+		db, err = eth.Setup(ctx, testInfo)
 		Expect(err).ToNot(HaveOccurred())
 		indexAndPublisher, err := sql.NewStateDiffIndexer(ctx, chainConfig, db)
 		Expect(err).ToNot(HaveOccurred())
@@ -220,11 +225,6 @@ var _ = Describe("API", func() {
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
 
-		for _, node := range test_helpers.MockStateNodes {
-			err = indexAndPublisher.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
-			Expect(err).ToNot(HaveOccurred())
-		}
-
 		ccHash := sdtypes.CodeAndCodeHash{
 			Hash: test_helpers.ContractCodeHash,
 			Code: test_helpers.ContractCode,
@@ -232,6 +232,11 @@ var _ = Describe("API", func() {
 
 		err = indexAndPublisher.PushCodeAndCodeHash(tx, ccHash)
 		Expect(err).ToNot(HaveOccurred())
+
+		for _, node := range test_helpers.MockStateNodes {
+			err = indexAndPublisher.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
+			Expect(err).ToNot(HaveOccurred())
+		}
 
 		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
@@ -272,7 +277,7 @@ var _ = Describe("API", func() {
 		It("Throws an error if a header cannot be found", func() {
 			header, err := api.GetHeaderByNumber(ctx, wrongNumber)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no rows in result set"))
+			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 			Expect(header).To(BeNil())
 		})
 	})

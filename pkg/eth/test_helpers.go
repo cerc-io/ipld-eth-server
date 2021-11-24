@@ -28,7 +28,7 @@ import (
 )
 
 func Setup(ctx context.Context, info node.Info) (sql.Database, error) {
-	driver, err := postgres.NewPGXDriver(ctx, getConfig(), info)
+	driver, err := postgres.NewSQLXDriver(ctx, getConfig(), info)
 	Expect(err).NotTo(HaveOccurred())
 	return postgres.NewPostgresDB(driver), nil
 }

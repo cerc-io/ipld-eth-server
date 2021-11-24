@@ -191,13 +191,13 @@ func NewConfig() (*Config, error) {
 	c.IpldGraphqlEnabled = ipldGraphqlEnabled
 
 	overrideDBConnConfig(&c.DBConfig)
-	driver, err := postgres.NewPGXDriver(context.Background(), c.DBConfig, nodeInfo)
+	driver, err := postgres.NewSQLXDriver(context.Background(), c.DBConfig, nodeInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	prom.RegisterDBCollector(c.DBConfig.DatabaseName, driver)
 	c.DB = postgres.NewPostgresDB(driver)
+	prom.RegisterDBCollector(c.DBConfig.DatabaseName, c.DB)
 
 	defaultSenderStr := viper.GetString("ethereum.defaultSender")
 	if defaultSenderStr != "" {

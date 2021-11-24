@@ -66,8 +66,14 @@ var _ = Describe("GraphQL", func() {
 
 	It("test init", func() {
 		var err error
-		goodInfo := node.Info{GenesisBlock: "GENESIS5", NetworkID: "5", ID: "5", ClientName: "geth5", ChainID: 5}
-		db, err = eth.Setup(ctx, goodInfo)
+		testInfo := node.Info{
+			GenesisBlock: test_helpers.Genesis.Hash().String(),
+			NetworkID:    "5",
+			ID:           "5",
+			ClientName:   "geth",
+			ChainID:      params.TestChainConfig.ChainID.Uint64(),
+		}
+		db, err = eth.Setup(ctx, testInfo)
 		Expect(err).ToNot(HaveOccurred())
 
 		transformer, err := sql.NewStateDiffIndexer(ctx, chainConfig, db)

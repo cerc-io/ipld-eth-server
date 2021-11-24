@@ -17,7 +17,7 @@
 package prom
 
 import (
-	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -72,7 +72,7 @@ func Init() {
 }
 
 // RegisterDBCollector create metric colletor for given connection
-func RegisterDBCollector(name string, db *postgres.PGXDriver) {
+func RegisterDBCollector(name string, db sql.Database) {
 	if metrics {
 		prometheus.Register(NewDBStatsCollector(name, db))
 	}

@@ -11,6 +11,7 @@ require (
 	github.com/ipfs/go-ipfs-blockstore v1.0.1
 	github.com/ipfs/go-ipfs-ds-help v1.0.0
 	github.com/ipfs/go-ipld-format v0.2.0
+	github.com/jackc/pgx/v4 v4.13.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lib/pq v1.10.2
 	github.com/machinebox/graphql v0.2.2

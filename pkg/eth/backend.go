@@ -18,6 +18,7 @@ package eth
 
 import (
 	"context"
+	dbsql "database/sql"
 	"errors"
 	"fmt"
 	"math/big"
@@ -60,21 +61,20 @@ var (
 	// errMissingSignature is returned if a block's extra-data section doesn't seem
 	// to contain a 65 byte secp256k1 signature.
 	errMissingSignature = errors.New("extra-data 65 byte signature suffix missing")
-	errNoRows           = errors.New("sql: no rows in result set")
 )
 
 const (
 	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE id = (SELECT canonical_header_id($1))`
+									WHERE block_hash = (SELECT canonical_header_id($1))`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE id = (SELECT canonical_header_id($1))`
+									WHERE block_hash = (SELECT canonical_header_id($1))`
 	RetrieveTD = `SELECT td FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
 	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, block_number, index FROM public.blocks, eth.transaction_cids, eth.header_cids
 			WHERE blocks.key = transaction_cids.mh_key
-			AND transaction_cids.header_id = header_cids.id
+			AND transaction_cids.header_id = header_cids.block_hash
 			AND transaction_cids.tx_hash = $1`
 	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
 											WHERE state_accounts.header_id = state_cids.header_id AND state_accounts.state_path = state_cids.state_path
@@ -83,7 +83,7 @@ const (
 											AND block_number <= (SELECT block_number
 																FROM eth.header_cids
 																WHERE block_hash = $2)
-											AND header_cids.id = (SELECT canonical_header_id(block_number))
+											AND header_cids.block_hash = (SELECT canonical_header_id(block_number))
 											ORDER BY block_number DESC
 											LIMIT 1`
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
@@ -293,7 +293,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	// Get the canonical hash
 	canonicalHash, err := b.GetCanonicalHash(ctx, uint64(number))
 	if err != nil {
-		if err == errNoRows {
+		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -302,7 +302,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	// TODO: optimize this by retrieving iplds directly rather than the cids first (this is remanent from when we fetched iplds through ipfs blockservice interface)
 	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(ctx, canonicalHash)
 	if err != nil {
-		if err == errNoRows {
+		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -328,7 +328,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	var headerIPLD models.IPLDModel
 	headerIPLD, err = b.Fetcher.FetchHeader(ctx, tx, headerCID)
 	if err != nil {
-		if err == errNoRows {
+		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -398,7 +398,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	// Retrieve all the CIDs for the block
 	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(ctx, hash)
 	if err != nil {
-		if err == errNoRows {
+		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -424,7 +424,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var headerIPLD models.IPLDModel
 	headerIPLD, err = b.Fetcher.FetchHeader(ctx, tx, headerCID)
 	if err != nil {
-		if err == errNoRows {
+		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -438,7 +438,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var uncleIPLDs []models.IPLDModel
 	uncleIPLDs, err = b.Fetcher.FetchUncles(ctx, tx, uncleCIDs)
 	if err != nil {
-		if err == errNoRows {
+		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -456,7 +456,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var txIPLDs []models.IPLDModel
 	txIPLDs, err = b.Fetcher.FetchTrxs(ctx, tx, txCIDs)
 	if err != nil {
-		if err == errNoRows {
+		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -474,7 +474,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var rctIPLDs []models.IPLDModel
 	rctIPLDs, err = b.Fetcher.FetchRcts(ctx, tx, rctCIDs)
 	if err != nil {
-		if err == errNoRows {
+		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
@@ -659,7 +659,7 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 		return nil, errPendingBlockNumber
 	}
 	hash, err := b.GetCanonicalHash(ctx, uint64(number))
-	if err == errNoRows {
+	if err == dbsql.ErrNoRows {
 		return nil, errHeaderNotFound
 	} else if err != nil {
 		return nil, err
@@ -671,7 +671,7 @@ func (b *Backend) GetAccountByNumber(ctx context.Context, address common.Address
 // GetAccountByHash returns the account object for the provided address at the block with the provided hash
 func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, hash common.Hash) (*types.StateAccount, error) {
 	_, err := b.HeaderByHash(context.Background(), hash)
-	if err == errNoRows {
+	if err == dbsql.ErrNoRows {
 		return nil, errHeaderHashNotFound
 	} else if err != nil {
 		return nil, err
@@ -745,17 +745,19 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 			err = tx.Commit(ctx)
 		}
 	}()
-	err = tx.QueryRow(ctx, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex()).Scan(&codeHash)
+	err = tx.Get(ctx, &codeHash, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex())
 	if err != nil {
 		return nil, err
 	}
+
 	var mhKey string
 	mhKey, err = ethServerShared.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
 	if err != nil {
 		return nil, err
 	}
+
 	code := make([]byte, 0)
-	err = tx.QueryRow(ctx, RetrieveCodeByMhKey, mhKey).Scan(&code)
+	err = tx.Get(ctx, &code, RetrieveCodeByMhKey, mhKey)
 	return code, err
 }
 
@@ -790,7 +792,7 @@ func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address
 		return nil, errPendingBlockNumber
 	}
 	hash, err := b.GetCanonicalHash(ctx, uint64(number))
-	if err == errNoRows {
+	if err == dbsql.ErrNoRows {
 		return nil, errHeaderNotFound
 	} else if err != nil {
 		return nil, err
@@ -802,7 +804,7 @@ func (b *Backend) GetStorageByNumber(ctx context.Context, address common.Address
 // GetStorageByHash returns the storage value for the provided contract address an storage key at the block corresponding to the provided hash
 func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, key, hash common.Hash) (hexutil.Bytes, error) {
 	_, err := b.HeaderByHash(context.Background(), hash)
-	if err == errNoRows {
+	if err == dbsql.ErrNoRows {
 		return nil, errHeaderHashNotFound
 	} else if err != nil {
 		return nil, err
