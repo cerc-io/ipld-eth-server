@@ -35,6 +35,6 @@ require (
 
 replace (
 	github.com/ethereum/go-ethereum v1.10.11 => /Users/arijitdas/go/src/github.com/ethereum/go-ethereum
-	github.com/vulcanize/eth-ipfs-state-validator v0.0.2 => /Users/arijitdas/go/src/github.com/Vulcanize/eth-ipfs-state-validator
-	github.com/vulcanize/ipfs-ethdb v0.0.5 => /Users/arijitdas/go/src/github.com/Vulcanize/ipfs-ethdb
+	github.com/vulcanize/eth-ipfs-state-validator v0.0.2 => github.com/Vulcanize/eth-ipfs-state-validator v0.0.0-20211125063620-bd5bbc60275f
+	github.com/vulcanize/ipfs-ethdb v0.0.5 => github.com/Vulcanize/ipfs-ethdb v0.0.0-20211125071127-730512e6953c
 )

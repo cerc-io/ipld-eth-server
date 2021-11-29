@@ -41,7 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-
 	"github.com/ethereum/go-ethereum/trie"
 	log "github.com/sirupsen/logrus"
 	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
@@ -70,7 +69,7 @@ const (
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
 									WHERE block_hash = (SELECT canonical_header_id($1))`
-	RetrieveTD = `SELECT td FROM eth.header_cids
+	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
 	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, block_number, index FROM public.blocks, eth.transaction_cids, eth.header_cids
 			WHERE blocks.key = transaction_cids.mh_key
@@ -302,9 +301,6 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	// TODO: optimize this by retrieving iplds directly rather than the cids first (this is remanent from when we fetched iplds through ipfs blockservice interface)
 	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(ctx, canonicalHash)
 	if err != nil {
-		if err == dbsql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
 
@@ -401,7 +397,6 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		if err == dbsql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
 	}
 
 	// Begin tx
@@ -617,7 +612,12 @@ type rowResult struct {
 // GetCanonicalHeader gets the canonical header for the provided number, if there is one
 func (b *Backend) GetCanonicalHeader(ctx context.Context, number uint64) (string, []byte, error) {
 	headerResult := new(rowResult)
-	return headerResult.CID, headerResult.Data, b.DB.QueryRow(ctx, RetrieveCanonicalHeaderByNumber, number).Scan(&headerResult.CID, &headerResult.Data)
+	err := b.DB.QueryRow(ctx, RetrieveCanonicalHeaderByNumber, number).Scan(&headerResult.CID, &headerResult.Data)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return headerResult.CID, headerResult.Data, nil
 }
 
 // GetEVM constructs and returns a vm.EVM
@@ -745,7 +745,8 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 			err = tx.Commit(ctx)
 		}
 	}()
-	err = tx.Get(ctx, &codeHash, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex())
+
+	err = tx.QueryRow(ctx, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex()).Scan(&codeHash)
 	if err != nil {
 		return nil, err
 	}
@@ -757,7 +758,11 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 	}
 
 	code := make([]byte, 0)
-	err = tx.Get(ctx, &code, RetrieveCodeByMhKey, mhKey)
+	err = tx.QueryRow(ctx, RetrieveCodeByMhKey, mhKey).Scan(&code)
+	if err != nil {
+		return nil, err
+	}
+
 	return code, err
 }
 

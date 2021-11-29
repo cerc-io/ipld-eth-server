@@ -169,7 +169,9 @@ func (ecr *CIDRetriever) Retrieve(ctx context.Context, filter SubscriptionSettin
 func (ecr *CIDRetriever) RetrieveHeaderCIDs(ctx context.Context, tx sql.Tx, blockNumber int64) ([]models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block ", blockNumber)
 	headers := make([]models.HeaderModel, 0)
-	pgStr := `SELECT * FROM eth.header_cids
+	pgStr := `SELECT CAST(block_number as Text), block_hash,parent_hash,cid,mh_key,CAST(td as Text),node_id,
+				CAST(reward as Text), state_root,uncle_root,tx_root,receipt_root,bloom,timestamp,times_validated,
+				coinbase FROM eth.header_cids
 				WHERE block_number = $1`
 
 	return headers, tx.Select(ctx, &headers, pgStr, blockNumber)
@@ -179,7 +181,7 @@ func (ecr *CIDRetriever) RetrieveHeaderCIDs(ctx context.Context, tx sql.Tx, bloc
 func (ecr *CIDRetriever) RetrieveUncleCIDsByHeaderID(ctx context.Context, tx sql.Tx, headerID string) ([]models.UncleModel, error) {
 	log.Debug("retrieving uncle cids for block id ", headerID)
 	headers := make([]models.UncleModel, 0)
-	pgStr := `SELECT * FROM eth.uncle_cids
+	pgStr := `SELECT header_id,block_hash,parent_hash,cid,mh_key, CAST(reward as text) FROM eth.uncle_cids
 				WHERE header_id = $1`
 
 	return headers, tx.Select(ctx, &headers, pgStr, headerID)
@@ -192,8 +194,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDs(ctx context.Context, tx sql.Tx, txFilter
 	args := make([]interface{}, 0, 3)
 	results := make([]models.TxModel, 0)
 	id := 1
-	pgStr := fmt.Sprintf(`SELECT transaction_cids.tx_hash, transaction_cids.header_id,
- 			transaction_cids.tx_hash, transaction_cids.cid, transaction_cids.mh_key,
+	pgStr := fmt.Sprintf(`SELECT transaction_cids.tx_hash, transaction_cids.header_id,transaction_cids.cid, transaction_cids.mh_key,
  			transaction_cids.dst, transaction_cids.src, transaction_cids.index, transaction_cids.tx_data
  			FROM eth.transaction_cids INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
 			WHERE header_cids.block_hash = $%d`, id)
@@ -295,7 +296,7 @@ func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilte
 func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(ctx context.Context, tx sql.Tx, rctFilter ReceiptFilter, headerID string, trxHashes []string) ([]models.ReceiptModel, error) {
 	log.Debug("retrieving receipt cids for header id ", headerID)
 	args := make([]interface{}, 0, 4)
-	pgStr := `SELECT receipt_cids.tx_id, receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
+	pgStr := `SELECT receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
  			receipt_cids.contract, receipt_cids.contract_hash
  			FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
 			WHERE receipt_cids.tx_id = transaction_cids.tx_hash 
@@ -344,7 +345,7 @@ func (ecr *CIDRetriever) RetrieveFilteredLog(ctx context.Context, tx sql.Tx, rct
 	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,  
        			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, 
        			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index, 
-       			header_cids.block_hash, header_cids.block_number
+       			header_cids.block_hash, CAST(header_cids.block_number as Text)
 				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids
 				WHERE eth.log_cids.rct_id = receipt_cids.tx_id
 				AND receipt_cids.tx_id = transaction_cids.tx_hash
@@ -569,10 +570,10 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(ctx context.Context, blockNumber 
 // RetrieveHeaderCIDByHash returns the header for the given block hash
 func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(ctx context.Context, tx sql.Tx, blockHash common.Hash) (models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block hash ", blockHash.String())
-	pgStr := `SELECT * FROM eth.header_cids
+	pgStr := `SELECT block_hash,cid,mh_key FROM eth.header_cids
 			WHERE block_hash = $1`
 	var headerCID models.HeaderModel
-	return headerCID, tx.Get(ctx, &headerCID, pgStr, blockHash.String())
+	return headerCID, tx.QueryRow(ctx, pgStr, blockHash.String()).Scan(&headerCID.BlockHash, &headerCID.CID, &headerCID.MhKey)
 }
 
 // RetrieveTxCIDsByHeaderID retrieves all tx CIDs for the given header id

@@ -437,12 +437,11 @@ var (
 		StateNodes:      MockStateNodes,
 	}
 
-	Reward = shared.CalcEthBlockReward(MockBlock.Header(), MockBlock.Uncles(), MockBlock.Transactions(), MockReceipts)
-
+	Reward         = shared.CalcEthBlockReward(MockBlock.Header(), MockBlock.Uncles(), MockBlock.Transactions(), MockReceipts)
 	MockCIDWrapper = &eth.CIDWrapper{
 		BlockNumber: new(big.Int).Set(BlockNumber),
 		Header: models.HeaderModel{
-			BlockNumber:     "1",
+			BlockNumber:     BlockNumber.String(),
 			BlockHash:       MockBlock.Hash().String(),
 			ParentHash:      "0x0000000000000000000000000000000000000000000000000000000000000000",
 			CID:             HeaderCID.String(),
@@ -456,6 +455,7 @@ var (
 			Bloom:           MockBlock.Bloom().Bytes(),
 			Timestamp:       MockBlock.Time(),
 			TimesValidated:  1,
+			Coinbase:        "0x0000000000000000000000000000000000000000",
 		},
 		Transactions: MockTrxMetaPostPublsh,
 		Receipts:     MockRctMetaPostPublish,

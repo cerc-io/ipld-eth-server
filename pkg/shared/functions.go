@@ -62,17 +62,6 @@ func PublishIPLD(ctx context.Context, tx sql.Tx, i node.Node) error {
 	return err
 }
 
-// FetchIPLD is used to retrieve an ipld from Postgres blockstore with the provided tx and cid string
-func FetchIPLD(tx *sqlx.Tx, cid string) ([]byte, error) {
-	mhKey, err := MultihashKeyFromCIDString(cid)
-	if err != nil {
-		return nil, err
-	}
-	pgStr := `SELECT data FROM public.blocks WHERE key = $1`
-	var block []byte
-	return block, tx.Get(&block, pgStr, mhKey)
-}
-
 // FetchIPLDByMhKey is used to retrieve an ipld from Postgres blockstore with the provided tx and mhkey string
 func FetchIPLDByMhKey(ctx context.Context, tx sql.Tx, mhKey string) ([]byte, error) {
 	pgStr := `SELECT data FROM public.blocks WHERE key = $1`
