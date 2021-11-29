@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
 	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	"github.com/ethereum/go-ethereum/trie"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -218,17 +217,9 @@ var _ = Describe("Retriever", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		testInfo := node.Info{
-			GenesisBlock: test_helpers.Genesis.Hash().String(),
-			NetworkID:    "2",
-			ID:           "2",
-			ClientName:   "geth",
-			ChainID:      params.TestChainConfig.ChainID.Uint64(),
-		}
-		db, err = eth.Setup(ctx, testInfo)
+		db, err = eth.SetupDB(ctx, test_helpers.Genesis.Hash())
 		Expect(err).ToNot(HaveOccurred())
 		diffIndexer, err = sql.NewStateDiffIndexer(ctx, params.TestChainConfig, db)
-
 		Expect(err).ToNot(HaveOccurred())
 
 		retriever = eth.NewCIDRetriever(db)

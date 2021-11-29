@@ -20,6 +20,8 @@ import (
 	"context"
 	"os"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
@@ -27,8 +29,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func Setup(ctx context.Context, info node.Info) (sql.Database, error) {
-	driver, err := postgres.NewSQLXDriver(ctx, getConfig(), info)
+func SetupDB(ctx context.Context, genHash common.Hash) (sql.Database, error) {
+	testInfo := node.Info{
+		GenesisBlock: genHash.String(),
+		NetworkID:    "1",
+		ID:           "1",
+		ClientName:   "geth",
+		ChainID:      params.TestChainConfig.ChainID.Uint64(),
+	}
+	driver, err := postgres.NewSQLXDriver(ctx, getConfig(), testInfo)
 	Expect(err).NotTo(HaveOccurred())
 	return postgres.NewPostgresDB(driver), nil
 }

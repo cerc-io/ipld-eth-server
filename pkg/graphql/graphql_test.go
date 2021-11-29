@@ -31,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql"
-	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -66,14 +65,7 @@ var _ = Describe("GraphQL", func() {
 
 	It("test init", func() {
 		var err error
-		testInfo := node.Info{
-			GenesisBlock: test_helpers.Genesis.Hash().String(),
-			NetworkID:    "5",
-			ID:           "5",
-			ClientName:   "geth",
-			ChainID:      params.TestChainConfig.ChainID.Uint64(),
-		}
-		db, err = eth.Setup(ctx, testInfo)
+		db, err = eth.SetupDB(ctx, test_helpers.Genesis.Hash())
 		Expect(err).ToNot(HaveOccurred())
 
 		transformer, err := sql.NewStateDiffIndexer(ctx, chainConfig, db)
