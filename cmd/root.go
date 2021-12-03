@@ -19,11 +19,14 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 )
 
@@ -121,14 +124,21 @@ func init() {
 }
 
 func initConfig() {
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-		if err := viper.ReadInConfig(); err == nil {
-			log.Printf("Using config file: %s", viper.ConfigFileUsed())
-		} else {
-			log.Fatal(fmt.Sprintf("Couldn't read config file: %s", err.Error()))
-		}
-	} else {
+	if cfgFile == "" {
 		log.Warn("No config file passed with --config flag")
+		return
+	}
+
+	viper.SetConfigFile(cfgFile)
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Couldn't read config file: %s", err.Error())
+	}
+
+	log.Infof("Using config file: %s", viper.ConfigFileUsed())
+
+	if filepath.Ext(cfgFile) == ".env" {
+		if err := godotenv.Load(cfgFile); err != nil {
+			log.Fatalf("Failed to set environment variable from config file: %s", err.Error())
+		}
 	}
 }

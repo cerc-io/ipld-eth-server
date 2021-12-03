@@ -7,13 +7,12 @@ require (
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/graph-gophers/graphql-go v0.0.0-20201113091052-beb923fada29
 	github.com/ipfs/go-block-format v0.0.3
-	github.com/ipfs/go-blockservice v0.1.7
 	github.com/ipfs/go-cid v0.0.7
-	github.com/ipfs/go-ipfs v0.10.0
 	github.com/ipfs/go-ipfs-blockstore v1.0.1
 	github.com/ipfs/go-ipfs-ds-help v1.0.0
 	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/jmoiron/sqlx v1.2.0
+	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.4
 	github.com/machinebox/graphql v0.2.2
 	github.com/mailgun/groupcache/v2 v2.2.1
