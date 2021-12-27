@@ -57,13 +57,17 @@ type PublicEthAPI struct {
 	B *Backend
 
 	// Proxy node for forwarding cache misses
-	supportsStateDiff bool // Whether or not the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
+	supportsStateDiff bool // Whether the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
 	rpc               *rpc.Client
 	ethClient         *ethclient.Client
+	forwardEthCalls   bool // if true, forward eth_call calls directly to the configured proxy node
 }
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
-func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff bool) *PublicEthAPI {
+func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls bool) (*PublicEthAPI, error) {
+	if forwardEthCalls && client == nil {
+		return nil, errors.New("ipld-eth-server is configured to forward eth_calls to proxy node but no proxy node is configured")
+	}
 	var ethClient *ethclient.Client
 	if client != nil {
 		ethClient = ethclient.NewClient(client)
@@ -73,7 +77,8 @@ func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff bool) *Pu
 		supportsStateDiff: supportsStateDiff,
 		rpc:               client,
 		ethClient:         ethClient,
-	}
+		forwardEthCalls:   forwardEthCalls,
+	}, nil
 }
 
 /*
@@ -910,6 +915,12 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 // Note, this function doesn't make and changes in the state/blockchain and is
 // useful to execute and retrieve values.
 func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride) (hexutil.Bytes, error) {
+	if pea.forwardEthCalls {
+		var hex hexutil.Bytes
+		err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides)
+		return hex, err
+	}
+
 	result, err := DoCall(ctx, pea.B, args, blockNrOrHash, overrides, 5*time.Second, pea.B.Config.RPCGasCap.Uint64())
 
 	// If the result contains a revert reason, try to unpack and return it.

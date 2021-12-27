@@ -36,21 +36,22 @@ import (
 
 // Env variables
 const (
-	serverWsPath   = "SERVER_WS_PATH"
-	serverIpcPath  = "SERVER_IPC_PATH"
-	serverHTTPPath = "SERVER_HTTP_PATH"
+	SERVER_WS_PATH   = "SERVER_WS_PATH"
+	SERVER_IPC_PATH  = "SERVER_IPC_PATH"
+	SERVER_HTTP_PATH = "SERVER_HTTP_PATH"
 
-	serverMaxIdleConnections = "SERVER_MAX_IDLE_CONNECTIONS"
-	serverMaxOpenConnections = "SERVER_MAX_OPEN_CONNECTIONS"
-	serverMaxConnLifetime    = "SERVER_MAX_CONN_LIFETIME"
+	SERVER_MAX_IDLE_CONNECTIONS = "SERVER_MAX_IDLE_CONNECTIONS"
+	SERVER_MAX_OPEN_CONNECTIONS = "SERVER_MAX_OPEN_CONNECTIONS"
+	SERVER_MAX_CONN_LIFETIME    = "SERVER_MAX_CONN_LIFETIME"
 
-	ethDefaultSenderAddr = "ETH_DEFAULT_SENDER_ADDR"
-	ethRPCGasCap         = "ETH_RPC_GAS_CAP"
-	ethChainConfig       = "ETH_CHAIN_CONFIG"
-	ethSupportsStatediff = "ETH_SUPPORTS_STATEDIFF"
+	ETH_DEFAULT_SENDER_ADDR = "ETH_DEFAULT_SENDER_ADDR"
+	ETH_RPC_GAS_CAP         = "ETH_RPC_GAS_CAP"
+	ETH_CHAIN_CONFIG        = "ETH_CHAIN_CONFIG"
+	ETH_SUPPORTS_STATEDIFF  = "ETH_SUPPORTS_STATEDIFF"
+	ETH_FORWARD_ETH_CALLS   = "ETH_FORWARD_ETH_CALLS"
 
-	ValidatorEnabled       = "VALIDATOR_ENABLED"
-	ValidatorEveryNthBlock = "VALIDATOR_EVERY_NTH_BLOCK"
+	VALIDATOR_ENABLED         = "VALIDATOR_ENABLED"
+	VALIDATOR_EVERY_NTH_BLOCK = "VALIDATOR_EVERY_NTH_BLOCK"
 )
 
 // Config struct
@@ -83,6 +84,7 @@ type Config struct {
 	EthHttpEndpoint  string
 	Client           *rpc.Client
 	SupportStateDiff bool
+	ForwardEthCalls  bool
 
 	// Cache configuration.
 	GroupCache *ethServerShared.GroupCacheConfig
@@ -96,11 +98,12 @@ type Config struct {
 func NewConfig() (*Config, error) {
 	c := new(Config)
 
-	viper.BindEnv("ethereum.httpPath", ethHTTPPath)
-	viper.BindEnv("ethereum.defaultSender", ethDefaultSenderAddr)
-	viper.BindEnv("ethereum.rpcGasCap", ethRPCGasCap)
-	viper.BindEnv("ethereum.chainConfig", ethChainConfig)
-	viper.BindEnv("ethereum.supportsStateDiff", ethSupportsStatediff)
+	viper.BindEnv("ethereum.httpPath", ETH_HTTP_PATH)
+	viper.BindEnv("ethereum.defaultSender", ETH_DEFAULT_SENDER_ADDR)
+	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
+	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
+	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
+	viper.BindEnv("ethereum.forwardEthCalls", ETH_FORWARD_ETH_CALLS)
 
 	c.dbInit()
 	ethHTTP := viper.GetString("ethereum.httpPath")
@@ -111,6 +114,7 @@ func NewConfig() (*Config, error) {
 	}
 	c.Client = cli
 	c.SupportStateDiff = viper.GetBool("ethereum.supportsStateDiff")
+	c.ForwardEthCalls = viper.GetBool("ethereum.forwardEthCalls")
 	c.EthHttpEndpoint = ethHTTPEndpoint
 
 	// websocket server
@@ -224,23 +228,23 @@ func NewConfig() (*Config, error) {
 }
 
 func overrideDBConnConfig(con *postgres.ConnectionConfig) {
-	viper.BindEnv("database.server.maxIdle", serverMaxIdleConnections)
-	viper.BindEnv("database.server.maxOpen", serverMaxOpenConnections)
-	viper.BindEnv("database.server.maxLifetime", serverMaxConnLifetime)
+	viper.BindEnv("database.server.maxIdle", SERVER_MAX_IDLE_CONNECTIONS)
+	viper.BindEnv("database.server.maxOpen", SERVER_MAX_OPEN_CONNECTIONS)
+	viper.BindEnv("database.server.maxLifetime", SERVER_MAX_CONN_LIFETIME)
 	con.MaxIdle = viper.GetInt("database.server.maxIdle")
 	con.MaxOpen = viper.GetInt("database.server.maxOpen")
 	con.MaxLifetime = viper.GetInt("database.server.maxLifetime")
 }
 
 func (c *Config) dbInit() {
-	viper.BindEnv("database.name", databaseName)
-	viper.BindEnv("database.hostname", databaseHostname)
-	viper.BindEnv("database.port", databasePort)
-	viper.BindEnv("database.user", databaseUser)
-	viper.BindEnv("database.password", databasePassword)
-	viper.BindEnv("database.maxIdle", databaseMaxIdleConnections)
-	viper.BindEnv("database.maxOpen", databaseMaxOpenConnections)
-	viper.BindEnv("database.maxLifetime", databaseMaxOpenConnLifetime)
+	viper.BindEnv("database.name", DATABASE_NAME)
+	viper.BindEnv("database.hostname", DATABASE_HOSTNAME)
+	viper.BindEnv("database.port", DATABASE_PORT)
+	viper.BindEnv("database.user", DATABASE_USER)
+	viper.BindEnv("database.password", DATABASE_PASSWORD)
+	viper.BindEnv("database.maxIdle", DATABASE_MAX_IDLE_CONNECTIONS)
+	viper.BindEnv("database.maxOpen", DATABASE_MAX_OPEN_CONNECTIONS)
+	viper.BindEnv("database.maxLifetime", DATABASE_MAX_CONN_LIFETIME)
 
 	c.DBParams.Name = viper.GetString("database.name")
 	c.DBParams.Hostname = viper.GetString("database.hostname")
@@ -276,8 +280,8 @@ func (c *Config) loadGroupCacheConfig() {
 }
 
 func (c *Config) loadValidatorConfig() {
-	viper.BindEnv("validator.enabled", ValidatorEnabled)
-	viper.BindEnv("validator.everyNthBlock", ValidatorEveryNthBlock)
+	viper.BindEnv("validator.enabled", VALIDATOR_ENABLED)
+	viper.BindEnv("validator.everyNthBlock", VALIDATOR_EVERY_NTH_BLOCK)
 
 	c.StateValidationEnabled = viper.GetBool("validator.enabled")
 	c.StateValidationEveryNthBlock = viper.GetUint64("validator.everyNthBlock")
