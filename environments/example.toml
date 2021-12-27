@@ -21,6 +21,7 @@
     rpcGasCap = "1000000000000" # $ETH_RPC_GAS_CAP
     httpPath = "127.0.0.1:8545" # $ETH_HTTP_PATH
     supportsStateDiff = true # $ETH_SUPPORTS_STATEDIFF
+    forwardEthCalls = false # $ETH_FORWARD_ETH_CALLS
     nodeID = "arch1" # $ETH_NODE_ID
     clientName = "Geth" # $ETH_CLIENT_NAME
     genesisBlock = "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3" # $ETH_GENESIS_BLOCK
