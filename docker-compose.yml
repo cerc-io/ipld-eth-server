@@ -5,13 +5,14 @@ services:
     restart: unless-stopped
     depends_on:
       - ipld-eth-db
-    image: vulcanize/dapptools:v0.30.0-v1.10.11-statediff-0.0.27
+    image: vulcanize/dapptools:v0.30.0-v1.10.14-statediff-0.0.29
     environment:
       DB_USER: vdbm
       DB_NAME: vulcanize_testing
       DB_HOST: ipld-eth-db
       DB_PORT: 5432
       DB_PASSWORD: password
+      DB_WRITE: $DB_WRITE
     ports:
       - "127.0.0.1:8545:8545"
       - "127.0.0.1:8546:8546"
@@ -50,6 +51,8 @@ services:
       DATABASE_USER: "vdbm"
       DATABASE_PASSWORD: "password"
       ETH_CHAIN_ID: 4
+      ETH_FORWARD_ETH_CALLS: $ETH_FORWARD_ETH_CALLS
+      ETH_HTTP_PATH: "dapptools:8545"
     volumes:
     - type: bind
       source: ./chain.json
