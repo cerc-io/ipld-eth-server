@@ -62,7 +62,7 @@ jobs:
           make integrationtest
 
   integrationtest_forwardethcalls:
-    name: Run integration tests
+    name: Run integration tests for direct proxy fall-through of eth_calls
     env:
       GOPATH: /tmp/go
       DB_WRITE: false
