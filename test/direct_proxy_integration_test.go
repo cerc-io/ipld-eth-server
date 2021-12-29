@@ -9,10 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -20,19 +17,11 @@ import (
 	integration "github.com/vulcanize/ipld-eth-server/test"
 )
 
-const nonExistingBlockHash = "0x111111111111111111111111111111111111111111111111111111111111111"
-const nonExistingAddress = "0x1111111111111111111111111111111111111111"
-
-var (
-	randomAddr = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
-	randomHash = crypto.Keccak256Hash(randomAddr.Bytes())
-)
-
 var _ = Describe("Integration test", func() {
 	directProxyEthCalls, err := strconv.ParseBool(os.Getenv("ETH_FORWARD_ETH_CALLS"))
 	Expect(err).To(BeNil())
-	if directProxyEthCalls {
-		Skip("skipping no-direct-proxy-forwarding integration tests")
+	if !directProxyEthCalls {
+		Skip("skipping direct-proxy-forwarding integration tests")
 	}
 	gethHttpPath := "http://127.0.0.1:8545"
 	gethClient, err := ethclient.Dial(gethHttpPath)
@@ -87,37 +76,19 @@ var _ = Describe("Integration test", func() {
 
 			blockNum := contract.BlockNumber
 
-			gethBlock, err := gethClient.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
+			_, err := gethClient.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldBlock, err := ipldClient.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
-			Expect(err).ToNot(HaveOccurred())
-
-			// check headers are equals
-			Expect(gethBlock.Header()).To(Equal(ipldBlock.Header()))
-
-			gethTxs := gethBlock.Transactions()
-			ipldTxs := ipldBlock.Transactions()
-
-			Expect(gethTxs.Len()).To(Equal(ipldTxs.Len()))
-			Expect(types.TxDifference(gethTxs, ipldTxs).Len()).To(Equal(0))
+			_, err = ipldClient.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("get block by hash", func() {
-			gethBlock, err := gethClient.BlockByHash(ctx, common.HexToHash(contract.BlockHash))
+			_, err := gethClient.BlockByHash(ctx, common.HexToHash(contract.BlockHash))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldBlock, err := ipldClient.BlockByHash(ctx, common.HexToHash(contract.BlockHash))
-			Expect(err).ToNot(HaveOccurred())
-
-			// check headers are equals
-			compareBlocks(gethBlock, ipldBlock)
-
-			gethTxs := gethBlock.Transactions()
-			ipldTxs := ipldBlock.Transactions()
-
-			Expect(gethTxs.Len()).To(Equal(ipldTxs.Len()))
-			Expect(types.TxDifference(gethTxs, ipldTxs).Len()).To(Equal(0))
+			_, err = ipldClient.BlockByHash(ctx, common.HexToHash(contract.BlockHash))
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -130,25 +101,19 @@ var _ = Describe("Integration test", func() {
 		It("Get tx by hash", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
 
-			gethTx, _, err := gethClient.TransactionByHash(ctx, common.HexToHash(contract.TransactionHash))
+			_, _, err := gethClient.TransactionByHash(ctx, common.HexToHash(contract.TransactionHash))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldTx, _, err := ipldClient.TransactionByHash(ctx, common.HexToHash(contract.TransactionHash))
-			Expect(err).ToNot(HaveOccurred())
-
-			compareTxs(gethTx, ipldTx)
-
-			Expect(gethTx.Hash()).To(Equal(ipldTx.Hash()))
+			_, _, err = ipldClient.TransactionByHash(ctx, common.HexToHash(contract.TransactionHash))
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("Get tx by block hash and index", func() {
-			gethTx, err := gethClient.TransactionInBlock(ctx, common.HexToHash(contract.BlockHash), 0)
+			_, err := gethClient.TransactionInBlock(ctx, common.HexToHash(contract.BlockHash), 0)
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldTx, err := ipldClient.TransactionInBlock(ctx, common.HexToHash(contract.BlockHash), 0)
-			Expect(err).ToNot(HaveOccurred())
-
-			compareTxs(gethTx, ipldTx)
+			_, err = ipldClient.TransactionInBlock(ctx, common.HexToHash(contract.BlockHash), 0)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -161,21 +126,11 @@ var _ = Describe("Integration test", func() {
 		It("Get tx receipt", func() {
 			Expect(contractErr).ToNot(HaveOccurred())
 
-			gethReceipt, err := gethClient.TransactionReceipt(ctx, common.HexToHash(contract.TransactionHash))
+			_, err := gethClient.TransactionReceipt(ctx, common.HexToHash(contract.TransactionHash))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldReceipt, err := ipldClient.TransactionReceipt(ctx, common.HexToHash(contract.TransactionHash))
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(gethReceipt).To(Equal(ipldReceipt))
-
-			rlpGeth, err := rlp.EncodeToBytes(gethReceipt)
-			Expect(err).ToNot(HaveOccurred())
-
-			rlpIpld, err := rlp.EncodeToBytes(ipldReceipt)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(rlpGeth).To(Equal(rlpIpld))
+			_, err = ipldClient.TransactionReceipt(ctx, common.HexToHash(contract.TransactionHash))
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -195,17 +150,11 @@ var _ = Describe("Integration test", func() {
 				Topics:    [][]common.Hash{},
 			}
 
-			gethLogs, err := gethClient.FilterLogs(ctx, filterQuery)
+			_, err := gethClient.FilterLogs(ctx, filterQuery)
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldLogs, err := ipldClient.FilterLogs(ctx, filterQuery)
-			Expect(err).ToNot(HaveOccurred())
-
-			// not empty list
-			Expect(gethLogs).ToNot(BeEmpty())
-
-			Expect(len(gethLogs)).To(Equal(len(ipldLogs)))
-			Expect(gethLogs).To(Equal(ipldLogs))
+			_, err = ipldClient.FilterLogs(ctx, filterQuery)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -494,32 +443,3 @@ var _ = Describe("Integration test", func() {
 		})
 	})
 })
-
-func compareBlocks(block1 *types.Block, block2 *types.Block) {
-	Expect(block1.Header()).To(Equal(block2.Header()))
-	Expect(block1.Uncles()).To(Equal(block2.Uncles()))
-
-	txs1 := block1.Transactions()
-	txs2 := block2.Transactions()
-
-	Expect(len(txs1)).To(Equal(len(txs2)))
-	for i, tx := range txs1 {
-		compareTxs(tx, txs2[i])
-	}
-}
-
-func compareTxs(tx1 *types.Transaction, tx2 *types.Transaction) {
-	Expect(tx1.Data()).To(Equal(tx2.Data()))
-	Expect(tx1.Hash()).To(Equal(tx2.Hash()))
-	Expect(tx1.Size()).To(Equal(tx2.Size()))
-
-	signer := types.NewEIP155Signer(big.NewInt(4))
-
-	gethSender, err := types.Sender(signer, tx1)
-	Expect(err).ToNot(HaveOccurred())
-
-	ipldSender, err := types.Sender(signer, tx2)
-	Expect(err).ToNot(HaveOccurred())
-
-	Expect(gethSender).To(Equal(ipldSender))
-}
