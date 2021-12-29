@@ -130,7 +130,7 @@ func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
 		ExpiryDuration: time.Minute * time.Duration(gcc.StateDB.CacheExpiryInMins),
 	})
 
-	logStateDBStatsOnTimer(ethDB, gcc)
+	logStateDBStatsOnTimer(ethDB.(*ipfsethdb.Database), gcc)
 
 	return &Backend{
 		DB:            db,
@@ -825,6 +825,7 @@ func (b *Backend) GetHeader(hash common.Hash, height uint64) *types.Header {
 	return header
 }
 
+// ValidateTrie validates the trie for the given stateRoot
 func (b *Backend) ValidateTrie(stateRoot common.Hash) error {
 	return validator.NewValidator(nil, b.EthDB).ValidateTrie(stateRoot)
 }
