@@ -75,7 +75,8 @@ test_local: | $(GINKGO) $(GOOSE)
 integrationtest_local: | $(GINKGO) $(GOOSE)
 	go vet ./...
 	go fmt ./...
-	./scripts/run_intregration_test.sh
+	./scripts/run_integration_test.sh
+	./scripts/run_integration_test_forward_eth_calls.sh
 
 build:
 	go fmt ./...
