@@ -1,8 +1,8 @@
 set -e
 set -o xtrace
 
-export ETH_FORWARD_ETH_CALLS=false
-export DB_WRITE=true
+export ETH_FORWARD_ETH_CALLS=true
+export DB_WRITE=false
 
 # Clear up existing docker images and volume.
 docker-compose down --remove-orphans --volumes
