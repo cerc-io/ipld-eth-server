@@ -229,7 +229,7 @@ var _ = Describe("API", func() {
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		api = eth.NewPublicEthAPI(backend, nil, false)
+		api, _ = eth.NewPublicEthAPI(backend, nil, false, false, false)
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
 

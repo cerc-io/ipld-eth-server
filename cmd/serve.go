@@ -344,7 +344,9 @@ func init() {
 	serveCmd.PersistentFlags().String("eth-default-sender", "", "default sender address")
 	serveCmd.PersistentFlags().String("eth-rpc-gas-cap", "", "rpc gas cap (for eth_Call execution)")
 	serveCmd.PersistentFlags().String("eth-chain-config", "", "json chain config file location")
-	serveCmd.PersistentFlags().Bool("eth-supports-state-diff", false, "whether or not the proxy ethereum client supports statediffing endpoints")
+	serveCmd.PersistentFlags().Bool("eth-supports-state-diff", false, "whether the proxy ethereum client supports statediffing endpoints")
+	serveCmd.PersistentFlags().Bool("eth-forward-eth-calls", false, "whether to immediately forward eth_calls to proxy client")
+	serveCmd.PersistentFlags().Bool("eth-proxy-on-error", true, "whether to forward all failed calls to proxy client")
 
 	// groupcache flags
 	serveCmd.PersistentFlags().Bool("gcache-pool-enabled", false, "turn on the groupcache pool")
@@ -392,6 +394,8 @@ func init() {
 	viper.BindPFlag("ethereum.rpcGasCap", serveCmd.PersistentFlags().Lookup("eth-rpc-gas-cap"))
 	viper.BindPFlag("ethereum.chainConfig", serveCmd.PersistentFlags().Lookup("eth-chain-config"))
 	viper.BindPFlag("ethereum.supportsStateDiff", serveCmd.PersistentFlags().Lookup("eth-supports-state-diff"))
+	viper.BindPFlag("ethereum.forwardEthCalls", serveCmd.PersistentFlags().Lookup("eth-forward-eth-calls"))
+	viper.BindPFlag("ethereum.proxyOnError", serveCmd.PersistentFlags().Lookup("eth-proxy-on-error"))
 
 	// groupcache flags
 	viper.BindPFlag("groupcache.pool.enabled", serveCmd.PersistentFlags().Lookup("gcache-pool-enabled"))

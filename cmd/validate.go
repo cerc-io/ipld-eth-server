@@ -63,12 +63,12 @@ func validate() {
 		ExpiryDuration: time.Minute * time.Duration(CacheExpiryInMins),
 	})
 
-	validator := validator.NewValidator(nil, ethDB)
-	if err = validator.ValidateTrie(stateRoot); err != nil {
+	val := validator.NewValidator(nil, ethDB)
+	if err = val.ValidateTrie(stateRoot); err != nil {
 		log.Fatalln("Error validating state root")
 	}
 
-	stats := ethDB.GetCacheStats()
+	stats := ethDB.(*ipfsethdb.Database).GetCacheStats()
 	log.Debugf("groupcache stats %+v", stats)
 
 	log.Infoln("Successfully validated state root")
