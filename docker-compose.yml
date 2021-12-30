@@ -52,7 +52,8 @@ services:
       DATABASE_PASSWORD: "password"
       ETH_CHAIN_ID: 4
       ETH_FORWARD_ETH_CALLS: $ETH_FORWARD_ETH_CALLS
-      ETH_HTTP_PATH: "dapptools:8545"
+      ETH_PROXY_ON_ERROR: $ETH_PROXY_ON_ERROR
+      ETH_HTTP_PATH: $ETH_HTTP_PATH
     volumes:
     - type: bind
       source: ./chain.json

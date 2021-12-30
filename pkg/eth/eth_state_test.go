@@ -94,7 +94,7 @@ var _ = Describe("eth state reading tests", func() {
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		api, _ = eth.NewPublicEthAPI(backend, nil, false, false)
+		api, _ = eth.NewPublicEthAPI(backend, nil, false, false, false)
 
 		// make the test blockchain (and state)
 		blocks, receipts, chain = test_helpers.MakeChain(chainLength, test_helpers.Genesis, test_helpers.TestChainGen)

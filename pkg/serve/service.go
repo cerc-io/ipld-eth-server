@@ -85,6 +85,8 @@ type Service struct {
 	backend *eth.Backend
 	// whether to forward eth_calls directly to proxy node
 	forwardEthCalls bool
+	// whether to forward all calls to proxy node if they throw an error locally
+	proxyOnError bool
 }
 
 // NewServer creates a new Server using an underlying Service struct
@@ -100,6 +102,7 @@ func NewServer(settings *Config) (Server, error) {
 	sap.client = settings.Client
 	sap.supportsStateDiffing = settings.SupportStateDiff
 	sap.forwardEthCalls = settings.ForwardEthCalls
+	sap.proxyOnError = settings.ProxyOnError
 	var err error
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:      settings.ChainConfig,
@@ -133,7 +136,7 @@ func (sap *Service) APIs() []rpc.API {
 			Public:    true,
 		},
 	}
-	ethAPI, err := eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing, sap.forwardEthCalls)
+	ethAPI, err := eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing, sap.forwardEthCalls, sap.proxyOnError)
 	if err != nil {
 		log.Fatalf("unable to create public eth api: %v", err)
 	}

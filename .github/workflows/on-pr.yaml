@@ -40,6 +40,8 @@ jobs:
       GOPATH: /tmp/go
       DB_WRITE: true
       ETH_FORWARD_ETH_CALLS: false
+      ETH_PROXY_ON_ERROR: false
+      ETH_HTTP_PATH: ""
     strategy:
       matrix:
         go-version: [1.16.x]
@@ -67,6 +69,8 @@ jobs:
       GOPATH: /tmp/go
       DB_WRITE: false
       ETH_FORWARD_ETH_CALLS: true
+      ETH_PROXY_ON_ERROR: false
+      ETH_HTTP_PATH: "dapptools:8545"
     strategy:
       matrix:
         go-version: [ 1.16.x ]

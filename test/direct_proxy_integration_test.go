@@ -159,11 +159,16 @@ var _ = Describe("Integration test", func() {
 				Topics:    [][]common.Hash{},
 			}
 
-			_, err := gethClient.FilterLogs(ctx, filterQuery)
+			gethLogs, err := gethClient.FilterLogs(ctx, filterQuery)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = ipldClient.FilterLogs(ctx, filterQuery)
-			Expect(err).To(HaveOccurred())
+			ipldLogs, err := ipldClient.FilterLogs(ctx, filterQuery)
+			Expect(err).ToNot(HaveOccurred())
+
+			// not empty list
+			Expect(gethLogs).ToNot(BeEmpty())
+			// empty list
+			Expect(ipldLogs).To(BeEmpty())
 		})
 	})
 
@@ -189,20 +194,20 @@ var _ = Describe("Integration test", func() {
 			Expect(gethCode).To(Equal(ipldCode))
 		})
 		It("gets code of deployed contract without block number", func() {
-			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), nil)
+			_, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			ipldCode, err := ipldClient.CodeAt(ctx, common.HexToAddress(contract.Address), nil)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(gethCode).To(Equal(ipldCode))
+			Expect(ipldCode).To(BeEmpty())
 		})
 		It("gets code of deployed contract with block number", func() {
-			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber)))
+			_, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber)))
 			Expect(err).ToNot(HaveOccurred())
 
 			ipldCode, err := ipldClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber)))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(gethCode).To(Equal(ipldCode))
+			Expect(ipldCode).To(BeEmpty())
 		})
 		It("gets code of contract that doesn't exist at this height", func() {
 			gethCode, err := gethClient.CodeAt(ctx, common.HexToAddress(contract.Address), big.NewInt(int64(contract.BlockNumber-1)))
@@ -231,33 +236,29 @@ var _ = Describe("Integration test", func() {
 
 			gethBalance, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), nil)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(gethBalance.String()).To(Equal(big.NewInt(10000000000000000).String()))
 
 			ipldBalance, err := ipldClient.BalanceAt(ctx, common.HexToAddress(address), nil)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(gethBalance).To(Equal(ipldBalance))
+			Expect(ipldBalance.String()).To(Equal(big.NewInt(0).String()))
 		})
 		It("gets balance for an account with eth with block number", func() {
 			Expect(txErr).ToNot(HaveOccurred())
 
-			gethBalance, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber)))
+			_, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber)))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldBalance, err := ipldClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber)))
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(gethBalance).To(Equal(ipldBalance))
+			_, err = ipldClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber)))
+			Expect(err).To(HaveOccurred())
 		})
 		It("gets historical balance for an account with eth with block number", func() {
 			Expect(txErr).ToNot(HaveOccurred())
 
-			gethBalance, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber-1)))
+			_, err := gethClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber-1)))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldBalance, err := ipldClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber-1)))
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(gethBalance).To(Equal(ipldBalance))
+			_, err = ipldClient.BalanceAt(ctx, common.HexToAddress(address), big.NewInt(int64(tx.BlockNumber-1)))
+			Expect(err).To(HaveOccurred())
 		})
 		It("gets balance for a non-existing account without block number", func() {
 			Expect(txErr).ToNot(HaveOccurred())
@@ -308,11 +309,7 @@ var _ = Describe("Integration test", func() {
 
 			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
-
-			ipldTotalSupply := new(big.Int).SetBytes(ipldStorage)
-			Expect(ipldTotalSupply).To(Equal(erc20TotalSupply))
-
-			Expect(gethStorage).To(Equal(ipldStorage))
+			Expect(ipldStorage).To(Equal(make([]byte, 32)))
 		})
 
 		It("gets ERC20 total supply (with block number)", func() {
@@ -324,27 +321,24 @@ var _ = Describe("Integration test", func() {
 			gethTotalSupply := new(big.Int).SetBytes(gethStorage)
 			Expect(gethTotalSupply).To(Equal(erc20TotalSupply))
 
-			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(gethStorage).To(Equal(ipldStorage))
+			_, err = ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).To(HaveOccurred())
 		})
 		It("gets storage for non-existing account", func() {
 			totalSupplyIndex := "0x2"
 
-			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(nonExistingAddress), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
+			_, err := gethClient.StorageAt(ctx, common.HexToAddress(nonExistingAddress), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(nonExistingAddress), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(gethStorage).To(Equal(ipldStorage))
+			_, err = ipldClient.StorageAt(ctx, common.HexToAddress(nonExistingAddress), common.HexToHash(totalSupplyIndex), big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).To(MatchError("header not found"))
 		})
 		It("gets storage for non-existing contract slot", func() {
-			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), randomHash, big.NewInt(int64(contract.BlockNumber)))
+			_, err := gethClient.StorageAt(ctx, common.HexToAddress(contract.Address), randomHash, big.NewInt(int64(contract.BlockNumber)))
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), randomHash, big.NewInt(int64(contract.BlockNumber)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(gethStorage).To(Equal(ipldStorage))
+			_, err = ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), randomHash, big.NewInt(int64(contract.BlockNumber)))
+			Expect(err).To(MatchError("header not found"))
 		})
 		It("gets storage for non-existing contract", func() {
 			totalSupplyIndex := "0x2"
@@ -383,19 +377,16 @@ var _ = Describe("Integration test", func() {
 			Expect(gethStorage1).NotTo(Equal(gethStorage2))
 			Expect(gethStorage2).To(Equal(eth.EmptyNodeValue))
 
-			ipldStorage1, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber-1))
-			Expect(err).ToNot(HaveOccurred())
-			ipldStorage2, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber))
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(ipldStorage1).To(Equal(gethStorage1))
-			Expect(ipldStorage2).To(Equal(gethStorage2))
+			_, err = ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber-1))
+			Expect(err).To(HaveOccurred())
+			_, err = ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), big.NewInt(tx.BlockNumber))
+			Expect(err).To(MatchError("header not found"))
 
 			// Query the current block
 			ipldStorage3, err := ipldClient.StorageAt(ctx, common.HexToAddress(contract.Address), common.HexToHash(totalSupplyIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(ipldStorage2).To(Equal(ipldStorage3))
+			Expect(eth.EmptyNodeValue).To(Equal(ipldStorage3))
 		})
 	})
 
@@ -454,13 +445,14 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Chain ID", func() {
 		It("Check chain id", func() {
-			gethChainId, err := gethClient.ChainID(ctx)
+			if !directProxyEthCalls {
+				Skip("skipping direct-proxy-forwarding integration tests")
+			}
+			_, err := gethClient.ChainID(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
-			ipldChainId, err := ipldClient.ChainID(ctx)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(gethChainId).To(Equal(ipldChainId))
+			_, err = ipldClient.ChainID(ctx)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

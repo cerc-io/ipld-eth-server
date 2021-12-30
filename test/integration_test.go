@@ -505,6 +505,9 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Chain ID", func() {
 		It("Check chain id", func() {
+			if directProxyEthCalls {
+				Skip("skipping no-direct-proxy-forwarding integration tests")
+			}
 			gethChainId, err := gethClient.ChainID(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
