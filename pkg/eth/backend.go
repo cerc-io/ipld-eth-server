@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
@@ -812,7 +813,11 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 
 // Engine satisfied the ChainContext interface
 func (b *Backend) Engine() consensus.Engine {
-	// TODO: we need to support more than just ethash based engines
+	if b.Config.ChainConfig.Clique != nil {
+		engine := clique.New(b.Config.ChainConfig.Clique, nil)
+		return engine
+	}
+
 	return ethash.NewFaker()
 }
 
