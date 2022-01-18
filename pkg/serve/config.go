@@ -53,6 +53,9 @@ const (
 
 	VALIDATOR_ENABLED         = "VALIDATOR_ENABLED"
 	VALIDATOR_EVERY_NTH_BLOCK = "VALIDATOR_EVERY_NTH_BLOCK"
+
+	GAP_FILLER_ENABLED  = "GAP_FILLER_ENABLED"
+	GAP_FILLER_INTERVAL = "GAP_FILLER_INTERVAL"
 )
 
 // Config struct
@@ -93,6 +96,9 @@ type Config struct {
 
 	StateValidationEnabled       bool
 	StateValidationEveryNthBlock uint64
+
+	WatchedAddressGapFillerEnabled bool
+	WatchedAddressGapFillInterval  int
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -228,6 +234,8 @@ func NewConfig() (*Config, error) {
 
 	c.loadValidatorConfig()
 
+	c.loadGapFillerConfig()
+
 	return c, err
 }
 
@@ -289,4 +297,12 @@ func (c *Config) loadValidatorConfig() {
 
 	c.StateValidationEnabled = viper.GetBool("validator.enabled")
 	c.StateValidationEveryNthBlock = viper.GetUint64("validator.everyNthBlock")
+}
+
+func (c *Config) loadGapFillerConfig() {
+	viper.BindEnv("gapfiller.enabled", GAP_FILLER_ENABLED)
+	viper.BindEnv("gapfiller.interval", GAP_FILLER_INTERVAL)
+
+	c.WatchedAddressGapFillerEnabled = viper.GetBool("gapfiller.enabled")
+	c.WatchedAddressGapFillInterval = viper.GetInt("gapfiller.interval")
 }
