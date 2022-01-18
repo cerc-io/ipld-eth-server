@@ -126,7 +126,7 @@ func (sap *Service) APIs() []rpc.API {
 		{
 			Namespace: APIName,
 			Version:   APIVersion,
-			Service:   NewPublicServerAPI(sap),
+			Service:   NewPublicServerAPI(sap, sap.client),
 			Public:    true,
 		},
 		{
