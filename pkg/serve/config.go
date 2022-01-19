@@ -54,8 +54,8 @@ const (
 	VALIDATOR_ENABLED         = "VALIDATOR_ENABLED"
 	VALIDATOR_EVERY_NTH_BLOCK = "VALIDATOR_EVERY_NTH_BLOCK"
 
-	GAP_FILLER_ENABLED  = "GAP_FILLER_ENABLED"
-	GAP_FILLER_INTERVAL = "GAP_FILLER_INTERVAL"
+	WATCHED_ADDRESS_GAP_FILLER_ENABLED  = "WATCHED_ADDRESS_GAP_FILLER_ENABLED"
+	WATCHED_ADDRESS_GAP_FILLER_INTERVAL = "WATCHED_ADDRESS_GAP_FILLER_INTERVAL"
 )
 
 // Config struct
@@ -234,7 +234,7 @@ func NewConfig() (*Config, error) {
 
 	c.loadValidatorConfig()
 
-	c.loadGapFillerConfig()
+	c.loadWatchedAddressGapFillerConfig()
 
 	return c, err
 }
@@ -299,10 +299,10 @@ func (c *Config) loadValidatorConfig() {
 	c.StateValidationEveryNthBlock = viper.GetUint64("validator.everyNthBlock")
 }
 
-func (c *Config) loadGapFillerConfig() {
-	viper.BindEnv("gapfiller.enabled", GAP_FILLER_ENABLED)
-	viper.BindEnv("gapfiller.interval", GAP_FILLER_INTERVAL)
+func (c *Config) loadWatchedAddressGapFillerConfig() {
+	viper.BindEnv("watch.fill.enabled", WATCHED_ADDRESS_GAP_FILLER_ENABLED)
+	viper.BindEnv("watch.fill.interval", WATCHED_ADDRESS_GAP_FILLER_INTERVAL)
 
-	c.WatchedAddressGapFillerEnabled = viper.GetBool("gapfiller.enabled")
-	c.WatchedAddressGapFillInterval = viper.GetInt("gapfiller.interval")
+	c.WatchedAddressGapFillerEnabled = viper.GetBool("watch.fill.enabled")
+	c.WatchedAddressGapFillInterval = viper.GetInt("watch.fill.interval")
 }
