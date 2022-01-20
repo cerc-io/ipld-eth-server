@@ -325,6 +325,10 @@ func startWatchedAddressGapFiller(config *s.Config) {
 		// Get the block number to end fill at
 		fillWatchedAddresses, minStartBlock, maxEndBlock := getFillAddresses(config)
 
+		if len(fillWatchedAddresses) > 0 {
+			log.Infof("running watched address gap filler for block range: (%d, %d)", minStartBlock, maxEndBlock)
+		}
+
 		// Fill the missing diffs
 		for blockNumber := minStartBlock; blockNumber <= maxEndBlock; blockNumber++ {
 			params := statediff.Params{
@@ -362,6 +366,7 @@ func startWatchedAddressGapFiller(config *s.Config) {
 func getFillAddresses(config *s.Config) ([]WatchedAddress, uint64, uint64) {
 	rows := []WatchedAddress{}
 	pgStr := "SELECT * FROM eth.watched_addresses"
+
 	err := config.DB.Select(&rows, pgStr)
 	if err != nil {
 		log.Fatalf("Error fetching watched addreesses:", err.Error())
@@ -373,6 +378,7 @@ func getFillAddresses(config *s.Config) ([]WatchedAddress, uint64, uint64) {
 
 	for _, row := range rows {
 		// Check for a gap between created_at and watched_at
+		// CreatedAt and WatchedAt being equal is considered a gap
 		if row.CreatedAt > row.WatchedAt {
 			continue
 		}
@@ -420,8 +426,10 @@ func fillWatchedAddressGap(config *s.Config, blockNumber uint64, params statedif
 	// Update the db
 	query := "UPDATE eth.watched_addresses SET last_filled_at=? WHERE address IN (?" + strings.Repeat(",?", len(fillAddresses)-1) + ")"
 	query = config.DB.Rebind(query)
+
 	args := []interface{}{blockNumber}
 	args = append(args, fillAddresses...)
+
 	_, err = config.DB.Exec(query, args...)
 	if err != nil {
 		log.Fatalf(err.Error())
