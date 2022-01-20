@@ -19,16 +19,20 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
 )
 
 var (
 	cfgFile        string
+	envFile        string
 	subCommand     string
 	logWithCommand log.Entry
 )
@@ -99,6 +103,7 @@ func init() {
 	viper.AutomaticEnv()
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file location")
+	rootCmd.PersistentFlags().StringVar(&envFile, "env", "", "environment file location")
 
 	rootCmd.PersistentFlags().String("client-ipcPath", "", "location of geth.ipc file")
 	rootCmd.PersistentFlags().String("log-level", log.InfoLevel.String(), "log level (trace, debug, info, warn, error, fatal, panic)")
@@ -121,14 +126,32 @@ func init() {
 }
 
 func initConfig() {
+	if cfgFile == "" && envFile == "" {
+		log.Fatal("No configuration file specified, use --config , --env flag to provide configuration")
+	}
+
 	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-		if err := viper.ReadInConfig(); err == nil {
-			log.Printf("Using config file: %s", viper.ConfigFileUsed())
-		} else {
-			log.Fatal(fmt.Sprintf("Couldn't read config file: %s", err.Error()))
+		if filepath.Ext(cfgFile) != ".toml" {
+			log.Fatal("Provide .toml file for --config flag")
 		}
-	} else {
-		log.Warn("No config file passed with --config flag")
+
+		viper.SetConfigFile(cfgFile)
+		if err := viper.ReadInConfig(); err != nil {
+			log.Fatalf("Couldn't read config file: %s", err.Error())
+		}
+
+		log.Infof("Using config file: %s", viper.ConfigFileUsed())
+	}
+
+	if envFile != "" {
+		if filepath.Ext(envFile) != ".env" {
+			log.Fatal("Provide .env file for --env flag")
+		}
+
+		if err := godotenv.Load(envFile); err != nil {
+			log.Fatalf("Failed to set environment variable from env file: %s", err.Error())
+		}
+
+		log.Infof("Using env file: %s", envFile)
 	}
 }
