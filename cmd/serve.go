@@ -369,7 +369,7 @@ func getFillAddresses(config *s.Config) ([]WatchedAddress, uint64, uint64) {
 
 	err := config.DB.Select(&rows, pgStr)
 	if err != nil {
-		log.Fatalf("Error fetching watched addreesses:", err.Error())
+		log.Fatalf("Error fetching watched addreesses: %s", err.Error())
 	}
 
 	fillWatchedAddresses := []WatchedAddress{}

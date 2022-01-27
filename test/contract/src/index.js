@@ -14,12 +14,13 @@ fastify.get('/v1/deployContract', async (req, reply) => {
     const GLDToken = await hre.ethers.getContractFactory("GLDToken");
     const token = await GLDToken.deploy();
     await token.deployed();
+    const rct = await token.deployTransaction.wait();
 
     return {
         address: token.address,
         txHash: token.deployTransaction.hash,
-        blockNumber: token.deployTransaction.blockNumber,
-        blockHash: token.deployTransaction.blockHash,
+        blockNumber: rct.blockNumber,
+        blockHash: rct.blockHash,
     }
 });
 
