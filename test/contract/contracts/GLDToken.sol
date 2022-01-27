@@ -7,5 +7,4 @@ contract GLDToken is ERC20 {
     function destroy() public {
         selfdestruct(payable(msg.sender));
     }
-    receive() external payable {}
 }

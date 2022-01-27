@@ -27,6 +27,10 @@ type Tx struct {
 	BlockHash       string   `json:"blockHash"`
 }
 
+type StorageKey struct {
+	Key string `json:"key"`
+}
+
 const srvUrl = "http://localhost:3000"
 
 func DeployContract() (*ContractDeployed, error) {
@@ -76,4 +80,58 @@ func SendEth(to string, value string) (*Tx, error) {
 	}
 
 	return &tx, nil
+}
+
+func DeploySLVContract() (*ContractDeployed, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/deploySLVContract", srvUrl))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var contract ContractDeployed
+
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&contract)
+	if err != nil {
+		return nil, err
+	}
+
+	return &contract, nil
+}
+
+func IncrementCountA(addr string) error {
+	_, err := http.Get(fmt.Sprintf("%s/v1/incrementCountA?addr=%s", srvUrl, addr))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func IncrementCountB(addr string) error {
+	_, err := http.Get(fmt.Sprintf("%s/v1/incrementCountB?addr=%s", srvUrl, addr))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetStorageSlotKey(contract string, label string) (*StorageKey, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/getStorageKey?contract=%s&label=%s", srvUrl, contract, label))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var key StorageKey
+
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&key)
+	if err != nil {
+		return nil, err
+	}
+
+	return &key, nil
 }
