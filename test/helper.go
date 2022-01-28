@@ -5,6 +5,11 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+
+	"github.com/ethereum/go-ethereum/rpc"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+
+	"github.com/ethereum/go-ethereum/statediff"
 )
 
 type ContractDeployed struct {
@@ -134,4 +139,23 @@ func GetStorageSlotKey(contract string, label string) (*StorageKey, error) {
 	}
 
 	return &key, nil
+}
+
+func ClearWatchedAddresses(gethRPCClient *rpc.Client) error {
+	gethMethod := "statediff_watchAddress"
+	args := []sdtypes.WatchAddressArg{}
+
+	// Clear watched addresses
+	gethErr := gethRPCClient.Call(nil, gethMethod, statediff.ClearAddresses, args)
+	if gethErr != nil {
+		return gethErr
+	}
+
+	// Clear watched storage slots
+	gethErr = gethRPCClient.Call(nil, gethMethod, statediff.ClearStorageSlots, args)
+	if gethErr != nil {
+		return gethErr
+	}
+
+	return nil
 }

@@ -25,7 +25,7 @@ var (
 	sleepInterval = 2 * time.Second
 )
 
-var _ = Describe("WatchAddressIntegration", func() {
+var _ = Describe("WatchAddress integration test", func() {
 	dbWrite, err := strconv.ParseBool(os.Getenv("DB_WRITE"))
 	Expect(err).To(BeNil())
 
@@ -85,7 +85,7 @@ var _ = Describe("WatchAddressIntegration", func() {
 
 	defer It("test cleanup", func() {
 		// Clear out watched addresses | storage slots
-		err := clearWatchedAddresses(gethRPCClient)
+		err := integration.ClearWatchedAddresses(gethRPCClient)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -104,7 +104,7 @@ var _ = Describe("WatchAddressIntegration", func() {
 
 		It("watched addresses test init", func() {
 			// Clear out watched addresses | storage slots
-			err := clearWatchedAddresses(gethRPCClient)
+			err := integration.ClearWatchedAddresses(gethRPCClient)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Get initial balances for all the contracts
@@ -425,7 +425,7 @@ var _ = Describe("WatchAddressIntegration", func() {
 
 		It("watched addresses test init", func() {
 			// Clear out watched addresses | storage slots
-			err := clearWatchedAddresses(gethRPCClient)
+			err := integration.ClearWatchedAddresses(gethRPCClient)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Get initial storage values for the contracts
@@ -861,21 +861,3 @@ var _ = Describe("WatchAddressIntegration", func() {
 		})
 	})
 })
-
-func clearWatchedAddresses(gethRPCClient *rpc.Client) error {
-	args := []sdtypes.WatchAddressArg{}
-
-	// Clear watched addresses
-	gethErr := gethRPCClient.Call(nil, gethMethod, statediff.ClearAddresses, args)
-	if gethErr != nil {
-		return gethErr
-	}
-
-	// Clear watched storage slots
-	gethErr = gethRPCClient.Call(nil, gethMethod, statediff.ClearStorageSlots, args)
-	if gethErr != nil {
-		return gethErr
-	}
-
-	return nil
-}
