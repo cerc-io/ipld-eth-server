@@ -28,7 +28,7 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 	dbWrite, err := strconv.ParseBool(os.Getenv("DB_WRITE"))
 	Expect(err).To(BeNil())
 
-	serviceEnabled, err := strconv.ParseBool(os.Getenv("WATCHED_ADDRESS_GAP_FILLER_ENABLED"))
+	watchedAddressServiceEnabled, err := strconv.ParseBool(os.Getenv("WATCHED_ADDRESS_GAP_FILLER_ENABLED"))
 	Expect(err).To(BeNil())
 
 	serviceInterval, err := strconv.ParseInt(os.Getenv("WATCHED_ADDRESS_GAP_FILLER_INTERVAL"), 10, 0)
@@ -78,8 +78,8 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 	)
 
 	BeforeEach(func() {
-		if !dbWrite || !serviceEnabled {
-			Skip("skipping WatchAddress integration tests")
+		if !dbWrite || !watchedAddressServiceEnabled {
+			Skip("skipping watched address gap filling service integration tests")
 		}
 	})
 
@@ -152,6 +152,8 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 
 	Context("previously unwatched contract watched", func() {
 		It("indexes state only for watched contract", func() {
+			// WatchedAddresses = [GLD1]
+			// WatchedStorageSlots = []
 			// SLV1, countA
 			countA1Storage, err := ipldClient.StorageAt(ctx, common.HexToAddress(SLV1.Address), common.HexToHash(countAIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -203,6 +205,8 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 			// Sleep for service interval + few extra seconds
 			time.Sleep(time.Duration(serviceInterval+2) * time.Second)
 
+			// WatchedAddresses = [GLD1, SLV1]
+			// WatchedStorageSlots = []
 			// SLV1, countA
 			countA1Storage, err := ipldClient.StorageAt(ctx, common.HexToAddress(SLV1.Address), common.HexToHash(countAIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -266,6 +270,8 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 			// Sleep for service interval + few extra seconds
 			time.Sleep(time.Duration(serviceInterval+2) * time.Second)
 
+			// WatchedAddresses = [GLD1, SLV1, SLV2]
+			// WatchedStorageSlots = [countA]
 			// SLV2, countA
 			countA2Storage, err := ipldClient.StorageAt(ctx, common.HexToAddress(SLV2.Address), common.HexToHash(countAIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -294,7 +300,7 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 
 	Context("previously unwatched storage slot watched", func() {
 		It("indexes past state only for watched storage slots updated after created at", func() {
-			// Watch countB
+			// Watch countB with created_at = SLV3.BlockNumber
 			args := []sdtypes.WatchAddressArg{
 				{
 					Address:   countBStorageHash.Hex(),
@@ -307,6 +313,8 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 			// Sleep for service interval + few extra seconds
 			time.Sleep(time.Duration(serviceInterval+2) * time.Second)
 
+			// WatchedAddresses = [GLD1, SLV1, SLV2]
+			// WatchedStorageSlots = [countA, countB] (countB -> created_at = SLV3.BlockNumber)
 			// SLV2, countA
 			countA2Storage, err := ipldClient.StorageAt(ctx, common.HexToAddress(SLV2.Address), common.HexToHash(countAIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -333,19 +341,31 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 		})
 
 		It("indexes past state for watched storage slots of watched contracts", func() {
-			// Watch countB
+			// Unwatch countB
 			args := []sdtypes.WatchAddressArg{
+				{
+					Address:   countBStorageHash.Hex(),
+					CreatedAt: uint64(SLV3.BlockNumber),
+				},
+			}
+			ipldErr := ipldRPCClient.Call(nil, ipldMethod, statediff.RemoveStorageSlots, args)
+			Expect(ipldErr).ToNot(HaveOccurred())
+
+			// Watch countB with created_at = SLV1.BlockNumber
+			args = []sdtypes.WatchAddressArg{
 				{
 					Address:   countBStorageHash.Hex(),
 					CreatedAt: uint64(SLV1.BlockNumber),
 				},
 			}
-			ipldErr := ipldRPCClient.Call(nil, ipldMethod, statediff.AddStorageSlots, args)
+			ipldErr = ipldRPCClient.Call(nil, ipldMethod, statediff.AddStorageSlots, args)
 			Expect(ipldErr).ToNot(HaveOccurred())
 
 			// Sleep for service interval + few extra seconds
 			time.Sleep(time.Duration(serviceInterval+2) * time.Second)
 
+			// WatchedAddresses = [GLD1, SLV1, SLV2]
+			// WatchedStorageSlots = [countA, countB] (countB -> created_at = SLV1.BlockNumber)
 			// SLV2, countA
 			countA2Storage, err := ipldClient.StorageAt(ctx, common.HexToAddress(SLV2.Address), common.HexToHash(countAIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -401,6 +421,8 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 			// Sleep for service interval + few extra seconds
 			time.Sleep(time.Duration(serviceInterval+2) * time.Second)
 
+			// WatchedAddresses = [GLD1, SLV1, SLV2, GLD2, SLV3]
+			// WatchedStorageSlots = [countA, countB, totalSupply]
 			// SLV3, countA
 			countA3Storage, err := ipldClient.StorageAt(ctx, common.HexToAddress(SLV3.Address), common.HexToHash(countAIndex), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -414,4 +436,7 @@ var _ = Describe("Watched address gap filling service integration test", func() 
 			Expect(countB3.String()).To(Equal(updatedCountB3.String()))
 		})
 	})
+
+	// TODO:
+	// Add test: watched storage slot not having any previously watched related contracts.
 })

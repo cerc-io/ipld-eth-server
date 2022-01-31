@@ -77,6 +77,7 @@ integrationtest_local: | $(GINKGO) $(GOOSE)
 	go fmt ./...
 	./scripts/run_integration_test.sh
 	./scripts/run_integration_test_forward_eth_calls.sh
+	./scripts/run_integration_test_watched_address_gap_filler.sh
 
 build:
 	go fmt ./...

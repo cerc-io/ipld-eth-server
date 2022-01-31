@@ -20,6 +20,8 @@ import (
 var _ = Describe("Integration test", func() {
 	directProxyEthCalls, err := strconv.ParseBool(os.Getenv("ETH_FORWARD_ETH_CALLS"))
 	Expect(err).To(BeNil())
+	watchedAddressServiceEnabled, err := strconv.ParseBool(os.Getenv("WATCHED_ADDRESS_GAP_FILLER_ENABLED"))
+	Expect(err).To(BeNil())
 	gethHttpPath := "http://127.0.0.1:8545"
 	gethClient, err := ethclient.Dial(gethHttpPath)
 	Expect(err).ToNot(HaveOccurred())
@@ -38,11 +40,14 @@ var _ = Describe("Integration test", func() {
 	var txErr error
 	sleepInterval := 2 * time.Second
 
+	BeforeEach(func() {
+		if !directProxyEthCalls || watchedAddressServiceEnabled {
+			Skip("skipping direct-proxy-forwarding integration tests")
+		}
+	})
+
 	Describe("get Block", func() {
 		BeforeEach(func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -94,9 +99,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Transaction", func() {
 		BeforeEach(func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -122,9 +124,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Receipt", func() {
 		BeforeEach(func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -142,9 +141,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("FilterLogs", func() {
 		BeforeEach(func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -174,9 +170,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("CodeAt", func() {
 		BeforeEach(func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -224,9 +217,6 @@ var _ = Describe("Integration test", func() {
 	Describe("Get balance", func() {
 		address := "0x1111111111111111111111111111111111111112"
 		BeforeEach(func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			tx, txErr = integration.SendEth(address, "0.01")
 			time.Sleep(sleepInterval)
 		})
@@ -286,9 +276,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Get Storage", func() {
 		BeforeEach(func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			erc20TotalSupply, bigIntResult = new(big.Int).SetString("1000000000000000000000", 10)
 
@@ -392,9 +379,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("eth call", func() {
 		BeforeEach(func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			erc20TotalSupply, bigIntResult = new(big.Int).SetString("1000000000000000000000", 10)
 
@@ -445,9 +429,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Chain ID", func() {
 		It("Check chain id", func() {
-			if !directProxyEthCalls {
-				Skip("skipping direct-proxy-forwarding integration tests")
-			}
 			_, err := gethClient.ChainID(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
