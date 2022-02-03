@@ -30,7 +30,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/mailgun/groupcache/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -305,7 +304,6 @@ func startStateTrieValidator(config *s.Config, server s.Server) {
 
 type WatchedAddress struct {
 	Address      string `db:"address"`
-	Kind         int    `db:"kind"`
 	CreatedAt    uint64 `db:"created_at"`
 	WatchedAt    uint64 `db:"watched_at"`
 	LastFilledAt uint64 `db:"last_filled_at"`
@@ -343,15 +341,7 @@ func startWatchedAddressGapFiller(config *s.Config) {
 			fillAddresses := []interface{}{}
 			for _, fillWatchedAddress := range fillWatchedAddresses {
 				if blockNumber >= fillWatchedAddress.startBlock && blockNumber <= fillWatchedAddress.endBlock {
-					switch fillWatchedAddress.Kind {
-					case sdtypes.WatchedAddress.Int():
-						params.WatchedAddresses = append(params.WatchedAddresses, common.HexToAddress(fillWatchedAddress.Address))
-					case sdtypes.WatchedStorageSlot.Int():
-						params.WatchedStorageSlots = append(params.WatchedStorageSlots, common.HexToHash(fillWatchedAddress.Address))
-					default:
-						log.Fatalf("Unexpected kind %d:", fillWatchedAddress.Kind)
-					}
-
+					params.WatchedAddresses = append(params.WatchedAddresses, common.HexToAddress(fillWatchedAddress.Address))
 					fillAddresses = append(fillAddresses, fillWatchedAddress.Address)
 				}
 			}

@@ -36,6 +36,10 @@ type StorageKey struct {
 	Key string `json:"key"`
 }
 
+type CountIncremented struct {
+	BlockNumber int64 `json:"blockNumber"`
+}
+
 const srvUrl = "http://localhost:3000"
 
 func DeployContract() (*ContractDeployed, error) {
@@ -105,22 +109,21 @@ func DeploySLVContract() (*ContractDeployed, error) {
 	return &contract, nil
 }
 
-func IncrementCountA(addr string) error {
-	_, err := http.Get(fmt.Sprintf("%s/v1/incrementCountA?addr=%s", srvUrl, addr))
+func IncrementCount(addr string, count string) (*CountIncremented, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/incrementCount%s?addr=%s", srvUrl, count, addr))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
-}
+	var blockNumber CountIncremented
 
-func IncrementCountB(addr string) error {
-	_, err := http.Get(fmt.Sprintf("%s/v1/incrementCountB?addr=%s", srvUrl, addr))
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&blockNumber)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &blockNumber, nil
 }
 
 func GetStorageSlotKey(contract string, label string) (*StorageKey, error) {
@@ -146,13 +149,7 @@ func ClearWatchedAddresses(gethRPCClient *rpc.Client) error {
 	args := []sdtypes.WatchAddressArg{}
 
 	// Clear watched addresses
-	gethErr := gethRPCClient.Call(nil, gethMethod, statediff.ClearAddresses, args)
-	if gethErr != nil {
-		return gethErr
-	}
-
-	// Clear watched storage slots
-	gethErr = gethRPCClient.Call(nil, gethMethod, statediff.ClearStorageSlots, args)
+	gethErr := gethRPCClient.Call(nil, gethMethod, statediff.Clear, args)
 	if gethErr != nil {
 		return gethErr
 	}
