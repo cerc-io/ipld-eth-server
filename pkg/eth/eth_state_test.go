@@ -39,6 +39,7 @@ import (
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -74,7 +75,7 @@ var _ = Describe("eth state reading tests", func() {
 	It("test init", func() {
 		// db and type initializations
 		var err error
-		db, err = SetupDB()
+		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
 
 		transformer, err := indexer.NewStateDiffIndexer(chainConfig, db)
@@ -183,7 +184,7 @@ var _ = Describe("eth state reading tests", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 	defer It("test teardown", func() {
-		eth.TearDownDB(db)
+		shared.TearDownDB(db)
 		chain.Stop()
 	})
 

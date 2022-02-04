@@ -16,9 +16,7 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
-	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,9 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/mailgun/groupcache/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -37,6 +33,7 @@ import (
 	"github.com/vulcanize/gap-filler/pkg/mux"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	fill "github.com/vulcanize/ipld-eth-server/pkg/fill"
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
 	srpc "github.com/vulcanize/ipld-eth-server/pkg/rpc"
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
@@ -105,7 +102,8 @@ func serve() {
 	}
 
 	if serverConfig.WatchedAddressGapFillerEnabled {
-		go startWatchedAddressGapFiller(serverConfig)
+		service := fill.New(serverConfig)
+		go service.Start()
 		logWithCommand.Info("watched address gap filler enabled")
 	} else {
 		logWithCommand.Info("watched address gap filler disabled")
@@ -299,130 +297,6 @@ func startStateTrieValidator(config *s.Config, server s.Server) {
 
 			lastBlockNumber = blockNumber
 		}
-	}
-}
-
-type WatchedAddress struct {
-	Address      string `db:"address"`
-	CreatedAt    uint64 `db:"created_at"`
-	WatchedAt    uint64 `db:"watched_at"`
-	LastFilledAt uint64 `db:"last_filled_at"`
-
-	startBlock uint64
-	endBlock   uint64
-}
-
-func startWatchedAddressGapFiller(config *s.Config) {
-	fillInterval := config.WatchedAddressGapFillInterval
-
-	for {
-		time.Sleep(time.Duration(fillInterval) * time.Second)
-
-		// Get watched addresses from the db
-		// Get the block number to start fill at
-		// Get the block number to end fill at
-		fillWatchedAddresses, minStartBlock, maxEndBlock := getFillAddresses(config)
-
-		if len(fillWatchedAddresses) > 0 {
-			log.Infof("running watched address gap filler for block range: (%d, %d)", minStartBlock, maxEndBlock)
-		}
-
-		// Fill the missing diffs
-		for blockNumber := minStartBlock; blockNumber <= maxEndBlock; blockNumber++ {
-			params := statediff.Params{
-				IntermediateStateNodes:   true,
-				IntermediateStorageNodes: true,
-				IncludeBlock:             true,
-				IncludeReceipts:          true,
-				IncludeTD:                true,
-				IncludeCode:              true,
-			}
-
-			fillAddresses := []interface{}{}
-			for _, fillWatchedAddress := range fillWatchedAddresses {
-				if blockNumber >= fillWatchedAddress.startBlock && blockNumber <= fillWatchedAddress.endBlock {
-					params.WatchedAddresses = append(params.WatchedAddresses, common.HexToAddress(fillWatchedAddress.Address))
-					fillAddresses = append(fillAddresses, fillWatchedAddress.Address)
-				}
-			}
-
-			fillWatchedAddressGap(config, blockNumber, params, fillAddresses)
-		}
-	}
-}
-
-// getFillAddresses gets the addresses and finds the encompassing range to perform the fill
-// it also sets the address specific fill range
-func getFillAddresses(config *s.Config) ([]WatchedAddress, uint64, uint64) {
-	rows := []WatchedAddress{}
-	pgStr := "SELECT * FROM eth.watched_addresses"
-
-	err := config.DB.Select(&rows, pgStr)
-	if err != nil {
-		log.Fatalf("Error fetching watched addreesses: %s", err.Error())
-	}
-
-	fillWatchedAddresses := []WatchedAddress{}
-	minStartBlock := uint64(math.MaxUint64)
-	maxEndBlock := uint64(0)
-
-	for _, row := range rows {
-		// Check for a gap between created_at and watched_at
-		// CreatedAt and WatchedAt being equal is considered a gap
-		if row.CreatedAt > row.WatchedAt {
-			continue
-		}
-
-		var startBlock uint64 = 0
-		var endBlock uint64 = 0
-
-		// Check if some of the gap was filled earlier
-		if row.LastFilledAt > 0 {
-			if row.LastFilledAt < row.WatchedAt {
-				startBlock = row.LastFilledAt + 1
-			}
-		} else {
-			startBlock = row.CreatedAt
-		}
-
-		// Add the address for filling
-		if startBlock > 0 {
-			row.startBlock = startBlock
-			if startBlock < minStartBlock {
-				minStartBlock = startBlock
-			}
-
-			endBlock = row.WatchedAt
-			row.endBlock = endBlock
-			if endBlock > maxEndBlock {
-				maxEndBlock = endBlock
-			}
-
-			fillWatchedAddresses = append(fillWatchedAddresses, row)
-		}
-	}
-
-	return fillWatchedAddresses, minStartBlock, maxEndBlock
-}
-
-func fillWatchedAddressGap(config *s.Config, blockNumber uint64, params statediff.Params, fillAddresses []interface{}) {
-	// Make a RPC call to write the statediffs
-	var data json.RawMessage
-	err := config.Client.Call(&data, "statediff_writeStateDiffAt", blockNumber, params)
-	if err != nil {
-		log.Fatalf("Error making a RPC call to write statediff at block number %d: %s", blockNumber, err.Error())
-	}
-
-	// Update the db
-	query := "UPDATE eth.watched_addresses SET last_filled_at=? WHERE address IN (?" + strings.Repeat(",?", len(fillAddresses)-1) + ")"
-	query = config.DB.Rebind(query)
-
-	args := []interface{}{blockNumber}
-	args = append(args, fillAddresses...)
-
-	_, err = config.DB.Exec(query, args...)
-	if err != nil {
-		log.Fatalf(err.Error())
 	}
 }
 

@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -33,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/ethereum/go-ethereum/statediff/indexer"
-	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
@@ -42,21 +39,9 @@ import (
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
-
-// SetupDB is use to setup a db for watcher tests
-func SetupDB() (*postgres.DB, error) {
-	port, _ := strconv.Atoi(os.Getenv("DATABASE_PORT"))
-	uri := postgres.DbConnectionString(postgres.ConnectionParams{
-		User:     os.Getenv("DATABASE_USER"),
-		Password: os.Getenv("DATABASE_PASSWORD"),
-		Hostname: os.Getenv("DATABASE_HOSTNAME"),
-		Name:     os.Getenv("DATABASE_NAME"),
-		Port:     port,
-	})
-	return postgres.NewDB(uri, postgres.ConnectionConfig{}, node.Info{})
-}
 
 var _ = Describe("GraphQL", func() {
 	const (
@@ -82,7 +67,7 @@ var _ = Describe("GraphQL", func() {
 
 	It("test init", func() {
 		var err error
-		db, err = SetupDB()
+		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
 
 		transformer, err := indexer.NewStateDiffIndexer(chainConfig, db)
@@ -186,7 +171,7 @@ var _ = Describe("GraphQL", func() {
 	defer It("test teardown", func() {
 		err := graphQLServer.Stop()
 		Expect(err).ToNot(HaveOccurred())
-		eth.TearDownDB(db)
+		shared.TearDownDB(db)
 		chain.Stop()
 	})
 

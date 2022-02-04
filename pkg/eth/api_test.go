@@ -19,7 +19,6 @@ package eth_test
 import (
 	"context"
 	"math/big"
-	"os"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer"
-	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
@@ -40,6 +38,7 @@ import (
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -183,19 +182,6 @@ var (
 	}
 )
 
-// SetupDB is use to setup a db for watcher tests
-func SetupDB() (*postgres.DB, error) {
-	port, _ := strconv.Atoi(os.Getenv("DATABASE_PORT"))
-	uri := postgres.DbConnectionString(postgres.ConnectionParams{
-		User:     os.Getenv("DATABASE_USER"),
-		Password: os.Getenv("DATABASE_PASSWORD"),
-		Hostname: os.Getenv("DATABASE_HOSTNAME"),
-		Name:     os.Getenv("DATABASE_NAME"),
-		Port:     port,
-	})
-	return postgres.NewDB(uri, postgres.ConnectionConfig{}, node.Info{})
-}
-
 var _ = Describe("API", func() {
 	var (
 		db          *postgres.DB
@@ -210,7 +196,7 @@ var _ = Describe("API", func() {
 			tx  *indexer.BlockTx
 		)
 
-		db, err = SetupDB()
+		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
 
 		indexAndPublisher, err := indexer.NewStateDiffIndexer(chainConfig, db)
@@ -269,7 +255,7 @@ var _ = Describe("API", func() {
 	})
 
 	// Single test db tear down at end of all tests
-	defer It("test teardown", func() { eth.TearDownDB(db) })
+	defer It("test teardown", func() { shared.TearDownDB(db) })
 	/*
 
 	   Headers and blocks

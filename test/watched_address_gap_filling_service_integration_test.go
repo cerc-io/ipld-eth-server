@@ -14,6 +14,7 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	integration "github.com/vulcanize/ipld-eth-server/test"
 )
 

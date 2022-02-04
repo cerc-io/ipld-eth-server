@@ -25,6 +25,7 @@ import (
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var _ = Describe("IPLDFetcher", func() {
@@ -39,7 +40,7 @@ var _ = Describe("IPLDFetcher", func() {
 				err error
 				tx  *indexer.BlockTx
 			)
-			db, err = SetupDB()
+			db, err = shared.SetupDB()
 			Expect(err).ToNot(HaveOccurred())
 			pubAndIndexer, err = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
 			Expect(err).ToNot(HaveOccurred())
@@ -56,7 +57,7 @@ var _ = Describe("IPLDFetcher", func() {
 
 		})
 		AfterEach(func() {
-			eth.TearDownDB(db)
+			shared.TearDownDB(db)
 		})
 
 		It("Fetches and returns IPLDs for the CIDs provided in the CIDWrapper", func() {

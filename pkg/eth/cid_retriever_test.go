@@ -32,6 +32,7 @@ import (
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
 var (
@@ -217,7 +218,7 @@ var _ = Describe("Retriever", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		db, err = SetupDB()
+		db, err = shared.SetupDB()
 		Expect(err).ToNot(HaveOccurred())
 		diffIndexer, err = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
 		Expect(err).ToNot(HaveOccurred())
@@ -225,7 +226,7 @@ var _ = Describe("Retriever", func() {
 		retriever = eth.NewCIDRetriever(db)
 	})
 	AfterEach(func() {
-		eth.TearDownDB(db)
+		shared.TearDownDB(db)
 	})
 
 	Describe("Retrieve", func() {
