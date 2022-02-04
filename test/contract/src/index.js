@@ -13,7 +13,7 @@ fastify.get('/v1/healthz', async (req, reply) => {
 
 fastify.get('/v1/deployContract', async (req, reply) => {
     const GLDToken = await hre.ethers.getContractFactory("GLDToken");
-    let token = await GLDToken.deploy();
+    const token = await GLDToken.deploy();
     await token.deployed();
 
     return {

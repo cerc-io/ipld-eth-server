@@ -1,4 +1,3 @@
-// import { artifacts } from 'hardhat';
 const { artifacts } = require("hardhat")
 const { utils, BigNumber } = require("ethers")
 

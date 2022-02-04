@@ -18,7 +18,6 @@ package serve
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
@@ -95,8 +94,7 @@ func (api *PublicServerAPI) Chain() shared.ChainType {
 
 // WatchAddress makes a geth WatchAddress API call with the given operation and args
 func (api *PublicServerAPI) WatchAddress(operation statediff.OperationType, args []sdtypes.WatchAddressArg) error {
-	var data json.RawMessage
-	err := api.rpc.Call(&data, "statediff_watchAddress", operation, args)
+	err := api.rpc.Call(nil, "statediff_watchAddress", operation, args)
 	if err != nil {
 		return err
 	}

@@ -70,7 +70,7 @@ func TearDownDB(db *postgres.DB) {
 	Expect(err).NotTo(HaveOccurred())
 	_, err = tx.Exec(`DELETE FROM eth.log_cids`)
 	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.watched_addresses`)
+	_, err = tx.Exec(`DELETE FROM eth_meta.watched_addresses`)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = tx.Commit()
