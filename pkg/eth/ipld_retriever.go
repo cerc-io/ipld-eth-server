@@ -21,11 +21,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/statediff/trie"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/lib/pq"
 )
 
@@ -167,10 +167,10 @@ type ipldResult struct {
 }
 
 type IPLDRetriever struct {
-	db *postgres.DB
+	db *sqlx.DB
 }
 
-func NewIPLDRetriever(db *postgres.DB) *IPLDRetriever {
+func NewIPLDRetriever(db *sqlx.DB) *IPLDRetriever {
 	return &IPLDRetriever{
 		db: db,
 	}

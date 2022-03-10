@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
@@ -38,11 +37,11 @@ type Fetcher interface {
 // IPLDFetcher satisfies the IPLDFetcher interface for ethereum
 // It interfaces directly with PG-IPFS
 type IPLDFetcher struct {
-	db *postgres.DB
+	db *sqlx.DB
 }
 
 // NewIPLDFetcher creates a pointer to a new IPLDFetcher
-func NewIPLDFetcher(db *postgres.DB) *IPLDFetcher {
+func NewIPLDFetcher(db *sqlx.DB) *IPLDFetcher {
 	return &IPLDFetcher{
 		db: db,
 	}
