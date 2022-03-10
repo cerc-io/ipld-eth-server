@@ -18,12 +18,12 @@ package eth
 
 import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/gomega"
 )
 
 // TearDownDB is used to tear down the watcher dbs after tests
-func TearDownDB(db *postgres.DB) {
+func TearDownDB(db *sqlx.DB) {
 	tx, err := db.Beginx()
 	Expect(err).NotTo(HaveOccurred())
 

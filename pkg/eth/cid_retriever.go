@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
@@ -40,11 +39,11 @@ type Retriever interface {
 
 // CIDRetriever satisfies the CIDRetriever interface for ethereum
 type CIDRetriever struct {
-	db *postgres.DB
+	db *sqlx.DB
 }
 
 // NewCIDRetriever returns a pointer to a new CIDRetriever which supports the CIDRetriever interface
-func NewCIDRetriever(db *postgres.DB) *CIDRetriever {
+func NewCIDRetriever(db *sqlx.DB) *CIDRetriever {
 	return &CIDRetriever{
 		db: db,
 	}
@@ -295,7 +294,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 	pgStr := `SELECT receipt_cids.id, receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
  			receipt_cids.contract, receipt_cids.contract_hash
  			FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
-			WHERE receipt_cids.tx_id = transaction_cids.id 
+			WHERE receipt_cids.tx_id = transaction_cids.id
 			AND transaction_cids.header_id = header_cids.id
 			AND header_cids.id = $1`
 	id := 2
@@ -314,8 +313,8 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	id := 1
-	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
-       			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, 
+	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,
+       			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
        			eth.log_cids.log_data, eth.transaction_cids.tx_hash, data, eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status
 				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
 				WHERE eth.log_cids.receipt_id = receipt_cids.id
@@ -343,9 +342,9 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
-	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,  
-       			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, 
-       			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index, 
+	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.receipt_id,
+       			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
+       			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index,
        			header_cids.block_hash, header_cids.block_number
 				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids
 				WHERE eth.log_cids.receipt_id = receipt_cids.id
@@ -382,7 +381,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, b
 	args := make([]interface{}, 0, 5)
 	pgStr := `SELECT receipt_cids.id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key, receipt_cids.tx_id
  			FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
-			WHERE receipt_cids.tx_id = transaction_cids.id 
+			WHERE receipt_cids.tx_id = transaction_cids.id
 			AND transaction_cids.header_id = header_cids.id`
 	id := 1
 	if blockNumber > 0 {
@@ -444,7 +443,7 @@ func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageF
 	pgStr := `SELECT storage_cids.id, storage_cids.state_id, storage_cids.storage_leaf_key, storage_cids.node_type,
  			storage_cids.cid, storage_cids.mh_key, storage_cids.storage_path, state_cids.state_leaf_key
  			FROM eth.storage_cids, eth.state_cids, eth.header_cids
-			WHERE storage_cids.state_id = state_cids.id 
+			WHERE storage_cids.state_id = state_cids.id
 			AND state_cids.header_id = header_cids.id
 			AND header_cids.id = $1`
 	args = append(args, headerID)

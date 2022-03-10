@@ -40,9 +40,9 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
 	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
@@ -93,7 +93,7 @@ const (
 
 type Backend struct {
 	// underlying postgres db
-	DB *postgres.DB
+	DB *sqlx.DB
 
 	// postgres db interfaces
 	Retriever     *CIDRetriever
@@ -115,7 +115,7 @@ type Config struct {
 	GroupCacheConfig *shared.GroupCacheConfig
 }
 
-func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
+func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 	gcc := c.GroupCacheConfig
 
 	groupName := gcc.StateDB.Name
@@ -124,7 +124,7 @@ func NewEthBackend(db *postgres.DB, c *Config) (*Backend, error) {
 	}
 
 	r := NewCIDRetriever(db)
-	ethDB := ipfsethdb.NewDatabase(db.DB, ipfsethdb.CacheConfig{
+	ethDB := ipfsethdb.NewDatabase(db, ipfsethdb.CacheConfig{
 		Name:           groupName,
 		Size:           gcc.StateDB.CacheSizeInMB * 1024 * 1024,
 		ExpiryDuration: time.Minute * time.Duration(gcc.StateDB.CacheExpiryInMins),
