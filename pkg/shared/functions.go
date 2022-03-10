@@ -18,7 +18,7 @@ package shared
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"

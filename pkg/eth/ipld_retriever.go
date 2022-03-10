@@ -19,7 +19,7 @@ package eth
 import (
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/statediff/trie"
+	"github.com/ethereum/go-ethereum/statediff/trie_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
 
@@ -52,12 +52,12 @@ const (
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
 	RetrieveUnclesByBlockHashPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
-											INNER JOIN eth.header_cids ON (uncle_cids.header_id = header_cids.id)
+											INNER JOIN eth.header_cids ON (uncle_cids.header_id = header_cids.block_hash)
 											INNER JOIN public.blocks ON (uncle_cids.mh_key = blocks.key)
 										WHERE block_hash = $1`
 	RetrieveUnclesByBlockNumberPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
-											INNER JOIN eth.header_cids ON (uncle_cids.header_id = header_cids.id)
+											INNER JOIN eth.header_cids ON (uncle_cids.header_id = header_cids.block_hash)
 											INNER JOIN public.blocks ON (uncle_cids.mh_key = blocks.key)
 										WHERE block_number = $1`
 	RetrieveUncleByHashPgStr = `SELECT cid, data
@@ -70,13 +70,13 @@ const (
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
 	RetrieveTransactionsByBlockHashPgStr = `SELECT transaction_cids.cid, data
 											FROM eth.transaction_cids
-												INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.id)
+												INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
 												INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
 											WHERE block_hash = $1
 											ORDER BY eth.transaction_cids.index ASC`
 	RetrieveTransactionsByBlockNumberPgStr = `SELECT transaction_cids.cid, data
 											FROM eth.transaction_cids
-												INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.id)
+												INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
 												INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
 											WHERE block_number = $1
 											ORDER BY eth.transaction_cids.index ASC`
@@ -86,42 +86,42 @@ const (
 									WHERE tx_hash = $1`
 	RetrieveReceiptsByTxHashesPgStr = `SELECT receipt_cids.leaf_cid, data
 									FROM eth.receipt_cids
-										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
+										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.tx_hash)
 										INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
 	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
 										FROM eth.receipt_cids
-											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
-											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.id)
+											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.tx_hash)
+											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
 											INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
 										WHERE block_hash = $1
 										ORDER BY eth.transaction_cids.index ASC`
 	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.leaf_cid, data
 										FROM eth.receipt_cids
-											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
-											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.id)
+											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.tx_hash)
+											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
 											INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
 										WHERE block_number = $1
 										ORDER BY eth.transaction_cids.index ASC`
 	RetrieveReceiptByTxHashPgStr = `SELECT receipt_cids.leaf_cid, data
 									FROM eth.receipt_cids
-										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.id)
+										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.tx_hash)
 										INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
 									WHERE tx_hash = $1`
 	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, data, state_cids.node_type
 												FROM eth.state_cids
-													INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+													INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
 													INNER JOIN public.blocks ON (state_cids.mh_key = blocks.key)
 												WHERE state_leaf_key = $1
 												AND block_number <= (SELECT block_number
 																	FROM eth.header_cids
 																	WHERE block_hash = $2)
-												AND header_cids.id = (SELECT canonical_header_id(block_number))
+												AND header_cids.block_hash = (SELECT canonical_header_id(block_number))
 												ORDER BY block_number DESC
 												LIMIT 1`
 	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data, state_cids.node_type
 													FROM eth.state_cids
-														INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+														INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
 														INNER JOIN public.blocks ON (state_cids.mh_key = blocks.key)
 													WHERE state_leaf_key = $1
 													AND block_number <= $2
@@ -129,8 +129,8 @@ const (
 													LIMIT 1`
 	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
-																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
-																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+																		INNER JOIN eth.state_cids ON (storage_cids.header_id = state_cids.header_id)
+																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
 																		INNER JOIN public.blocks ON (storage_cids.mh_key = blocks.key)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
@@ -139,15 +139,15 @@ const (
 																	LIMIT 1`
 	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
-																		INNER JOIN eth.state_cids ON (storage_cids.state_id = state_cids.id)
-																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.id)
+																		INNER JOIN eth.state_cids ON (storage_cids.header_id = state_cids.header_id)
+																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
 																		INNER JOIN public.blocks ON (storage_cids.mh_key = blocks.key)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
 																	AND block_number <= (SELECT block_number
 																						FROM eth.header_cids
 																						WHERE block_hash = $3)
-																	AND header_cids.id = (SELECT canonical_header_id(block_number))
+																	AND header_cids.block_hash = (SELECT canonical_header_id(block_number))
 																	ORDER BY block_number DESC
 																	LIMIT 1`
 )
@@ -333,7 +333,7 @@ func DecodeLeafNode(node []byte) ([]byte, error) {
 	if err := rlp.DecodeBytes(node, &nodeElements); err != nil {
 		return nil, err
 	}
-	ty, err := trie.CheckKeyType(nodeElements)
+	ty, err := trie_helpers.CheckKeyType(nodeElements)
 	if err != nil {
 		return nil, err
 	}

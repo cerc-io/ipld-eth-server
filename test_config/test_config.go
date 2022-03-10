@@ -19,12 +19,12 @@ package test_config
 import (
 	"errors"
 
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-var DBConfig postgres.ConnectionParams
+var DBConfig postgres.Config
 
 func init() {
 	setTestConfig()
@@ -52,9 +52,9 @@ func setTestConfig() {
 	port := vip.GetInt("database.port")
 	name := vip.GetString("database.name")
 
-	DBConfig = postgres.ConnectionParams{
-		Hostname: hn,
-		Name:     name,
-		Port:     port,
+	DBConfig = postgres.Config{
+		Hostname:     hn,
+		DatabaseName: name,
+		Port:         port,
 	}
 }

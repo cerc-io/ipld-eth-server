@@ -39,13 +39,14 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
-	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
 	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+
+	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
@@ -64,24 +65,24 @@ var (
 const (
 	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE id = (SELECT canonical_header_id($1))`
+									WHERE block_hash = (SELECT canonical_header_id($1))`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE id = (SELECT canonical_header_id($1))`
-	RetrieveTD = `SELECT td FROM eth.header_cids
+									WHERE block_hash = (SELECT canonical_header_id($1))`
+	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
 	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, block_number, index FROM public.blocks, eth.transaction_cids, eth.header_cids
 			WHERE blocks.key = transaction_cids.mh_key
-			AND transaction_cids.header_id = header_cids.id
+			AND transaction_cids.header_id = header_cids.block_hash
 			AND transaction_cids.tx_hash = $1`
 	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
-											WHERE state_accounts.state_id = state_cids.id
-											AND state_cids.header_id = header_cids.id
+											WHERE state_accounts.header_id = state_cids.header_id AND state_accounts.state_path = state_cids.state_path
+											AND state_cids.header_id = header_cids.block_hash
 											AND state_leaf_key = $1
 											AND block_number <= (SELECT block_number
 																FROM eth.header_cids
 																WHERE block_hash = $2)
-											AND header_cids.id = (SELECT canonical_header_id(block_number))
+											AND header_cids.block_hash = (SELECT canonical_header_id(block_number))
 											ORDER BY block_number DESC
 											LIMIT 1`
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
@@ -313,17 +314,17 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
 	}()
 
 	// Fetch and decode the header IPLD
-	var headerIPLD ipfs.BlockModel
+	var headerIPLD models.IPLDModel
 	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -337,7 +338,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		return nil, err
 	}
 	// Fetch and decode the uncle IPLDs
-	var uncleIPLDs []ipfs.BlockModel
+	var uncleIPLDs []models.IPLDModel
 	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
 	if err != nil {
 		return nil, err
@@ -352,7 +353,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		uncles = append(uncles, &uncle)
 	}
 	// Fetch and decode the transaction IPLDs
-	var txIPLDs []ipfs.BlockModel
+	var txIPLDs []models.IPLDModel
 	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
 	if err != nil {
 		return nil, err
@@ -367,7 +368,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		transactions = append(transactions, &transaction)
 	}
 	// Fetch and decode the receipt IPLDs
-	var rctIPLDs []ipfs.BlockModel
+	var rctIPLDs []models.IPLDModel
 	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
 	if err != nil {
 		return nil, err
@@ -409,17 +410,17 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
 	}()
 
 	// Fetch and decode the header IPLD
-	var headerIPLD ipfs.BlockModel
+	var headerIPLD models.IPLDModel
 	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -433,7 +434,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		return nil, err
 	}
 	// Fetch and decode the uncle IPLDs
-	var uncleIPLDs []ipfs.BlockModel
+	var uncleIPLDs []models.IPLDModel
 	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -451,7 +452,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		uncles = append(uncles, &uncle)
 	}
 	// Fetch and decode the transaction IPLDs
-	var txIPLDs []ipfs.BlockModel
+	var txIPLDs []models.IPLDModel
 	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -469,7 +470,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		transactions = append(transactions, &transaction)
 	}
 	// Fetch and decode the receipt IPLDs
-	var rctIPLDs []ipfs.BlockModel
+	var rctIPLDs []models.IPLDModel
 	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -735,10 +736,10 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(tx)
 			panic(p)
 		} else if err != nil {
-			ethServerShared.Rollback(tx)
+			shared.Rollback(tx)
 		} else {
 			err = tx.Commit()
 		}
