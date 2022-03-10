@@ -7,9 +7,7 @@ contract SLVToken is ERC20 {
     uint256 private countA;
     uint256 private countB;
 
-    constructor() ERC20("Silver", "SLV") {
-        _mint(msg.sender, 1000000000000000000000);
-    }
+    constructor() ERC20("Silver", "SLV") {}
 
     function incrementCountA() public {
       countA = countA + 1;
@@ -20,4 +18,8 @@ contract SLVToken is ERC20 {
     }
 
     receive() external payable {}
+
+    function destroy() public {
+        selfdestruct(payable(msg.sender));
+    }
 }

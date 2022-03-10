@@ -1,7 +1,13 @@
 const fastify = require('fastify')({ logger: true });
 const hre = require("hardhat");
-const { getStorageSlotKey } = require('./utils');
+const {
+    deployContract,
+    isDeployed
+} = require("solidity-create2-deployer");
 
+const { getStorageSlotKey, deployCreate2Factory } = require('./utils');
+
+const CREATE2_FACTORY_ADDRESS = '0x4a27c059FD7E383854Ea7DE6Be9c390a795f6eE3'
 
 // readiness check
 fastify.get('/v1/healthz', async (req, reply) => {
@@ -77,6 +83,20 @@ fastify.get('/v1/deploySLVContract', async (req, reply) => {
     }
 });
 
+fastify.get('/v1/destroySLVContract', async (req, reply) => {
+    const addr = req.query.addr;
+
+    const SLVToken = await hre.ethers.getContractFactory("SLVToken");
+    const token = SLVToken.attach(addr);
+
+    const tx = await token.destroy();
+    const receipt = await tx.wait();
+
+    return {
+        blockNumber: receipt.blockNumber,
+    }
+})
+
 fastify.get('/v1/incrementCountA', async (req, reply) => {
     const addr = req.query.addr;
 
@@ -113,6 +133,43 @@ fastify.get('/v1/getStorageKey', async (req, reply) => {
 
     return {
         key
+    }
+});
+
+fastify.get('/v1/create2Contract', async (req, reply) => {
+    const contract = req.query.contract;
+    const salt = req.query.salt;
+
+    const provider = hre.ethers.provider;
+    const signer = await hre.ethers.getSigner();
+    const isFactoryDeployed = await isDeployed(CREATE2_FACTORY_ADDRESS, provider);
+
+    if (!isFactoryDeployed) {
+        await deployCreate2Factory(provider, signer)
+    }
+
+    const contractFactory = await hre.ethers.getContractFactory(contract);
+    const bytecode = contractFactory.bytecode;
+    const constructorTypes = [];
+    const constructorArgs = [];
+
+    const { txHash, address, receipt } = await deployContract({
+        salt,
+        contractBytecode: bytecode,
+        constructorTypes: constructorTypes,
+        constructorArgs: constructorArgs,
+        signer
+    });
+
+    const success = await isDeployed(address, provider);
+
+    if (success) {
+        return {
+            address,
+            txHash,
+            blockNumber: receipt.blockNumber,
+            blockHash: receipt.blockHash,
+        }
     }
 });
 

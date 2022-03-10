@@ -109,6 +109,19 @@ func DeploySLVContract() (*ContractDeployed, error) {
 	return &contract, nil
 }
 
+func DestroySLVContract(addr string) (*ContractDestroyed, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/destroySLVContract?addr=%s", srvUrl, addr))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var data ContractDestroyed
+	decoder := json.NewDecoder(res.Body)
+
+	return &data, decoder.Decode(&data)
+}
+
 func IncrementCount(addr string, count string) (*CountIncremented, error) {
 	res, err := http.Get(fmt.Sprintf("%s/v1/incrementCount%s?addr=%s", srvUrl, count, addr))
 	if err != nil {
@@ -155,4 +168,22 @@ func ClearWatchedAddresses(gethRPCClient *rpc.Client) error {
 	}
 
 	return nil
+}
+
+func Create2Contract(contractName string, salt string) (*ContractDeployed, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/create2Contract?contract=%s&salt=%s", srvUrl, contractName, salt))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var contract ContractDeployed
+
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&contract)
+	if err != nil {
+		return nil, err
+	}
+
+	return &contract, nil
 }
