@@ -19,7 +19,7 @@ package eth_test
 import (
 	"bytes"
 
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 
 	. "github.com/onsi/ginkgo"
@@ -46,7 +46,7 @@ var _ = Describe("Filterer", func() {
 			Expect(iplds).ToNot(BeNil())
 			Expect(iplds.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
 			Expect(iplds.Header).To(Equal(test_helpers.MockIPLDs.Header))
-			var expectedEmptyUncles []ipfs.BlockModel
+			var expectedEmptyUncles []models.IPLDModel
 			Expect(iplds.Uncles).To(Equal(expectedEmptyUncles))
 			Expect(len(iplds.Transactions)).To(Equal(4))
 			Expect(shared.IPLDsContainBytes(iplds.Transactions, test_helpers.Tx1)).To(BeTrue())
@@ -60,15 +60,15 @@ var _ = Describe("Filterer", func() {
 			for _, stateNode := range iplds.StateNodes {
 				Expect(stateNode.Type).To(Equal(sdtypes.Leaf))
 				if bytes.Equal(stateNode.StateLeafKey.Bytes(), test_helpers.AccountLeafKey) {
-					Expect(stateNode.IPLD).To(Equal(ipfs.BlockModel{
+					Expect(stateNode.IPLD).To(Equal(models.IPLDModel{
 						Data: test_helpers.State2IPLD.RawData(),
-						CID:  test_helpers.State2IPLD.Cid().String(),
+						Key:  test_helpers.State2IPLD.Cid().String(),
 					}))
 				}
 				if bytes.Equal(stateNode.StateLeafKey.Bytes(), test_helpers.ContractLeafKey) {
-					Expect(stateNode.IPLD).To(Equal(ipfs.BlockModel{
+					Expect(stateNode.IPLD).To(Equal(models.IPLDModel{
 						Data: test_helpers.State1IPLD.RawData(),
-						CID:  test_helpers.State1IPLD.Cid().String(),
+						Key:  test_helpers.State1IPLD.Cid().String(),
 					}))
 				}
 			}
@@ -80,67 +80,67 @@ var _ = Describe("Filterer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds1).ToNot(BeNil())
 			Expect(iplds1.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
-			Expect(iplds1.Header).To(Equal(ipfs.BlockModel{}))
+			Expect(iplds1.Header).To(Equal(models.IPLDModel{}))
 			Expect(len(iplds1.Uncles)).To(Equal(0))
 			Expect(len(iplds1.Transactions)).To(Equal(0))
 			Expect(len(iplds1.StorageNodes)).To(Equal(0))
 			Expect(len(iplds1.StateNodes)).To(Equal(0))
 			Expect(len(iplds1.Receipts)).To(Equal(1))
-			Expect(iplds1.Receipts[0]).To(Equal(ipfs.BlockModel{
+			Expect(iplds1.Receipts[0]).To(Equal(models.IPLDModel{
 				Data: test_helpers.Rct1IPLD,
-				CID:  test_helpers.Rct1CID.String(),
+				Key:  test_helpers.Rct1CID.String(),
 			}))
 
 			iplds2, err := filterer.Filter(rctTopicsFilter, test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds2).ToNot(BeNil())
 			Expect(iplds2.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
-			Expect(iplds2.Header).To(Equal(ipfs.BlockModel{}))
+			Expect(iplds2.Header).To(Equal(models.IPLDModel{}))
 			Expect(len(iplds2.Uncles)).To(Equal(0))
 			Expect(len(iplds2.Transactions)).To(Equal(0))
 			Expect(len(iplds2.StorageNodes)).To(Equal(0))
 			Expect(len(iplds2.StateNodes)).To(Equal(0))
 			Expect(len(iplds2.Receipts)).To(Equal(1))
-			Expect(iplds2.Receipts[0]).To(Equal(ipfs.BlockModel{
+			Expect(iplds2.Receipts[0]).To(Equal(models.IPLDModel{
 				Data: test_helpers.Rct1IPLD,
-				CID:  test_helpers.Rct1CID.String(),
+				Key:  test_helpers.Rct1CID.String(),
 			}))
 
 			iplds3, err := filterer.Filter(rctTopicsAndAddressFilter, test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds3).ToNot(BeNil())
 			Expect(iplds3.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
-			Expect(iplds3.Header).To(Equal(ipfs.BlockModel{}))
+			Expect(iplds3.Header).To(Equal(models.IPLDModel{}))
 			Expect(len(iplds3.Uncles)).To(Equal(0))
 			Expect(len(iplds3.Transactions)).To(Equal(0))
 			Expect(len(iplds3.StorageNodes)).To(Equal(0))
 			Expect(len(iplds3.StateNodes)).To(Equal(0))
 			Expect(len(iplds3.Receipts)).To(Equal(1))
-			Expect(iplds3.Receipts[0]).To(Equal(ipfs.BlockModel{
+			Expect(iplds3.Receipts[0]).To(Equal(models.IPLDModel{
 				Data: test_helpers.Rct1IPLD,
-				CID:  test_helpers.Rct1CID.String(),
+				Key:  test_helpers.Rct1CID.String(),
 			}))
 
 			iplds4, err := filterer.Filter(rctAddressesAndTopicFilter, test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds4).ToNot(BeNil())
 			Expect(iplds4.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
-			Expect(iplds4.Header).To(Equal(ipfs.BlockModel{}))
+			Expect(iplds4.Header).To(Equal(models.IPLDModel{}))
 			Expect(len(iplds4.Uncles)).To(Equal(0))
 			Expect(len(iplds4.Transactions)).To(Equal(0))
 			Expect(len(iplds4.StorageNodes)).To(Equal(0))
 			Expect(len(iplds4.StateNodes)).To(Equal(0))
 			Expect(len(iplds4.Receipts)).To(Equal(1))
-			Expect(iplds4.Receipts[0]).To(Equal(ipfs.BlockModel{
+			Expect(iplds4.Receipts[0]).To(Equal(models.IPLDModel{
 				Data: test_helpers.Rct2IPLD,
-				CID:  test_helpers.Rct2CID.String(),
+				Key:  test_helpers.Rct2CID.String(),
 			}))
 
 			iplds5, err := filterer.Filter(rctsForAllCollectedTrxs, test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds5).ToNot(BeNil())
 			Expect(iplds5.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
-			Expect(iplds5.Header).To(Equal(ipfs.BlockModel{}))
+			Expect(iplds5.Header).To(Equal(models.IPLDModel{}))
 			Expect(len(iplds5.Uncles)).To(Equal(0))
 			Expect(len(iplds5.Transactions)).To(Equal(4))
 			Expect(shared.IPLDsContainBytes(iplds5.Transactions, test_helpers.Tx1)).To(BeTrue())
@@ -157,39 +157,39 @@ var _ = Describe("Filterer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds6).ToNot(BeNil())
 			Expect(iplds6.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
-			Expect(iplds6.Header).To(Equal(ipfs.BlockModel{}))
+			Expect(iplds6.Header).To(Equal(models.IPLDModel{}))
 			Expect(len(iplds6.Uncles)).To(Equal(0))
 			Expect(len(iplds6.Transactions)).To(Equal(1))
 			Expect(shared.IPLDsContainBytes(iplds5.Transactions, test_helpers.Tx2)).To(BeTrue())
 			Expect(len(iplds6.StorageNodes)).To(Equal(0))
 			Expect(len(iplds6.StateNodes)).To(Equal(0))
 			Expect(len(iplds6.Receipts)).To(Equal(1))
-			Expect(iplds4.Receipts[0]).To(Equal(ipfs.BlockModel{
+			Expect(iplds4.Receipts[0]).To(Equal(models.IPLDModel{
 				Data: test_helpers.Rct2IPLD,
-				CID:  test_helpers.Rct2CID.String(),
+				Key:  test_helpers.Rct2CID.String(),
 			}))
 
 			iplds7, err := filterer.Filter(stateFilter, test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds7).ToNot(BeNil())
 			Expect(iplds7.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
-			Expect(iplds7.Header).To(Equal(ipfs.BlockModel{}))
+			Expect(iplds7.Header).To(Equal(models.IPLDModel{}))
 			Expect(len(iplds7.Uncles)).To(Equal(0))
 			Expect(len(iplds7.Transactions)).To(Equal(0))
 			Expect(len(iplds7.StorageNodes)).To(Equal(0))
 			Expect(len(iplds7.Receipts)).To(Equal(0))
 			Expect(len(iplds7.StateNodes)).To(Equal(1))
 			Expect(iplds7.StateNodes[0].StateLeafKey.Bytes()).To(Equal(test_helpers.AccountLeafKey))
-			Expect(iplds7.StateNodes[0].IPLD).To(Equal(ipfs.BlockModel{
+			Expect(iplds7.StateNodes[0].IPLD).To(Equal(models.IPLDModel{
 				Data: test_helpers.State2IPLD.RawData(),
-				CID:  test_helpers.State2IPLD.Cid().String(),
+				Key:  test_helpers.State2IPLD.Cid().String(),
 			}))
 
 			iplds8, err := filterer.Filter(rctTopicsAndAddressFilterFail, test_helpers.MockConvertedPayload)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(iplds8).ToNot(BeNil())
 			Expect(iplds8.BlockNumber.Int64()).To(Equal(test_helpers.MockIPLDs.BlockNumber.Int64()))
-			Expect(iplds8.Header).To(Equal(ipfs.BlockModel{}))
+			Expect(iplds8.Header).To(Equal(models.IPLDModel{}))
 			Expect(len(iplds8.Uncles)).To(Equal(0))
 			Expect(len(iplds8.Transactions)).To(Equal(0))
 			Expect(len(iplds8.StorageNodes)).To(Equal(0))
