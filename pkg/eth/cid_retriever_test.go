@@ -19,14 +19,13 @@ package eth_test
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/statediff/indexer"
-	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
-	"github.com/ethereum/go-ethereum/trie"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	"github.com/ethereum/go-ethereum/trie"
+	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -211,21 +210,18 @@ var (
 
 var _ = Describe("Retriever", func() {
 	var (
-		db          *postgres.DB
-		diffIndexer *indexer.StateDiffIndexer
+		db          *sqlx.DB
+		diffIndexer interfaces.StateDiffIndexer
 		retriever   *eth.CIDRetriever
 	)
 	BeforeEach(func() {
-		var err error
-		db, err = SetupDB()
-		Expect(err).ToNot(HaveOccurred())
-		diffIndexer, err = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
-		Expect(err).ToNot(HaveOccurred())
+		db = eth.SetupTestDB()
+		diffIndexer = eth.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
 
 		retriever = eth.NewCIDRetriever(db)
 	})
 	AfterEach(func() {
-		eth.TearDownDB(db)
+		eth.TearDownTestDB(db)
 	})
 
 	Describe("Retrieve", func() {
@@ -233,11 +229,11 @@ var _ = Describe("Retriever", func() {
 			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
 			for _, node := range test_helpers.MockStateNodes {
-				err = diffIndexer.PushStateNode(tx, node)
+				err = diffIndexer.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("Retrieves all CIDs for the given blocknumber when provided an open filter", func() {
@@ -247,8 +243,8 @@ var _ = Describe("Retriever", func() {
 			}
 			expectedRctCIDsAndLeafNodes := make([]rctCIDAndMHKeyResult, 0)
 			pgStr := `SELECT receipt_cids.leaf_cid, receipt_cids.leaf_mh_key FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
-				WHERE receipt_cids.tx_id = transaction_cids.id
-				AND transaction_cids.header_id = header_cids.id
+				WHERE receipt_cids.tx_id = transaction_cids.tx_hash
+				AND transaction_cids.header_id = header_cids.block_hash
 				AND header_cids.block_number = $1
 				ORDER BY transaction_cids.index`
 			err := db.Select(&expectedRctCIDsAndLeafNodes, pgStr, test_helpers.BlockNumber.Uint64())
@@ -259,7 +255,7 @@ var _ = Describe("Retriever", func() {
 			Expect(cids[0].BlockNumber).To(Equal(test_helpers.MockCIDWrapper.BlockNumber))
 
 			expectedHeaderCID := test_helpers.MockCIDWrapper.Header
-			expectedHeaderCID.ID = cids[0].Header.ID
+			expectedHeaderCID.BlockHash = cids[0].Header.BlockHash
 			expectedHeaderCID.NodeID = cids[0].Header.NodeID
 			Expect(cids[0].Header).To(Equal(expectedHeaderCID))
 			Expect(len(cids[0].Transactions)).To(Equal(4))
@@ -286,8 +282,8 @@ var _ = Describe("Retriever", func() {
 			}
 			Expect(len(cids[0].StorageNodes)).To(Equal(1))
 			expectedStorageNodeCIDs := test_helpers.MockCIDWrapper.StorageNodes
-			expectedStorageNodeCIDs[0].ID = cids[0].StorageNodes[0].ID
-			expectedStorageNodeCIDs[0].StateID = cids[0].StorageNodes[0].StateID
+			expectedStorageNodeCIDs[0].HeaderID = cids[0].StorageNodes[0].HeaderID
+			expectedStorageNodeCIDs[0].StatePath = cids[0].StorageNodes[0].StatePath
 			Expect(cids[0].StorageNodes).To(Equal(expectedStorageNodeCIDs))
 		})
 
@@ -298,8 +294,8 @@ var _ = Describe("Retriever", func() {
 			}
 			expectedRctCIDsAndLeafNodes := make([]rctCIDAndMHKeyResult, 0)
 			pgStr := `SELECT receipt_cids.leaf_cid, receipt_cids.leaf_mh_key FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
-				WHERE receipt_cids.tx_id = transaction_cids.id
-				AND transaction_cids.header_id = header_cids.id
+				WHERE receipt_cids.tx_id = transaction_cids.tx_hash
+				AND transaction_cids.header_id = header_cids.block_hash
 				AND header_cids.block_number = $1
 				ORDER BY transaction_cids.index`
 			err := db.Select(&expectedRctCIDsAndLeafNodes, pgStr, test_helpers.BlockNumber.Uint64())
@@ -314,7 +310,6 @@ var _ = Describe("Retriever", func() {
 			Expect(len(cids1[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids1[0].Receipts)).To(Equal(1))
 			expectedReceiptCID := test_helpers.MockCIDWrapper.Receipts[0]
-			expectedReceiptCID.ID = cids1[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids1[0].Receipts[0].TxID
 			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[0].LeafCID
 			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[0].LeafMhKey
@@ -331,7 +326,6 @@ var _ = Describe("Retriever", func() {
 			Expect(len(cids2[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids2[0].Receipts)).To(Equal(1))
 			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[0]
-			expectedReceiptCID.ID = cids2[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids2[0].Receipts[0].TxID
 			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[0].LeafCID
 			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[0].LeafMhKey
@@ -348,7 +342,6 @@ var _ = Describe("Retriever", func() {
 			Expect(len(cids3[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids3[0].Receipts)).To(Equal(1))
 			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[0]
-			expectedReceiptCID.ID = cids3[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids3[0].Receipts[0].TxID
 			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[0].LeafCID
 			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[0].LeafMhKey
@@ -365,7 +358,6 @@ var _ = Describe("Retriever", func() {
 			Expect(len(cids4[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids4[0].Receipts)).To(Equal(1))
 			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[1]
-			expectedReceiptCID.ID = cids4[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids4[0].Receipts[0].TxID
 			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[1].LeafCID
 			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[1].LeafMhKey
@@ -396,14 +388,13 @@ var _ = Describe("Retriever", func() {
 			Expect(cids6[0].Header).To(Equal(models.HeaderModel{}))
 			Expect(len(cids6[0].Transactions)).To(Equal(1))
 			expectedTxCID := test_helpers.MockCIDWrapper.Transactions[1]
-			expectedTxCID.ID = cids6[0].Transactions[0].ID
+			expectedTxCID.TxHash = cids6[0].Transactions[0].TxHash
 			expectedTxCID.HeaderID = cids6[0].Transactions[0].HeaderID
 			Expect(cids6[0].Transactions[0]).To(Equal(expectedTxCID))
 			Expect(len(cids6[0].StateNodes)).To(Equal(0))
 			Expect(len(cids6[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids6[0].Receipts)).To(Equal(1))
 			expectedReceiptCID = test_helpers.MockCIDWrapper.Receipts[1]
-			expectedReceiptCID.ID = cids6[0].Receipts[0].ID
 			expectedReceiptCID.TxID = cids6[0].Receipts[0].TxID
 			expectedReceiptCID.LeafCID = expectedRctCIDsAndLeafNodes[1].LeafCID
 			expectedReceiptCID.LeafMhKey = expectedRctCIDsAndLeafNodes[1].LeafMhKey
@@ -420,7 +411,6 @@ var _ = Describe("Retriever", func() {
 			Expect(len(cids7[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids7[0].StateNodes)).To(Equal(1))
 			Expect(cids7[0].StateNodes[0]).To(Equal(models.StateNodeModel{
-				ID:       cids7[0].StateNodes[0].ID,
 				HeaderID: cids7[0].StateNodes[0].HeaderID,
 				NodeType: 2,
 				StateKey: common.BytesToHash(test_helpers.AccountLeafKey).Hex(),
@@ -444,7 +434,7 @@ var _ = Describe("Retriever", func() {
 			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
 
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveFirstBlockNumber()
@@ -458,7 +448,7 @@ var _ = Describe("Retriever", func() {
 			tx, err := diffIndexer.PushBlock(payload.Block, payload.Receipts, payload.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
 
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveFirstBlockNumber()
@@ -473,12 +463,12 @@ var _ = Describe("Retriever", func() {
 			payload2.Block = newMockBlock(5)
 			tx, err := diffIndexer.PushBlock(payload1.Block, payload1.Receipts, payload1.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 
 			tx, err = diffIndexer.PushBlock(payload2.Block, payload2.Receipts, payload2.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveFirstBlockNumber()
@@ -495,7 +485,7 @@ var _ = Describe("Retriever", func() {
 		It("Gets the number of the latest block that has data in the database", func() {
 			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveLastBlockNumber()
@@ -509,7 +499,7 @@ var _ = Describe("Retriever", func() {
 			tx, err := diffIndexer.PushBlock(payload.Block, payload.Receipts, payload.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
 
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveLastBlockNumber()
@@ -524,12 +514,12 @@ var _ = Describe("Retriever", func() {
 			payload2.Block = newMockBlock(5)
 			tx, err := diffIndexer.PushBlock(payload1.Block, payload1.Receipts, payload1.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 
 			tx, err = diffIndexer.PushBlock(payload2.Block, payload2.Receipts, payload2.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveLastBlockNumber()

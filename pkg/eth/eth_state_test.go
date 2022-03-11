@@ -21,6 +21,7 @@ import (
 	"context"
 	"io/ioutil"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,9 +32,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
-	"github.com/ethereum/go-ethereum/statediff/indexer"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -64,7 +64,7 @@ var _ = Describe("eth state reading tests", func() {
 		blocks                  []*types.Block
 		receipts                []types.Receipts
 		chain                   *core.BlockChain
-		db                      *postgres.DB
+		db                      *sqlx.DB
 		api                     *eth.PublicEthAPI
 		backend                 *eth.Backend
 		chainConfig             = params.TestChainConfig
@@ -74,11 +74,8 @@ var _ = Describe("eth state reading tests", func() {
 	It("test init", func() {
 		// db and type initializations
 		var err error
-		db, err = SetupDB()
-		Expect(err).ToNot(HaveOccurred())
-
-		transformer, err := indexer.NewStateDiffIndexer(chainConfig, db)
-		Expect(err).ToNot(HaveOccurred())
+		db = eth.SetupTestDB()
+		transformer := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -150,21 +147,20 @@ var _ = Describe("eth state reading tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, node := range diff.Nodes {
-				err = transformer.PushStateNode(tx, node)
+				err = transformer.PushStateNode(tx, node, block.Hash().String())
 				Expect(err).ToNot(HaveOccurred())
 			}
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 		}
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher, err := indexer.NewStateDiffIndexer(chainConfig, db)
-		Expect(err).ToNot(HaveOccurred())
+		indexAndPublisher := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
 
-		err = tx.Close(err)
+		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
 
 		// The non-canonical header has a child
@@ -179,11 +175,13 @@ var _ = Describe("eth state reading tests", func() {
 		err = indexAndPublisher.PushCodeAndCodeHash(tx, hash)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = tx.Close(err)
+		// wait for tx batch process to complete.
+		time.Sleep(600 * time.Millisecond)
+		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
 	})
 	defer It("test teardown", func() {
-		eth.TearDownDB(db)
+		eth.TearDownTestDB(db)
 		chain.Stop()
 	})
 
