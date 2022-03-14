@@ -65,10 +65,10 @@ var (
 const (
 	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE block_hash = (SELECT canonical_header_id($1))`
+									WHERE block_hash = (SELECT canonical_header_hash($1))`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
 									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE block_hash = (SELECT canonical_header_id($1))`
+									WHERE block_hash = (SELECT canonical_header_hash($1))`
 	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
 	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, block_number, index FROM public.blocks, eth.transaction_cids, eth.header_cids
@@ -82,7 +82,7 @@ const (
 											AND block_number <= (SELECT block_number
 																FROM eth.header_cids
 																WHERE block_hash = $2)
-											AND header_cids.block_hash = (SELECT canonical_header_id(block_number))
+											AND header_cids.block_hash = (SELECT canonical_header_hash(block_number))
 											ORDER BY block_number DESC
 											LIMIT 1`
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`

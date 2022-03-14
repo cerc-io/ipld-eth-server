@@ -453,6 +453,7 @@ var (
 			Bloom:           MockBlock.Bloom().Bytes(),
 			Timestamp:       MockBlock.Time(),
 			TimesValidated:  1,
+			Coinbase:        "0x0000000000000000000000000000000000000000",
 		},
 		Transactions: MockTrxMetaPostPublsh,
 		Receipts:     MockRctMetaPostPublish,
