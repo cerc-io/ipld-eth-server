@@ -116,7 +116,7 @@ const (
 												AND block_number <= (SELECT block_number
 																	FROM eth.header_cids
 																	WHERE block_hash = $2)
-												AND header_cids.block_hash = (SELECT canonical_header_id(block_number))
+												AND header_cids.block_hash = (SELECT canonical_header_hash(block_number))
 												ORDER BY block_number DESC
 												LIMIT 1`
 	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data, state_cids.node_type
@@ -147,7 +147,7 @@ const (
 																	AND block_number <= (SELECT block_number
 																						FROM eth.header_cids
 																						WHERE block_hash = $3)
-																	AND header_cids.block_hash = (SELECT canonical_header_id(block_number))
+																	AND header_cids.block_hash = (SELECT canonical_header_hash(block_number))
 																	ORDER BY block_number DESC
 																	LIMIT 1`
 )
