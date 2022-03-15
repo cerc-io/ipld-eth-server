@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     depends_on:
       - ipld-eth-db
-    image: vulcanize/dapptools:v0.30.0-v1.10.16-statediff-3.0.2
+    image: vulcanize/dapptools:v0.30.0-v1.10.16-statediff-3.0.2a
     environment:
       DB_USER: vdbm
       DB_NAME: vulcanize_testing
