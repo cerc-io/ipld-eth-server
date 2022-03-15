@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     depends_on:
       - ipld-eth-db
-    image: vulcanize/dapptools:v0.30.0-v1.10.14-statediff-0.0.29
+    image: vulcanize/dapptools:v0.30.0-v1.10.16-statediff-3.0.2
     environment:
       DB_USER: vdbm
       DB_NAME: vulcanize_testing
@@ -13,6 +13,8 @@ services:
       DB_PORT: 5432
       DB_PASSWORD: password
       DB_WRITE: $DB_WRITE
+      DB_TYPE: postgres
+      DB_DRIVER: sqlx
     ports:
       - "127.0.0.1:8545:8545"
       - "127.0.0.1:8546:8546"
