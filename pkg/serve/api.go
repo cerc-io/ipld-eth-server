@@ -81,8 +81,3 @@ func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionS
 
 	return rpcSub, nil
 }
-
-// // Chain returns the chain type that this watcher instance supports
-// func (api *PublicServerAPI) Chain() shared.ChainType {
-// 	return shared.Ethereum
-// }
