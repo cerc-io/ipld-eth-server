@@ -167,3 +167,21 @@ func ClearWatchedAddresses(gethRPCClient *rpc.Client) error {
 
 	return nil
 }
+
+func Create2Contract(contractName string, salt string) (*ContractDeployed, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/create2Contract?contract=%s&salt=%s", srvUrl, contractName, salt))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var contract ContractDeployed
+
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&contract)
+	if err != nil {
+		return nil, err
+	}
+
+	return &contract, nil
+}
