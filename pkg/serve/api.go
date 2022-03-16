@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/types"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -33,13 +34,15 @@ const APIVersion = "0.0.1"
 
 // PublicServerAPI is the public api for the watcher
 type PublicServerAPI struct {
-	w Server
+	w   Server
+	rpc *rpc.Client
 }
 
 // NewPublicServerAPI creates a new PublicServerAPI with the provided underlying Server process
-func NewPublicServerAPI(w Server) *PublicServerAPI {
+func NewPublicServerAPI(w Server, client *rpc.Client) *PublicServerAPI {
 	return &PublicServerAPI{
-		w: w,
+		w:   w,
+		rpc: client,
 	}
 }
 
@@ -80,4 +83,14 @@ func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionS
 	}()
 
 	return rpcSub, nil
+}
+
+// WatchAddress makes a geth WatchAddress API call with the given operation and args
+func (api *PublicServerAPI) WatchAddress(operation types.OperationType, args []types.WatchAddressArg) error {
+	err := api.rpc.Call(nil, "statediff_watchAddress", operation, args)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
