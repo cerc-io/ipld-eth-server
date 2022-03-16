@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff/types"
 )
 
 type ContractDeployed struct {
@@ -25,6 +28,14 @@ type Tx struct {
 	TransactionHash string   `json:"txHash"`
 	BlockNumber     int      `json:"blockNumber"`
 	BlockHash       string   `json:"blockHash"`
+}
+
+type StorageKey struct {
+	Key string `json:"key"`
+}
+
+type CountIncremented struct {
+	BlockNumber int64 `json:"blockNumber"`
 }
 
 const srvUrl = "http://localhost:3000"
@@ -76,4 +87,83 @@ func SendEth(to string, value string) (*Tx, error) {
 	}
 
 	return &tx, nil
+}
+
+func DeploySLVContract() (*ContractDeployed, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/deploySLVContract", srvUrl))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var contract ContractDeployed
+
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&contract)
+	if err != nil {
+		return nil, err
+	}
+
+	return &contract, nil
+}
+
+func DestroySLVContract(addr string) (*ContractDestroyed, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/destroySLVContract?addr=%s", srvUrl, addr))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var data ContractDestroyed
+	decoder := json.NewDecoder(res.Body)
+
+	return &data, decoder.Decode(&data)
+}
+
+func IncrementCount(addr string, count string) (*CountIncremented, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/incrementCount%s?addr=%s", srvUrl, count, addr))
+	if err != nil {
+		return nil, err
+	}
+
+	var blockNumber CountIncremented
+
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	return &blockNumber, nil
+}
+
+func GetStorageSlotKey(contract string, label string) (*StorageKey, error) {
+	res, err := http.Get(fmt.Sprintf("%s/v1/getStorageKey?contract=%s&label=%s", srvUrl, contract, label))
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	var key StorageKey
+
+	decoder := json.NewDecoder(res.Body)
+	err = decoder.Decode(&key)
+	if err != nil {
+		return nil, err
+	}
+
+	return &key, nil
+}
+
+func ClearWatchedAddresses(gethRPCClient *rpc.Client) error {
+	gethMethod := "statediff_watchAddress"
+	args := []types.WatchAddressArg{}
+
+	// Clear watched addresses
+	gethErr := gethRPCClient.Call(nil, gethMethod, types.Clear, args)
+	if gethErr != nil {
+		return gethErr
+	}
+
+	return nil
 }

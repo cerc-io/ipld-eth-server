@@ -1,6 +1,7 @@
 const fastify = require('fastify')({ logger: true });
 const hre = require("hardhat");
 
+const { getStorageSlotKey } = require('./utils');
 
 // readiness check
 fastify.get('/v1/healthz', async (req, reply) => {
@@ -60,6 +61,72 @@ fastify.get('/v1/sendEth', async (req, reply) => {
         txHash: tx.hash,
         blockNumber: tx.blockNumber,
         blockHash: tx.blockHash,
+    }
+});
+
+fastify.get('/v1/deploySLVContract', async (req, reply) => {
+    const SLVToken = await hre.ethers.getContractFactory("SLVToken");
+    const token = await SLVToken.deploy();
+    const receipt = await token.deployTransaction.wait();
+
+    return {
+        address: token.address,
+        txHash: token.deployTransaction.hash,
+        blockNumber: receipt.blockNumber,
+        blockHash: receipt.blockHash,
+    }
+});
+
+fastify.get('/v1/destroySLVContract', async (req, reply) => {
+    const addr = req.query.addr;
+
+    const SLVToken = await hre.ethers.getContractFactory("SLVToken");
+    const token = SLVToken.attach(addr);
+
+    const tx = await token.destroy();
+    const receipt = await tx.wait();
+
+    return {
+        blockNumber: receipt.blockNumber,
+    }
+})
+
+fastify.get('/v1/incrementCountA', async (req, reply) => {
+    const addr = req.query.addr;
+
+    const SLVToken = await hre.ethers.getContractFactory("SLVToken");
+    const token = await SLVToken.attach(addr);
+
+    const tx = await token.incrementCountA();
+    const receipt = await tx.wait();
+
+    return {
+        blockNumber: receipt.blockNumber,
+    }
+});
+
+fastify.get('/v1/incrementCountB', async (req, reply) => {
+    const addr = req.query.addr;
+
+    const SLVToken = await hre.ethers.getContractFactory("SLVToken");
+    const token = await SLVToken.attach(addr);
+
+    const tx = await token.incrementCountB();
+    const receipt = await tx.wait();
+
+    return {
+        blockNumber: receipt.blockNumber,
+    }
+});
+
+fastify.get('/v1/getStorageKey', async (req, reply) => {
+    const contract = req.query.contract;
+    const label = req.query.label;
+
+    const key = await getStorageSlotKey(contract, label)
+
+    return {
+        key
     }
 });
 
