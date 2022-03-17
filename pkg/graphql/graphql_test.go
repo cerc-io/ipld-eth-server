@@ -38,6 +38,7 @@ import (
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -65,7 +66,7 @@ var _ = Describe("GraphQL", func() {
 
 	It("test init", func() {
 		var err error
-		db = eth.SetupTestDB()
+		db = shared.SetupDB()
 		transformer := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		backend, err = eth.NewEthBackend(db, &eth.Config{
@@ -166,7 +167,7 @@ var _ = Describe("GraphQL", func() {
 	defer It("test teardown", func() {
 		err := graphQLServer.Stop()
 		Expect(err).ToNot(HaveOccurred())
-		eth.TearDownTestDB(db)
+		shared.TearDownDB(db)
 		chain.Stop()
 	})
 

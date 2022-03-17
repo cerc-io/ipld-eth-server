@@ -18,8 +18,14 @@ package shared
 
 import (
 	"bytes"
+	"os"
+	"strconv"
 
+	. "github.com/onsi/gomega"
+
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	"github.com/jmoiron/sqlx"
 )
 
 // IPLDsContainBytes used to check if a list of strings contains a particular string
@@ -30,4 +36,51 @@ func IPLDsContainBytes(iplds []models.IPLDModel, b []byte) bool {
 		}
 	}
 	return false
+}
+
+// SetupDB is use to setup a db for watcher tests
+func SetupDB() *sqlx.DB {
+	config := getTestDBConfig()
+
+	db, err := NewDB(config.DbConnectionString(), config)
+	Expect(err).NotTo(HaveOccurred())
+
+	return db
+}
+
+// TearDownDB is used to tear down the watcher dbs after tests
+func TearDownDB(db *sqlx.DB) {
+	tx, err := db.Beginx()
+	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM eth.header_cids`)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM eth.transaction_cids`)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM eth.receipt_cids`)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM eth.state_cids`)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM eth.storage_cids`)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM blocks`)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM eth.log_cids`)
+	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM eth_meta.watched_addresses`)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = tx.Commit()
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func getTestDBConfig() postgres.Config {
+	port, _ := strconv.Atoi(os.Getenv("DATABASE_PORT"))
+	return postgres.Config{
+		Hostname:     os.Getenv("DATABASE_HOSTNAME"),
+		DatabaseName: os.Getenv("DATABASE_NAME"),
+		Username:     os.Getenv("DATABASE_USER"),
+		Password:     os.Getenv("DATABASE_PASSWORD"),
+		Port:         port,
+		Driver:       postgres.SQLX,
+	}
 }

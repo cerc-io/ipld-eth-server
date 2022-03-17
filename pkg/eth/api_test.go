@@ -38,6 +38,7 @@ import (
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -195,7 +196,7 @@ var _ = Describe("API", func() {
 			tx  interfaces.Batch
 		)
 
-		db = eth.SetupTestDB()
+		db = shared.SetupDB()
 		indexAndPublisher := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		backend, err := eth.NewEthBackend(db, &eth.Config{
@@ -251,7 +252,7 @@ var _ = Describe("API", func() {
 	})
 
 	// Single test db tear down at end of all tests
-	defer It("test teardown", func() { eth.TearDownTestDB(db) })
+	defer It("test teardown", func() { shared.TearDownDB(db) })
 	/*
 
 	   Headers and blocks

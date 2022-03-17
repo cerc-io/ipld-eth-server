@@ -3,9 +3,10 @@ set -o xtrace
 
 export ETH_FORWARD_ETH_CALLS=false
 export DB_WRITE=true
-export ETH_HTTP_PATH=""
+export ETH_HTTP_PATH="dapptools:8545"
 export ETH_PROXY_ON_ERROR=false
 export WATCHED_ADDRESS_GAP_FILLER_ENABLED=false
+export WATCHED_ADDRESS_GAP_FILLER_INTERVAL=5
 
 # Clear up existing docker images and volume.
 docker-compose down --remove-orphans --volumes

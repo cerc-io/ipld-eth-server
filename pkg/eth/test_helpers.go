@@ -28,40 +28,8 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/ethereum/go-ethereum/statediff/indexer/node"
-	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/gomega"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
-
-func SetupTestDB() *sqlx.DB {
-	config := getTestDBConfig()
-
-	db, err := shared.NewDB(config.DbConnectionString(), config)
-	Expect(err).NotTo(HaveOccurred())
-
-	return db
-}
-
-// TearDownTestDB is used to tear down the watcher dbs after tests
-func TearDownTestDB(db *sqlx.DB) {
-	tx, err := db.Beginx()
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.transaction_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.receipt_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.state_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.storage_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM blocks`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.log_cids`)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = tx.Commit()
-	Expect(err).NotTo(HaveOccurred())
-}
 
 func SetupTestStateDiffIndexer(ctx context.Context, chainConfig *params.ChainConfig, genHash common.Hash) interfaces.StateDiffIndexer {
 	testInfo := node.Info{

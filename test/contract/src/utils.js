@@ -34,3 +34,5 @@ async function getStorageSlotKey(contractName, variableName) {
   key = utils.hexlify(BigNumber.from(targetState.slot));
   return key
 };
+
+module.exports = { getStorageSlotKey }
