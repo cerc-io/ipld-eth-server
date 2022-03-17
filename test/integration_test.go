@@ -325,6 +325,11 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("Get Storage", func() {
+		var slvContract *integration.ContractDeployed
+		var slvCountA *big.Int
+
+		contractSalt := "SLVContractSalt"
+
 		BeforeEach(func() {
 			contract, contractErr = integration.DeployContract()
 			erc20TotalSupply, bigIntResult = new(big.Int).SetString("1000000000000000000000", 10)
@@ -405,10 +410,46 @@ var _ = Describe("Integration test", func() {
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
 
+		It("get storage for SLV countA", func() {
+			slvContract, contractErr = integration.Create2Contract("SLVToken", contractSalt)
+			Expect(contractErr).ToNot(HaveOccurred())
+			countAIndex := "0x5"
+
+			time.Sleep(sleepInterval)
+
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			gethCountA := new(big.Int).SetBytes(gethStorage)
+			slvCountA = gethCountA
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldCountA := new(big.Int).SetBytes(ipldStorage)
+			Expect(ipldCountA.String()).To(Equal(slvCountA.String()))
+
+			_, txErr = integration.IncrementCount(slvContract.Address, "A")
+			Expect(txErr).ToNot(HaveOccurred())
+			slvCountA.Add(slvCountA, big.NewInt(1))
+
+			time.Sleep(sleepInterval)
+
+			ipldStorage, err = ipldClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldCountA = new(big.Int).SetBytes(ipldStorage)
+			Expect(ipldCountA.String()).To(Equal(slvCountA.String()))
+		})
+
 		It("get storage after self destruct", func() {
 			totalSupplyIndex := "0x2"
+			countAIndex := "0x5"
 
 			tx, err := integration.DestroyContract(contract.Address)
+			Expect(err).ToNot(HaveOccurred())
+
+			slvTx, err := integration.DestroyContract(slvContract.Address)
 			Expect(err).ToNot(HaveOccurred())
 
 			time.Sleep(sleepInterval)
@@ -434,6 +475,39 @@ var _ = Describe("Integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(ipldStorage2).To(Equal(ipldStorage3))
+
+			// Check for SLV contract
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), big.NewInt(slvTx.BlockNumber))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gethStorage).To(Equal(eth.EmptyNodeValue))
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), big.NewInt(slvTx.BlockNumber))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ipldStorage).To(Equal(gethStorage))
+
+			slvCountA.Set(big.NewInt(0))
+		})
+
+		It("get storage after redeploying", func() {
+			slvContract, contractErr = integration.Create2Contract("SLVToken", contractSalt)
+			Expect(contractErr).ToNot(HaveOccurred())
+			time.Sleep(sleepInterval)
+
+			countAIndex := "0x5"
+
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			gethCountA := new(big.Int).SetBytes(gethStorage)
+			Expect(gethCountA.String()).To(Equal(slvCountA.String()))
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldCountA := new(big.Int).SetBytes(ipldStorage)
+			Expect(ipldCountA.String()).To(Equal(slvCountA.String()))
+
+			Expect(gethStorage).To(Equal(ipldStorage))
 		})
 	})
 

@@ -15,7 +15,8 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.0.0",
     "fastify": "^3.14.2",
-    "hardhat": "^2.2.0"
+    "hardhat": "^2.2.0",
+    "solidity-create2-deployer": "^0.4.0"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",

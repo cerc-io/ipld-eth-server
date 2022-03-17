@@ -1,6 +1,8 @@
 const { artifacts } = require("hardhat")
 const { utils, BigNumber } = require("ethers")
+const { deployFactory } = require("solidity-create2-deployer");
 
+const CREATE2_FACTORY_ACCOUNT = '0x2287Fa6efdEc6d8c3E0f4612ce551dEcf89A357A';
 
 async function getStorageLayout(contractName) {
   const artifact = await artifacts.readArtifact(contractName);
@@ -35,4 +37,18 @@ async function getStorageSlotKey(contractName, variableName) {
   return key
 };
 
-module.exports = { getStorageSlotKey }
+async function deployCreate2Factory(provider, signer) {
+  // Send eth to account as required to deploy create2 factory contract.
+  let tx = {
+    to: CREATE2_FACTORY_ACCOUNT,
+    value: utils.parseEther('0.01')
+  }
+
+  const txResponse = await signer.sendTransaction(tx);
+  await txResponse.wait()
+
+  // Deploy create2 factory contract.
+  await deployFactory(provider)
+}
+
+module.exports = { getStorageSlotKey, deployCreate2Factory }
