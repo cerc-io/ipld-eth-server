@@ -176,7 +176,7 @@ var _ = Describe("eth state reading tests", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// wait for tx batch process to complete.
-		time.Sleep(600 * time.Millisecond)
+		time.Sleep(10000 * time.Millisecond)
 		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
 	})
