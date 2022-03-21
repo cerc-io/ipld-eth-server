@@ -67,7 +67,7 @@ var _ = Describe("GraphQL", func() {
 	It("test init", func() {
 		var err error
 		db = shared.SetupDB()
-		transformer := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		transformer := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -131,7 +131,7 @@ var _ = Describe("GraphQL", func() {
 		}
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		blockHash = test_helpers.MockBlock.Hash()
 		contractAddress = test_helpers.ContractAddr

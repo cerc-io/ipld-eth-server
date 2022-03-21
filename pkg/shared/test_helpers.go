@@ -18,13 +18,19 @@ package shared
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"strconv"
 
 	. "github.com/onsi/gomega"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/statediff/indexer"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -71,6 +77,21 @@ func TearDownDB(db *sqlx.DB) {
 
 	err = tx.Commit()
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func SetupTestStateDiffIndexer(ctx context.Context, chainConfig *params.ChainConfig, genHash common.Hash) interfaces.StateDiffIndexer {
+	testInfo := node.Info{
+		GenesisBlock: genHash.String(),
+		NetworkID:    "1",
+		ID:           "1",
+		ClientName:   "geth",
+		ChainID:      params.TestChainConfig.ChainID.Uint64(),
+	}
+
+	stateDiffIndexer, err := indexer.NewStateDiffIndexer(ctx, chainConfig, testInfo, getTestDBConfig())
+	Expect(err).NotTo(HaveOccurred())
+
+	return stateDiffIndexer
 }
 
 func getTestDBConfig() postgres.Config {

@@ -197,7 +197,7 @@ var _ = Describe("API", func() {
 		)
 
 		db = shared.SetupDB()
-		indexAndPublisher := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -242,7 +242,7 @@ var _ = Describe("API", func() {
 
 		// setting chain config to for london block
 		chainConfig.LondonBlock = big.NewInt(2)
-		indexAndPublisher = eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		indexAndPublisher = shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())

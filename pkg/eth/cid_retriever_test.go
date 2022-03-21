@@ -217,7 +217,7 @@ var _ = Describe("Retriever", func() {
 	)
 	BeforeEach(func() {
 		db = shared.SetupDB()
-		diffIndexer = eth.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
+		diffIndexer = shared.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
 
 		retriever = eth.NewCIDRetriever(db)
 	})

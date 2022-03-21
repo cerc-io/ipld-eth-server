@@ -41,7 +41,7 @@ var _ = Describe("IPLDFetcher", func() {
 				tx  interfaces.Batch
 			)
 			db = shared.SetupDB()
-			pubAndIndexer = eth.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
+			pubAndIndexer = shared.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
 
 			tx, err = pubAndIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			for _, node := range test_helpers.MockStateNodes {

@@ -28,7 +28,6 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
 	fill "github.com/vulcanize/ipld-eth-server/pkg/fill"
 	"github.com/vulcanize/ipld-eth-server/pkg/serve"
@@ -57,7 +56,7 @@ var _ = Describe("Service", func() {
 
 		// indexer initialization
 		// statediffIndexer, err = indexer.NewStateDiffIndexer(nil, db)
-		statediffIndexer = eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		statediffIndexer = shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 		Expect(err).ToNot(HaveOccurred())
 
 		// fill service intialization

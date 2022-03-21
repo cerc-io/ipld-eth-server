@@ -410,7 +410,7 @@ var _ = Describe("Integration test", func() {
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
 
-		It("get storage for SLV countA", func() {
+		It("get storage for SLV countA after tx", func() {
 			slvContract, contractErr = integration.Create2Contract("SLVToken", contractSalt)
 			Expect(contractErr).ToNot(HaveOccurred())
 			countAIndex := "0x5"
