@@ -106,6 +106,6 @@ func getTestDBConfig() postgres.Config {
 		Username:     os.Getenv("DATABASE_USER"),
 		Password:     os.Getenv("DATABASE_PASSWORD"),
 		Port:         port,
-		Driver:       postgres.SQLX,
+		Driver:       postgres.PGX,
 	}
 }
