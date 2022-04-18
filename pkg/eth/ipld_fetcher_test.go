@@ -18,8 +18,8 @@ package eth_test
 
 import (
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/statediff/indexer"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
+	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -29,34 +29,32 @@ import (
 
 var _ = Describe("IPLDFetcher", func() {
 	var (
-		db            *postgres.DB
-		pubAndIndexer *indexer.StateDiffIndexer
+		db            *sqlx.DB
+		pubAndIndexer interfaces.StateDiffIndexer
 		fetcher       *eth.IPLDFetcher
 	)
 	Describe("Fetch", func() {
 		BeforeEach(func() {
 			var (
 				err error
-				tx  *indexer.BlockTx
+				tx  interfaces.Batch
 			)
-			db, err = SetupDB()
-			Expect(err).ToNot(HaveOccurred())
-			pubAndIndexer, err = indexer.NewStateDiffIndexer(params.TestChainConfig, db)
-			Expect(err).ToNot(HaveOccurred())
+			db = eth.SetupTestDB()
+			pubAndIndexer = eth.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
 
 			tx, err = pubAndIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			for _, node := range test_helpers.MockStateNodes {
-				err = pubAndIndexer.PushStateNode(tx, node)
+				err = pubAndIndexer.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			err = tx.Close(err)
+			err = tx.Submit(err)
 			Expect(err).ToNot(HaveOccurred())
 			fetcher = eth.NewIPLDFetcher(db)
 
 		})
 		AfterEach(func() {
-			eth.TearDownDB(db)
+			eth.TearDownTestDB(db)
 		})
 
 		It("Fetches and returns IPLDs for the CIDs provided in the CIDWrapper", func() {

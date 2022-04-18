@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/sirupsen/logrus"
@@ -197,10 +196,10 @@ func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (types.Mes
 type IPLDs struct {
 	BlockNumber     *big.Int
 	TotalDifficulty *big.Int
-	Header          ipfs.BlockModel
-	Uncles          []ipfs.BlockModel
-	Transactions    []ipfs.BlockModel
-	Receipts        []ipfs.BlockModel
+	Header          models.IPLDModel
+	Uncles          []models.IPLDModel
+	Transactions    []models.IPLDModel
+	Receipts        []models.IPLDModel
 	StateNodes      []StateNode
 	StorageNodes    []StorageNode
 }
@@ -209,7 +208,7 @@ type StateNode struct {
 	Type         sdtypes.NodeType
 	StateLeafKey common.Hash
 	Path         []byte
-	IPLD         ipfs.BlockModel
+	IPLD         models.IPLDModel
 }
 
 type StorageNode struct {
@@ -217,7 +216,7 @@ type StorageNode struct {
 	StateLeafKey   common.Hash
 	StorageLeafKey common.Hash
 	Path           []byte
-	IPLD           ipfs.BlockModel
+	IPLD           models.IPLDModel
 }
 
 // CIDWrapper is used to direct fetching of IPLDs from IPFS
@@ -249,7 +248,7 @@ type ConvertedPayload struct {
 // LogResult represent a log.
 type LogResult struct {
 	LeafCID     string `db:"leaf_cid"`
-	ReceiptID   int64  `db:"receipt_id"`
+	ReceiptID   string `db:"rct_id"`
 	Address     string `db:"address"`
 	Index       int64  `db:"index"`
 	Data        []byte `db:"log_data"`
