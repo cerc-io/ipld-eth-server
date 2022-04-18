@@ -29,9 +29,9 @@ jobs:
         run: |
           echo $GITHUB_REPOSITORY > /tmp/git_repository
           echo $GITHUB_HEAD_REF > /tmp/git_head_ref
-          echo "-----BEGIN OPENSSH PRIVATE KEY-----' >> /tmp/key
+          echo "-----BEGIN OPENSSH PRIVATE KEY-----" >> /tmp/key
           echo ${{ env.BUILD_KEY }} >> /tmp/key
-          echo "-----END OPENSSH PRIVATE KEY-----' >> /tmp/key
+          echo "-----END OPENSSH PRIVATE KEY-----" >> /tmp/key
           chmod 400 /tmp/key
           cat  /tmp/git_repository
           cat  /tmp/git_head_ref
