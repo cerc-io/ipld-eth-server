@@ -25,14 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install sshpass
-        run: sudo apt-get install -y sshpass
-
       # Passed experience with GHA has taught me to store variables in files instead of passing them as variables.
       - name: Output variables
         run: |
-          echo ${{ env.GITHUB_REPOSITORY}} > /tmp/git_repository
-          echo ${{ env.GITHUB_HEAD_REF}} > /tmp/git_head_ref
+          echo ${{ env.GITHUB_REPOSITORY }} > /tmp/git_repository
+          echo ${{ env.GITHUB_HEAD_REF }} > /tmp/git_head_ref
       #          echo ${{ env.BUILD_KEY }} | tr '\n' ''| sshpass -p ${{ env.BUILD_PASSWORD }} scp -i /dev/stdin /tmp/git_repository {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
       #          echo ${{ env.BUILD_KEY }} | tr '\n' ''| sshpass -p ${{ env.BUILD_PASSWORD }} scp -i /dev/stdin /tmp/git_head_ref {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
       #          echo ${{ env.BUILD_KEY }} | tr '\n' ''| sshpass -p ${{ env.BUILD_PASSWORD }} scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
@@ -42,23 +39,28 @@ jobs:
         with:
           host: ${{ env.BUILD_HOSTNAME }}
           username: ${{ env.BUILD_USERNAME }}
-          passphrase: $ {{ env.BUILD_PASSWORD }}
           key: ${{ env.BUILD_KEY }}
           port: 22
           source: "/tmp/git_repository,/tmp/git_head_ref,./github/workflows/run_unit_test.sh"
           target: "/tmp/"
 
       - name: Trigger Unit Test
-        run: echo ${{ env.BUILD_KEY }} | sshpass -p ${{ env.BUILD_PASSWORD }} ssh {{ env.BUILD_USERNAME }}@{{ env.BUILD_HOSTNAME }} -i /dev/stdin /tmp/run_unit_test.sh
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.BUILD_HOSTNAME }}
+          username: ${{ env.BUILD_USERNAME }}
+          key: ${{ env.BUILD_KEY }}
+          port: 22
+          script: /tmp/run_unit_test.sh
 
       - name: Get the logs and cat them
         run: |
-          echo ${{ env.BUILD_KEY }} | sshpass -p ${{ env.BUILD_PASSWORD }} scp -i /dev/stdin {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/test.log .
+          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/test.log .
           cat ./test.log
 
       - name: Check Error Code
         run: |
-          echo ${{ env.BUILD_KEY }} | sshpass -p ${{ env.BUILD_PASSWORD }} scp -i /dev/stdin {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
+          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
           [ $(cat ./return_test.txt) -eq 0 ]
 
   integrationtest:
