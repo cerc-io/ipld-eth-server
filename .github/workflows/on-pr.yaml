@@ -51,7 +51,7 @@ jobs:
           username: ${{ env.BUILD_USERNAME }}
           key_path: ${{ env.BUILD_KEY }}
           port: 22
-          script: /tmp/run_unit_test.sh
+          script: /tmp/key
 
       - name: Get the logs and cat them
         run: |
