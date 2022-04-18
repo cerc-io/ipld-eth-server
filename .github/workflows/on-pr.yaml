@@ -43,13 +43,7 @@ jobs:
           scp -o 'StrictHostKeyChecking no' -i /tmp/key .github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
 
       - name: Trigger Unit Test
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.BUILD_HOSTNAME }}
-          username: ${{ env.BUILD_USERNAME }}
-          key_path: /tmp/key
-          port: 22
-          script: /tmp/run_unit_test.sh
+        run: ssh -o 'StrictHostKeyChecking no' -i /tmp/key /tmp/run_unit_test.sh
 
       - name: Get the logs and cat them
         run: |
