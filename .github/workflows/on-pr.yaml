@@ -55,7 +55,7 @@ jobs:
       - name: Check Error Code
         run: |
           scp -o 'StrictHostKeyChecking no' -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
-          [ $(cat ./return_test.txt) -eq 0 ]
+          [ $(cat ./return_test.txt) -eq 1 ]
 
   integrationtest:
     name: Run integration tests
