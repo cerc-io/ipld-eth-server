@@ -2,13 +2,13 @@ name: Docker Build
 
 on: [pull_request]
 jobs:
-  #  build:
-  #    name: Run docker build
-  #    runs-on: ubuntu-latest
-  #    steps:
-  #      - uses: actions/checkout@v2
-  #      - name: Run docker build
-  #        run: make docker-build
+  build:
+    name: Run docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run docker build
+        run: make docker-build
   test:
     name: Run unit tests
     env:
@@ -57,61 +57,60 @@ jobs:
           scp -o 'StrictHostKeyChecking no' -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
           [ $(cat ./return_test.txt) -eq 0 ]
 
-#  integrationtest:
-#    name: Run integration tests
-#    env:
-#      GOPATH: /tmp/go
-#      DB_WRITE: true
-#      ETH_FORWARD_ETH_CALLS: false
-#      ETH_PROXY_ON_ERROR: false
-#      ETH_HTTP_PATH: ""
-#    strategy:
-#      matrix:
-#        go-version: [1.16.x]
-#        os: [ubuntu-latest]
-#    runs-on: ${{ matrix.os }}
-#    steps:
-#      - name: Create GOPATH
-#        run: mkdir -p /tmp/go
-#      - name: Install Go
-#        uses: actions/setup-go@v2
-#        with:
-#          go-version: ${{ matrix.go-version }}
-#      - uses: actions/checkout@v2
-#      - name: Run database
-#        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
-#      - name: Test
-#        run: |
-#          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
-#          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
-#          make integrationtest
-#
-#  integrationtest_forwardethcalls:
-#    name: Run integration tests for direct proxy fall-through of eth_calls
-#    env:
-#      GOPATH: /tmp/go
-#      DB_WRITE: false
-#      ETH_FORWARD_ETH_CALLS: true
-#      ETH_PROXY_ON_ERROR: false
-#      ETH_HTTP_PATH: "dapptools:8545"
-#    strategy:
-#      matrix:
-#        go-version: [1.16.x]
-#        os: [ubuntu-latest]
-#    runs-on: ${{ matrix.os }}
-#    steps:
-#      - name: Create GOPATH
-#        run: mkdir -p /tmp/go
-#      - name: Install Go
-#        uses: actions/setup-go@v2
-#        with:
-#          go-version: ${{ matrix.go-version }}
-#      - uses: actions/checkout@v2
-#      - name: Run database
-#        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
-#      - name: Test
-#        run: |
-#          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
-#          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
-#          make integrationtest
-#
+  integrationtest:
+    name: Run integration tests
+    env:
+      GOPATH: /tmp/go
+      DB_WRITE: true
+      ETH_FORWARD_ETH_CALLS: false
+      ETH_PROXY_ON_ERROR: false
+      ETH_HTTP_PATH: ""
+    strategy:
+      matrix:
+        go-version: [1.16.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Create GOPATH
+        run: mkdir -p /tmp/go
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - uses: actions/checkout@v2
+      - name: Run database
+        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
+      - name: Test
+        run: |
+          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
+          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
+          make integrationtest
+
+  integrationtest_forwardethcalls:
+    name: Run integration tests for direct proxy fall-through of eth_calls
+    env:
+      GOPATH: /tmp/go
+      DB_WRITE: false
+      ETH_FORWARD_ETH_CALLS: true
+      ETH_PROXY_ON_ERROR: false
+      ETH_HTTP_PATH: "dapptools:8545"
+    strategy:
+      matrix:
+        go-version: [1.16.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Create GOPATH
+        run: mkdir -p /tmp/go
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - uses: actions/checkout@v2
+      - name: Run database
+        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
+      - name: Test
+        run: |
+          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
+          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
+          make integrationtest
