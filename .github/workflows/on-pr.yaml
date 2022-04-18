@@ -42,7 +42,7 @@ jobs:
         with:
           host: ${{ env.BUILD_HOSTNAME }}
           username: ${{ env.BUILD_USERNAME }}
-          #          passphrase: $ {{ env.BUILD_PASSWORD }}
+          passphrase: $ {{ env.BUILD_PASSWORD }}
           key: ${{ env.BUILD_KEY }}
           port: 22
           source: "/tmp/git_repository,/tmp/git_head_ref,./github/workflows/run_unit_test.sh"
