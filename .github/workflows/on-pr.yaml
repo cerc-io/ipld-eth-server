@@ -14,24 +14,41 @@ jobs:
     name: Run unit tests
     env:
       GOPATH: /tmp/go
+      HOSTNAME: ${{ secrets.BUILD_HOSTNAME }}
+      USERNAME: ${{ secrets.BUILD_USERNAME }}
+      PRIVATE_KEY: ${{ secrets.BUILD_KEY }}
+      PASSWORD: ${{ secrets.BUILD_PASSWORD}}
     strategy:
       matrix:
         go-version: [1.16.x, 1.17.x]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-      - name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go-version }}
       - uses: actions/checkout@v2
-      - name: Run database
-        run: docker-compose up -d ipld-eth-db
-      - name: Test
+
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
+
+      # Passed experience with GHA has taught me to store variables in files instead of passing them as variables.
+      - name: SCP necessary variables to the server
         run: |
-          sleep 10
-          PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=password DATABASE_HOSTNAME=127.0.0.1 DATABASE_NAME=vulcanize_testing make test
+          echo ${{ env.GITHUB_REPOSITORY}} > /tmp/git_repository
+          echo ${{ env.GITHUB_HEAD_REF}} > /tmp/git_head_ref
+          echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin /tmp/git_repository {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/git_repository
+          echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin /tmp/git_head_ref {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/git_head_ref
+          echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/run_unit_test.sh
+
+      - name: Trigger Unit Test
+        run: echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} ssh {{ env.USERNAME }}@{{ env.HOSTNAME }} -i /dev/stdin /tmp/run_unit_test.sh
+
+      - name: Get the logs and cat them
+        run: |
+          echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/test.log .
+          cat ./test.log
+
+      - name: Check Error Code
+        run: |
+          echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/return_test.txt .
+          [ $(cat ./return_test.txt) -eq 0 ]
 
   integrationtest:
     name: Run integration tests
