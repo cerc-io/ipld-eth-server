@@ -28,8 +28,10 @@ jobs:
       # Passed experience with GHA has taught me to store variables in files instead of passing them as variables.
       - name: Output variables
         run: |
-          echo ${{ env.GITHUB_REPOSITORY }} > /tmp/git_repository
-          echo ${{ env.GITHUB_HEAD_REF }} > /tmp/git_head_ref
+          echo $GITHUB_REPOSITORY > /tmp/git_repository
+          echo $GITHUB_HEAD_REF > /tmp/git_head_ref
+      #          echo ${{ env.GITHUB_REPOSITORY }} > /tmp/git_repository
+      #          echo ${{ env.GITHUB_HEAD_REF }} > /tmp/git_head_ref
       #          echo ${{ env.BUILD_KEY }} | tr '\n' ''| sshpass -p ${{ env.BUILD_PASSWORD }} scp -i /dev/stdin /tmp/git_repository {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
       #          echo ${{ env.BUILD_KEY }} | tr '\n' ''| sshpass -p ${{ env.BUILD_PASSWORD }} scp -i /dev/stdin /tmp/git_head_ref {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
       #          echo ${{ env.BUILD_KEY }} | tr '\n' ''| sshpass -p ${{ env.BUILD_PASSWORD }} scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
