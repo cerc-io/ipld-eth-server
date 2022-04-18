@@ -30,19 +30,19 @@ jobs:
         run: |
           echo $GITHUB_REPOSITORY > /tmp/git_repository
           echo $GITHUB_HEAD_REF > /tmp/git_head_ref
-          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin /tmp/git_repository {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
-          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin /tmp/git_head_ref {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
-          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
+      #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin /tmp/git_repository {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
+      #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin /tmp/git_head_ref {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
+      #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
 
-      #- name: SCP some files
-      #  uses: appleboy/scp-action@master
-      #  with:
-      #    host: ${{ env.BUILD_HOSTNAME }}
-      #    username: ${{ env.BUILD_USERNAME }}
-      #    key: ${{ env.BUILD_KEY }}
-      #    port: 22
-      #    source: "/tmp/git_repository,/tmp/git_head_ref,./github/workflows/run_unit_test.sh"
-      #    target: "/tmp/"
+      - name: SCP some files
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.BUILD_HOSTNAME }}
+          username: ${{ env.BUILD_USERNAME }}
+          key: ${{ env.BUILD_KEY }}
+          port: 22
+          source: "/tmp/git_repository,/tmp/git_head_ref,./github/workflows/run_unit_test.sh"
+          target: "/tmp/"
 
       - name: Trigger Unit Test
         uses: appleboy/ssh-action@master
