@@ -30,6 +30,7 @@ jobs:
           echo $GITHUB_REPOSITORY > /tmp/git_repository
           echo $GITHUB_HEAD_REF > /tmp/git_head_ref
           echo ${{ env.BUILD_KEY }} > /tmp/key
+          chmod 400 /tmp/key
           cat  /tmp/git_repository
           cat  /tmp/git_head_ref
       #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin /tmp/git_repository {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
