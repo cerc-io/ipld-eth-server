@@ -3,13 +3,13 @@ name: Docker Build
 on: [pull_request]
 
 jobs:
-  build:
-    name: Run docker build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run docker build
-        run: make docker-build
+  #  build:
+  #    name: Run docker build
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - uses: actions/checkout@v2
+  #      - name: Run docker build
+  #        run: make docker-build
   test:
     name: Run unit tests
     env:
@@ -17,10 +17,9 @@ jobs:
       BUILD_HOSTNAME: ${{ secrets.BUILD_HOSTNAME }}
       BUILD_USERNAME: ${{ secrets.BUILD_USERNAME }}
       BUILD_KEY: ${{ secrets.BUILD_KEY }}
-      BUILD_PASSWORD: ${{ secrets.BUILD_PASSWORD}}
-    strategy:
-      matrix:
-        go-version: [1.16.x, 1.17.x]
+    #strategy:
+    #  matrix:
+    #    go-version: [1.16.x, 1.17.x]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -38,19 +37,19 @@ jobs:
       #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
       - name: Raw SCP
         run: |
-          scp -i /tmp/key /tmp/git_repository ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
-          scp -i /tmp/key /tmp/git_head_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
-          scp -i /tmp/key ./github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
+          scp -o 'StrictHostKeyChecking no' -i /tmp/key /tmp/git_repository ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
+          scp -o 'StrictHostKeyChecking no' -i /tmp/key /tmp/git_head_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
+          scp -o 'StrictHostKeyChecking no' -i /tmp/key ./github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
 
-      #- name: SCP some files
-      #  uses: appleboy/scp-action@master
-      #  with:
-      #    host: ${{ env.BUILD_HOSTNAME }}
-      #    username: ${{ env.BUILD_USERNAME }}
-      #    key: ${{ env.BUILD_KEY }}
-      #    port: 22
-      #    source: "/tmp/git_repository,/tmp/git_head_ref,./github/workflows/run_unit_test.sh"
-      #    target: "/tmp/"
+      - name: SCP some files
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.BUILD_HOSTNAME }}
+          username: ${{ env.BUILD_USERNAME }}
+          key: ${{ env.BUILD_KEY }}
+          port: 22
+          source: "/tmp/git_repository,/tmp/git_head_ref,./github/workflows/run_unit_test.sh"
+          target: "/tmp/"
 
       - name: Trigger Unit Test
         uses: appleboy/ssh-action@master
@@ -71,60 +70,61 @@ jobs:
           echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
           [ $(cat ./return_test.txt) -eq 0 ]
 
-  integrationtest:
-    name: Run integration tests
-    env:
-      GOPATH: /tmp/go
-      DB_WRITE: true
-      ETH_FORWARD_ETH_CALLS: false
-      ETH_PROXY_ON_ERROR: false
-      ETH_HTTP_PATH: ""
-    strategy:
-      matrix:
-        go-version: [1.16.x]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-      - name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v2
-      - name: Run database
-        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
-      - name: Test
-        run: |
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
-          make integrationtest
-
-  integrationtest_forwardethcalls:
-    name: Run integration tests for direct proxy fall-through of eth_calls
-    env:
-      GOPATH: /tmp/go
-      DB_WRITE: false
-      ETH_FORWARD_ETH_CALLS: true
-      ETH_PROXY_ON_ERROR: false
-      ETH_HTTP_PATH: "dapptools:8545"
-    strategy:
-      matrix:
-        go-version: [1.16.x]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-      - name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v2
-      - name: Run database
-        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
-      - name: Test
-        run: |
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
-          make integrationtest
+#  integrationtest:
+#    name: Run integration tests
+#    env:
+#      GOPATH: /tmp/go
+#      DB_WRITE: true
+#      ETH_FORWARD_ETH_CALLS: false
+#      ETH_PROXY_ON_ERROR: false
+#      ETH_HTTP_PATH: ""
+#    strategy:
+#      matrix:
+#        go-version: [1.16.x]
+#        os: [ubuntu-latest]
+#    runs-on: ${{ matrix.os }}
+#    steps:
+#      - name: Create GOPATH
+#        run: mkdir -p /tmp/go
+#      - name: Install Go
+#        uses: actions/setup-go@v2
+#        with:
+#          go-version: ${{ matrix.go-version }}
+#      - uses: actions/checkout@v2
+#      - name: Run database
+#        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
+#      - name: Test
+#        run: |
+#          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
+#          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
+#          make integrationtest
+#
+#  integrationtest_forwardethcalls:
+#    name: Run integration tests for direct proxy fall-through of eth_calls
+#    env:
+#      GOPATH: /tmp/go
+#      DB_WRITE: false
+#      ETH_FORWARD_ETH_CALLS: true
+#      ETH_PROXY_ON_ERROR: false
+#      ETH_HTTP_PATH: "dapptools:8545"
+#    strategy:
+#      matrix:
+#        go-version: [1.16.x]
+#        os: [ubuntu-latest]
+#    runs-on: ${{ matrix.os }}
+#    steps:
+#      - name: Create GOPATH
+#        run: mkdir -p /tmp/go
+#      - name: Install Go
+#        uses: actions/setup-go@v2
+#        with:
+#          go-version: ${{ matrix.go-version }}
+#      - uses: actions/checkout@v2
+#      - name: Run database
+#        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
+#      - name: Test
+#        run: |
+#          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
+#          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
+#          make integrationtest
+#
