@@ -35,9 +35,7 @@ jobs:
           chmod 400 /tmp/key
           cat  /tmp/git_repository
           cat  /tmp/git_head_ref
-      #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin /tmp/git_repository {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
-      #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin /tmp/git_head_ref {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
-      #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
+
       - name: Raw SCP
         run: |
           scp -o 'StrictHostKeyChecking no' -i /tmp/key /tmp/git_repository ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
@@ -49,9 +47,9 @@ jobs:
         with:
           host: ${{ env.BUILD_HOSTNAME }}
           username: ${{ env.BUILD_USERNAME }}
-          key_path: ${{ env.BUILD_KEY }}
+          key_path: /tmp/key
           port: 22
-          script: /tmp/key
+          script: /tmp/run_unit_test.sh
 
       - name: Get the logs and cat them
         run: |
