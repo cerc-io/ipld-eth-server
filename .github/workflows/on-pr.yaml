@@ -38,9 +38,9 @@ jobs:
       #          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
       - name: Raw SCP
         run: |
-          scp -i /tmp/key /tmp/git_repository {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
-          scp -i /tmp/key /tmp/git_head_ref {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
-          scp -i /tmp/key ./github/workflows/run_unit_test.sh {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
+          scp -i /tmp/key /tmp/git_repository ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
+          scp -i /tmp/key /tmp/git_head_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
+          scp -i /tmp/key ./github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
 
       #- name: SCP some files
       #  uses: appleboy/scp-action@master
