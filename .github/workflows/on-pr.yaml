@@ -42,35 +42,25 @@ jobs:
         run: |
           scp -o 'StrictHostKeyChecking no' -i /tmp/key /tmp/git_repository ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
           scp -o 'StrictHostKeyChecking no' -i /tmp/key /tmp/git_head_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
-          scp -o 'StrictHostKeyChecking no' -i /tmp/key ./github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
-
-      - name: SCP some files
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ env.BUILD_HOSTNAME }}
-          username: ${{ env.BUILD_USERNAME }}
-          key: ${{ env.BUILD_KEY }}
-          port: 22
-          source: "/tmp/git_repository,/tmp/git_head_ref,./github/workflows/run_unit_test.sh"
-          target: "/tmp/"
+          scp -o 'StrictHostKeyChecking no' -i /tmp/key .github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
 
       - name: Trigger Unit Test
         uses: appleboy/ssh-action@master
         with:
           host: ${{ env.BUILD_HOSTNAME }}
           username: ${{ env.BUILD_USERNAME }}
-          key: ${{ env.BUILD_KEY }}
+          key_path: ${{ env.BUILD_KEY }}
           port: 22
           script: /tmp/run_unit_test.sh
 
       - name: Get the logs and cat them
         run: |
-          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/test.log .
+          scp -o 'StrictHostKeyChecking no' -i /tmp/key {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/test.log .
           cat ./test.log
 
       - name: Check Error Code
         run: |
-          echo ${{ env.BUILD_KEY }} | scp -i /dev/stdin {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
+          scp -o 'StrictHostKeyChecking no' -i /tmp/key {{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
           [ $(cat ./return_test.txt) -eq 0 ]
 
 #  integrationtest:
