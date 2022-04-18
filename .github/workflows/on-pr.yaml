@@ -29,13 +29,24 @@ jobs:
         run: sudo apt-get install -y sshpass
 
       # Passed experience with GHA has taught me to store variables in files instead of passing them as variables.
-      - name: SCP necessary variables to the server
+      - name: Output variables
         run: |
           echo ${{ env.GITHUB_REPOSITORY}} > /tmp/git_repository
           echo ${{ env.GITHUB_HEAD_REF}} > /tmp/git_head_ref
-          echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin /tmp/git_repository {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/git_repository
-          echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin /tmp/git_head_ref {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/git_head_ref
-          echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/run_unit_test.sh
+      #          echo ${{ env.PRIVATE_KEY }} | tr '\n' ''| sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin /tmp/git_repository {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/git_repository
+      #          echo ${{ env.PRIVATE_KEY }} | tr '\n' ''| sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin /tmp/git_head_ref {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/git_head_ref
+      #          echo ${{ env.PRIVATE_KEY }} | tr '\n' ''| sshpass -p ${{ env.PASSWORD }} scp -i /dev/stdin ./github/workflows/run_unit_test.sh {{ env.USERNAME }}@${{ env.HOSTNAME }}:/tmp/run_unit_test.sh
+
+      - name: SCP some files
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.HOSTNAME }}
+          username: ${{ env.USERNAME }}
+          password: $ {{ env.PASSWORD }}
+          key: ${{ env.PRIVATE_KEY }}
+          port: 22
+          source: "/tmp/git_repository,/tmp/git_head_ref,./github/workflows/run_unit_test.sh"
+          target: "/tmp/"
 
       - name: Trigger Unit Test
         run: echo ${{ env.PRIVATE_KEY }} | sshpass -p ${{ env.PASSWORD }} ssh {{ env.USERNAME }}@{{ env.HOSTNAME }} -i /dev/stdin /tmp/run_unit_test.sh
