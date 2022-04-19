@@ -28,7 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
@@ -74,7 +74,7 @@ type Service struct {
 	// A mapping of subscription params hash to the corresponding subscription params
 	SubscriptionTypes map[common.Hash]eth.SubscriptionSettings
 	// Underlying db
-	db *postgres.DB
+	db *sqlx.DB
 	// wg for syncing serve processes
 	serveWg *sync.WaitGroup
 	// rpc client for forwarding cache misses
@@ -87,6 +87,8 @@ type Service struct {
 	forwardEthCalls bool
 	// whether to forward all calls to proxy node if they throw an error locally
 	proxyOnError bool
+	// eth node network id
+	nodeNetworkId string
 }
 
 // NewServer creates a new Server using an underlying Service struct
@@ -103,6 +105,7 @@ func NewServer(settings *Config) (Server, error) {
 	sap.supportsStateDiffing = settings.SupportStateDiff
 	sap.forwardEthCalls = settings.ForwardEthCalls
 	sap.proxyOnError = settings.ProxyOnError
+	sap.nodeNetworkId = settings.NodeNetworkID
 	var err error
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:      settings.ChainConfig,
@@ -121,7 +124,7 @@ func (sap *Service) Protocols() []p2p.Protocol {
 
 // APIs returns the RPC descriptors the watcher service offers
 func (sap *Service) APIs() []rpc.API {
-	networkID, _ := strconv.ParseUint(sap.db.Node.NetworkID, 10, 64)
+	networkID, _ := strconv.ParseUint(sap.nodeNetworkId, 10, 64)
 	apis := []rpc.API{
 		{
 			Namespace: APIName,

@@ -1,7 +1,6 @@
 name: Docker Build
 
 on: [pull_request]
-
 jobs:
   build:
     name: Run docker build
@@ -14,25 +13,49 @@ jobs:
     name: Run unit tests
     env:
       GOPATH: /tmp/go
-    strategy:
-      matrix:
-        go-version: [1.16.x, 1.17.x]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+      # To run the unit tests you need to add secrets to your repository.
+      BUILD_HOSTNAME: ${{ secrets.BUILD_HOSTNAME }}
+      BUILD_USERNAME: ${{ secrets.BUILD_USERNAME }}
+      BUILD_KEY: ${{ secrets.BUILD_KEY }}
+    #strategy:
+    #  matrix:
+    #    go-version: [1.16.x, 1.17.x]
+    runs-on: ubuntu-latest
     steps:
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-      - name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go-version }}
       - uses: actions/checkout@v2
-      - name: Run database
-        run: docker-compose up -d ipld-eth-db
-      - name: Test
+
+      # Passed experience with GHA has taught me to store variables in files instead of passing them as variables.
+      - name: Output variables to files
         run: |
-          sleep 10
-          PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=password DATABASE_HOSTNAME=127.0.0.1 DATABASE_NAME=vulcanize_testing make test
+          echo $GITHUB_REPOSITORY > /tmp/git_repository
+          echo $GITHUB_HEAD_REF > /tmp/git_head_ref
+          echo "-----BEGIN OPENSSH PRIVATE KEY-----" >> /tmp/key
+          echo ${{ env.BUILD_KEY }} >> /tmp/key
+          echo "-----END OPENSSH PRIVATE KEY-----" >> /tmp/key
+          chmod 400 /tmp/key
+          cat  /tmp/git_repository
+          cat  /tmp/git_head_ref
+
+      - name: Raw SCP
+        run: |
+          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key /tmp/git_repository ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
+          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key /tmp/git_head_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
+          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key .github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
+
+      - name: Trigger Unit Test
+        run: |
+          ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} chmod +x /tmp/run_unit_test.sh /tmp/run_unit_test.sh
+          ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} /tmp/run_unit_test.sh
+
+      - name: Get the logs and cat them
+        run: |
+          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/test.log .
+          cat ./test.log
+
+      - name: Check Error Code
+        run: |
+          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
+          [ $(cat ./return_test.txt) -eq 0 ]
 
   integrationtest:
     name: Run integration tests
@@ -73,8 +96,8 @@ jobs:
       ETH_HTTP_PATH: "dapptools:8545"
     strategy:
       matrix:
-        go-version: [ 1.16.x ]
-        os: [ ubuntu-latest ]
+        go-version: [1.16.x]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Create GOPATH

@@ -28,13 +28,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/statediff/indexer"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs/ipld"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
-	"github.com/ethereum/go-ethereum/statediff/testhelpers"
+	testhelpers "github.com/ethereum/go-ethereum/statediff/test_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
 	blocks "github.com/ipfs/go-block-format"
@@ -47,7 +44,6 @@ import (
 // Test variables
 var (
 	// block data
-	db          *postgres.DB
 	BlockNumber = big.NewInt(1)
 	MockHeader  = types.Header{
 		Time:        0,
@@ -439,8 +435,7 @@ var (
 		StateNodes:      MockStateNodes,
 	}
 
-	Reward = indexer.CalcEthBlockReward(MockBlock.Header(), MockBlock.Uncles(), MockBlock.Transactions(), MockReceipts)
-
+	Reward         = shared.CalcEthBlockReward(MockBlock.Header(), MockBlock.Uncles(), MockBlock.Transactions(), MockReceipts)
 	MockCIDWrapper = &eth.CIDWrapper{
 		BlockNumber: new(big.Int).Set(BlockNumber),
 		Header: models.HeaderModel{
@@ -458,6 +453,7 @@ var (
 			Bloom:           MockBlock.Bloom().Bytes(),
 			Timestamp:       MockBlock.Time(),
 			TimesValidated:  1,
+			Coinbase:        "0x0000000000000000000000000000000000000000",
 		},
 		Transactions: MockTrxMetaPostPublsh,
 		Receipts:     MockRctMetaPostPublish,
@@ -486,62 +482,62 @@ var (
 
 	MockIPLDs = eth.IPLDs{
 		BlockNumber: new(big.Int).Set(BlockNumber),
-		Header: ipfs.BlockModel{
+		Header: models.IPLDModel{
 			Data: HeaderIPLD.RawData(),
-			CID:  HeaderIPLD.Cid().String(),
+			Key:  HeaderIPLD.Cid().String(),
 		},
-		Transactions: []ipfs.BlockModel{
+		Transactions: []models.IPLDModel{
 			{
 				Data: Trx1IPLD.RawData(),
-				CID:  Trx1IPLD.Cid().String(),
+				Key:  Trx1IPLD.Cid().String(),
 			},
 			{
 				Data: Trx2IPLD.RawData(),
-				CID:  Trx2IPLD.Cid().String(),
+				Key:  Trx2IPLD.Cid().String(),
 			},
 			{
 				Data: Trx3IPLD.RawData(),
-				CID:  Trx3IPLD.Cid().String(),
+				Key:  Trx3IPLD.Cid().String(),
 			},
 			{
 				Data: Trx4IPLD.RawData(),
-				CID:  Trx4IPLD.Cid().String(),
+				Key:  Trx4IPLD.Cid().String(),
 			},
 		},
-		Receipts: []ipfs.BlockModel{
+		Receipts: []models.IPLDModel{
 			{
 				Data: Rct1IPLD,
-				CID:  Rct1CID.String(),
+				Key:  Rct1CID.String(),
 			},
 			{
 				Data: Rct2IPLD,
-				CID:  Rct2CID.String(),
+				Key:  Rct2CID.String(),
 			},
 			{
 				Data: Rct3IPLD,
-				CID:  Rct3CID.String(),
+				Key:  Rct3CID.String(),
 			},
 			{
 				Data: Rct4IPLD,
-				CID:  Rct4CID.String(),
+				Key:  Rct4CID.String(),
 			},
 		},
 		StateNodes: []eth.StateNode{
 			{
 				StateLeafKey: common.BytesToHash(ContractLeafKey),
 				Type:         sdtypes.Leaf,
-				IPLD: ipfs.BlockModel{
+				IPLD: models.IPLDModel{
 					Data: State1IPLD.RawData(),
-					CID:  State1IPLD.Cid().String(),
+					Key:  State1IPLD.Cid().String(),
 				},
 				Path: []byte{'\x06'},
 			},
 			{
 				StateLeafKey: common.BytesToHash(AccountLeafKey),
 				Type:         sdtypes.Leaf,
-				IPLD: ipfs.BlockModel{
+				IPLD: models.IPLDModel{
 					Data: State2IPLD.RawData(),
-					CID:  State2IPLD.Cid().String(),
+					Key:  State2IPLD.Cid().String(),
 				},
 				Path: []byte{'\x0c'},
 			},
@@ -551,9 +547,9 @@ var (
 				StateLeafKey:   common.BytesToHash(ContractLeafKey),
 				StorageLeafKey: common.BytesToHash(StorageLeafKey),
 				Type:           sdtypes.Leaf,
-				IPLD: ipfs.BlockModel{
+				IPLD: models.IPLDModel{
 					Data: StorageIPLD.RawData(),
-					CID:  StorageIPLD.Cid().String(),
+					Key:  StorageIPLD.Cid().String(),
 				},
 				Path: []byte{},
 			},

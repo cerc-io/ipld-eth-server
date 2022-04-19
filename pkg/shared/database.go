@@ -1,5 +1,5 @@
 // VulcanizeDB
-// Copyright © 2019 Vulcanize
+// Copyright © 2022 Vulcanize
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -17,17 +17,25 @@
 package shared
 
 import (
-	"bytes"
-
-	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
+	"github.com/jmoiron/sqlx"
 )
 
-// IPLDsContainBytes used to check if a list of strings contains a particular string
-func IPLDsContainBytes(iplds []models.IPLDModel, b []byte) bool {
-	for _, ipld := range iplds {
-		if bytes.Equal(ipld.Data, b) {
-			return true
-		}
+// NewDB creates a new db connection and initializes the connection pool
+func NewDB(connectString string, config postgres.Config) (*sqlx.DB, error) {
+	db, connectErr := sqlx.Connect("postgres", connectString)
+	if connectErr != nil {
+		return nil, postgres.ErrDBConnectionFailed(connectErr)
 	}
-	return false
+	if config.MaxConns > 0 {
+		db.SetMaxOpenConns(config.MaxConns)
+	}
+	if config.MaxIdle > 0 {
+		db.SetMaxIdleConns(config.MaxIdle)
+	}
+	if config.MaxConnLifetime > 0 {
+		db.SetConnMaxLifetime(config.MaxConnLifetime)
+	}
+
+	return db, nil
 }

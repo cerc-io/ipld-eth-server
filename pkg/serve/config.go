@@ -22,15 +22,18 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
+	"github.com/jmoiron/sqlx"
 	"github.com/spf13/viper"
 
 	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
+	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -57,9 +60,8 @@ const (
 
 // Config struct
 type Config struct {
-	DB       *postgres.DB
-	DBConfig postgres.ConnectionConfig
-	DBParams postgres.ConnectionParams
+	DB       *sqlx.DB
+	DBConfig postgres.Config
 
 	WSEnabled  bool
 	WSEndpoint string
@@ -87,6 +89,7 @@ type Config struct {
 	SupportStateDiff bool
 	ForwardEthCalls  bool
 	ProxyOnError     bool
+	NodeNetworkID    string
 
 	// Cache configuration.
 	GroupCache *ethServerShared.GroupCacheConfig
@@ -112,6 +115,7 @@ func NewConfig() (*Config, error) {
 	ethHTTP := viper.GetString("ethereum.httpPath")
 	ethHTTPEndpoint := fmt.Sprintf("http://%s", ethHTTP)
 	nodeInfo, cli, err := getEthNodeAndClient(ethHTTPEndpoint)
+	c.NodeNetworkID = nodeInfo.NetworkID
 	if err != nil {
 		return nil, err
 	}
@@ -198,12 +202,12 @@ func NewConfig() (*Config, error) {
 	c.IpldGraphqlEnabled = ipldGraphqlEnabled
 
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB, err := postgres.NewDB(postgres.DbConnectionString(c.DBParams), c.DBConfig, nodeInfo)
+	serveDB, err := shared.NewDB(c.DBConfig.DbConnectionString(), c.DBConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	prom.RegisterDBCollector(c.DBParams.Name, serveDB.DB)
+	prom.RegisterDBCollector(c.DBConfig.DatabaseName, serveDB)
 	c.DB = serveDB
 
 	defaultSenderStr := viper.GetString("ethereum.defaultSender")
@@ -231,13 +235,13 @@ func NewConfig() (*Config, error) {
 	return c, err
 }
 
-func overrideDBConnConfig(con *postgres.ConnectionConfig) {
+func overrideDBConnConfig(con *postgres.Config) {
 	viper.BindEnv("database.server.maxIdle", SERVER_MAX_IDLE_CONNECTIONS)
 	viper.BindEnv("database.server.maxOpen", SERVER_MAX_OPEN_CONNECTIONS)
 	viper.BindEnv("database.server.maxLifetime", SERVER_MAX_CONN_LIFETIME)
 	con.MaxIdle = viper.GetInt("database.server.maxIdle")
-	con.MaxOpen = viper.GetInt("database.server.maxOpen")
-	con.MaxLifetime = viper.GetInt("database.server.maxLifetime")
+	con.MaxConns = viper.GetInt("database.server.maxOpen")
+	con.MaxConnLifetime = time.Duration(viper.GetInt("database.server.maxLifetime"))
 }
 
 func (c *Config) dbInit() {
@@ -250,14 +254,14 @@ func (c *Config) dbInit() {
 	viper.BindEnv("database.maxOpen", DATABASE_MAX_OPEN_CONNECTIONS)
 	viper.BindEnv("database.maxLifetime", DATABASE_MAX_CONN_LIFETIME)
 
-	c.DBParams.Name = viper.GetString("database.name")
-	c.DBParams.Hostname = viper.GetString("database.hostname")
-	c.DBParams.Port = viper.GetInt("database.port")
-	c.DBParams.User = viper.GetString("database.user")
-	c.DBParams.Password = viper.GetString("database.password")
+	c.DBConfig.DatabaseName = viper.GetString("database.name")
+	c.DBConfig.Hostname = viper.GetString("database.hostname")
+	c.DBConfig.Port = viper.GetInt("database.port")
+	c.DBConfig.Username = viper.GetString("database.user")
+	c.DBConfig.Password = viper.GetString("database.password")
 	c.DBConfig.MaxIdle = viper.GetInt("database.maxIdle")
-	c.DBConfig.MaxOpen = viper.GetInt("database.maxOpen")
-	c.DBConfig.MaxLifetime = viper.GetInt("database.maxLifetime")
+	c.DBConfig.MaxConns = viper.GetInt("database.maxOpen")
+	c.DBConfig.MaxConnLifetime = time.Duration(viper.GetInt("database.maxLifetime"))
 }
 
 func (c *Config) loadGroupCacheConfig() {

@@ -22,9 +22,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipfs"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/postgres"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	"github.com/vulcanize/ipld-eth-server/pkg/shared"
@@ -38,11 +36,11 @@ type Fetcher interface {
 // IPLDFetcher satisfies the IPLDFetcher interface for ethereum
 // It interfaces directly with PG-IPFS
 type IPLDFetcher struct {
-	db *postgres.DB
+	db *sqlx.DB
 }
 
 // NewIPLDFetcher creates a pointer to a new IPLDFetcher
-func NewIPLDFetcher(db *postgres.DB) *IPLDFetcher {
+func NewIPLDFetcher(db *sqlx.DB) *IPLDFetcher {
 	return &IPLDFetcher{
 		db: db,
 	}
@@ -102,65 +100,65 @@ func (f *IPLDFetcher) Fetch(cids CIDWrapper) (*IPLDs, error) {
 }
 
 // FetchHeaders fetches headers
-func (f *IPLDFetcher) FetchHeader(tx *sqlx.Tx, c models.HeaderModel) (ipfs.BlockModel, error) {
+func (f *IPLDFetcher) FetchHeader(tx *sqlx.Tx, c models.HeaderModel) (models.IPLDModel, error) {
 	log.Debug("fetching header ipld")
 	headerBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
 	if err != nil {
-		return ipfs.BlockModel{}, err
+		return models.IPLDModel{}, err
 	}
-	return ipfs.BlockModel{
+	return models.IPLDModel{
 		Data: headerBytes,
-		CID:  c.CID,
+		Key:  c.CID,
 	}, nil
 }
 
 // FetchUncles fetches uncles
-func (f *IPLDFetcher) FetchUncles(tx *sqlx.Tx, cids []models.UncleModel) ([]ipfs.BlockModel, error) {
+func (f *IPLDFetcher) FetchUncles(tx *sqlx.Tx, cids []models.UncleModel) ([]models.IPLDModel, error) {
 	log.Debug("fetching uncle iplds")
-	uncleIPLDs := make([]ipfs.BlockModel, len(cids))
+	uncleIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
 		uncleBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
 		if err != nil {
 			return nil, err
 		}
-		uncleIPLDs[i] = ipfs.BlockModel{
+		uncleIPLDs[i] = models.IPLDModel{
 			Data: uncleBytes,
-			CID:  c.CID,
+			Key:  c.CID,
 		}
 	}
 	return uncleIPLDs, nil
 }
 
 // FetchTrxs fetches transactions
-func (f *IPLDFetcher) FetchTrxs(tx *sqlx.Tx, cids []models.TxModel) ([]ipfs.BlockModel, error) {
+func (f *IPLDFetcher) FetchTrxs(tx *sqlx.Tx, cids []models.TxModel) ([]models.IPLDModel, error) {
 	log.Debug("fetching transaction iplds")
-	trxIPLDs := make([]ipfs.BlockModel, len(cids))
+	trxIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
 		txBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
 		if err != nil {
 			return nil, err
 		}
-		trxIPLDs[i] = ipfs.BlockModel{
+		trxIPLDs[i] = models.IPLDModel{
 			Data: txBytes,
-			CID:  c.CID,
+			Key:  c.CID,
 		}
 	}
 	return trxIPLDs, nil
 }
 
 // FetchRcts fetches receipts
-func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]ipfs.BlockModel, error) {
+func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]models.IPLDModel, error) {
 	log.Debug("fetching receipt iplds")
-	rctIPLDs := make([]ipfs.BlockModel, len(cids))
+	rctIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
 		rctBytes, err := shared.FetchIPLDByMhKey(tx, c.LeafMhKey)
 		if err != nil {
 			return nil, err
 		}
 		//nodeVal, err := DecodeLeafNode(rctBytes)
-		rctIPLDs[i] = ipfs.BlockModel{
+		rctIPLDs[i] = models.IPLDModel{
 			Data: rctBytes,
-			CID:  c.LeafCID,
+			Key:  c.LeafCID,
 		}
 	}
 	return rctIPLDs, nil
@@ -179,9 +177,9 @@ func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []models.StateNodeModel) ([]S
 			return nil, err
 		}
 		stateNodes = append(stateNodes, StateNode{
-			IPLD: ipfs.BlockModel{
+			IPLD: models.IPLDModel{
 				Data: stateBytes,
-				CID:  stateNode.CID,
+				Key:  stateNode.CID,
 			},
 			StateLeafKey: common.HexToHash(stateNode.StateKey),
 			Type:         ResolveToNodeType(stateNode.NodeType),
@@ -204,9 +202,9 @@ func (f *IPLDFetcher) FetchStorage(tx *sqlx.Tx, cids []models.StorageNodeWithSta
 			return nil, err
 		}
 		storageNodes = append(storageNodes, StorageNode{
-			IPLD: ipfs.BlockModel{
+			IPLD: models.IPLDModel{
 				Data: storageBytes,
-				CID:  storageNode.CID,
+				Key:  storageNode.CID,
 			},
 			StateLeafKey:   common.HexToHash(storageNode.StateKey),
 			StorageLeafKey: common.HexToHash(storageNode.StorageKey),
