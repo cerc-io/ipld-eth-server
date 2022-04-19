@@ -1,6 +1,6 @@
 name: Docker Build
 
-on: [pull_request]
+on: [pull_request_target]
 jobs:
   build:
     name: Run docker build
