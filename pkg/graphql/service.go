@@ -69,7 +69,7 @@ func (s *Service) Start(server *p2p.Server) error {
 		return err
 	}
 
-	handler := node.NewHTTPHandlerStack(s.handler, s.cors, s.vhosts)
+	handler := node.NewHTTPHandlerStack(s.handler, s.cors, s.vhosts, nil)
 
 	// start http server
 	_, addr, err := node.StartHTTPEndpoint(s.endpoint, rpc.DefaultHTTPTimeouts, handler)

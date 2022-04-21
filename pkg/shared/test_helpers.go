@@ -88,7 +88,7 @@ func SetupTestStateDiffIndexer(ctx context.Context, chainConfig *params.ChainCon
 		ChainID:      params.TestChainConfig.ChainID.Uint64(),
 	}
 
-	stateDiffIndexer, err := indexer.NewStateDiffIndexer(ctx, chainConfig, testInfo, getTestDBConfig())
+	_, stateDiffIndexer, err := indexer.NewStateDiffIndexer(ctx, chainConfig, testInfo, getTestDBConfig())
 	Expect(err).NotTo(HaveOccurred())
 
 	return stateDiffIndexer
