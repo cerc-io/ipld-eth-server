@@ -36,82 +36,163 @@ const (
 
 	RetrieveHeadersByHashesPgStr = `SELECT cid, data
 								FROM eth.header_cids
-									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
+									INNER JOIN public.blocks ON (
+										header_cids.mh_key = blocks.key
+										AND header_cids.block_number = blocks.block_number
+									)
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
 	RetrieveHeadersByBlockNumberPgStr = `SELECT cid, data
 								FROM eth.header_cids
-									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
+									INNER JOIN public.blocks ON (
+										header_cids.mh_key = blocks.key
+										AND header_cids.block_number = blocks.block_number
+									)
 								WHERE block_number = $1`
 	RetrieveHeaderByHashPgStr = `SELECT cid, data
 								FROM eth.header_cids
-									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
+									INNER JOIN public.blocks ON (
+										header_cids.mh_key = blocks.key
+										AND header_cids.block_number = blocks.block_number
+									)
 								WHERE block_hash = $1`
 	RetrieveUnclesByHashesPgStr = `SELECT cid, data
 								FROM eth.uncle_cids
-									INNER JOIN public.blocks ON (uncle_cids.mh_key = blocks.key)
+									INNER JOIN public.blocks ON (
+										uncle_cids.mh_key = blocks.key
+										AND uncle_cids.block_number = blocks.block_number
+									)
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
 	RetrieveUnclesByBlockHashPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
-											INNER JOIN eth.header_cids ON (uncle_cids.header_id = header_cids.block_hash)
-											INNER JOIN public.blocks ON (uncle_cids.mh_key = blocks.key)
+											INNER JOIN eth.header_cids ON (
+												uncle_cids.header_id = header_cids.block_hash
+												AND uncle_cids.block_number = header_cids.block_number
+											)
+											INNER JOIN public.blocks ON (
+												uncle_cids.mh_key = blocks.key
+												AND uncle_cids.block_number = blocks.block_number
+											)
 										WHERE block_hash = $1`
 	RetrieveUnclesByBlockNumberPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
-											INNER JOIN eth.header_cids ON (uncle_cids.header_id = header_cids.block_hash)
-											INNER JOIN public.blocks ON (uncle_cids.mh_key = blocks.key)
+											INNER JOIN eth.header_cids ON (
+												uncle_cids.header_id = header_cids.block_hash
+												AND uncle_cids.block_number = header_cids.block_number
+											)
+											INNER JOIN public.blocks ON (
+												uncle_cids.mh_key = blocks.key
+												AND uncle_cids.block_number = blocks.block_number
+											)
 										WHERE block_number = $1`
 	RetrieveUncleByHashPgStr = `SELECT cid, data
 								FROM eth.uncle_cids
-									INNER JOIN public.blocks ON (uncle_cids.mh_key = blocks.key)
+									INNER JOIN public.blocks ON (
+										uncle_cids.mh_key = blocks.key
+										AND uncle_cids.block_number = blocks.block_number
+									)
 								WHERE block_hash = $1`
 	RetrieveTransactionsByHashesPgStr = `SELECT cid, data
 									FROM eth.transaction_cids
-										INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
+										INNER JOIN public.blocks ON (
+											transaction_cids.mh_key = blocks.key
+											AND transaction_cids.block_number = blocks.block_number
+										)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
 	RetrieveTransactionsByBlockHashPgStr = `SELECT transaction_cids.cid, data
 											FROM eth.transaction_cids
-												INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
-												INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
+												INNER JOIN eth.header_cids ON (
+													transaction_cids.header_id = header_cids.block_hash
+													AND transaction_cids.block_number = header_cids.block_number
+												)
+												INNER JOIN public.blocks ON (
+													transaction_cids.mh_key = blocks.key
+													AND transaction_cids.block_number = blocks.block_number
+												)
 											WHERE block_hash = $1
 											ORDER BY eth.transaction_cids.index ASC`
 	RetrieveTransactionsByBlockNumberPgStr = `SELECT transaction_cids.cid, data
 											FROM eth.transaction_cids
-												INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
-												INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
+												INNER JOIN eth.header_cids ON (
+													transaction_cids.header_id = header_cids.block_hash
+													AND transaction_cids.block_number = header_cids.block_number
+												)
+												INNER JOIN public.blocks ON (
+													transaction_cids.mh_key = blocks.key
+													AND transaction_cids.block_number = blocks.block_number
+												)
 											WHERE block_number = $1
 											ORDER BY eth.transaction_cids.index ASC`
 	RetrieveTransactionByHashPgStr = `SELECT cid, data
 									FROM eth.transaction_cids
-										INNER JOIN public.blocks ON (transaction_cids.mh_key = blocks.key)
+										INNER JOIN public.blocks ON (
+											transaction_cids.mh_key = blocks.key
+											AND transaction_cids.block_number = blocks.block_number
+										)
 									WHERE tx_hash = $1`
 	RetrieveReceiptsByTxHashesPgStr = `SELECT receipt_cids.leaf_cid, data
 									FROM eth.receipt_cids
-										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.tx_hash)
-										INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
+										INNER JOIN eth.transaction_cids ON (
+											receipt_cids.tx_id = transaction_cids.tx_hash
+											AND receipt_cids.block_number = transaction_cids.block_number
+										)
+										INNER JOIN public.blocks ON (
+											receipt_cids.leaf_mh_key = blocks.key
+											AND receipt_cids.block_number = blocks.block_number
+										)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
 	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
 										FROM eth.receipt_cids
-											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.tx_hash)
-											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
-											INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
+											INNER JOIN eth.transaction_cids ON (
+												receipt_cids.tx_id = transaction_cids.tx_hash
+												AND receipt_cids.block_number = transaction_cids.block_number
+											)
+											INNER JOIN eth.header_cids ON (
+												transaction_cids.header_id = header_cids.block_hash
+												AND transaction_cids.block_number = header_cids.block_number
+											)
+											INNER JOIN public.blocks ON (
+												receipt_cids.leaf_mh_key = blocks.key
+												AND receipt_cids.block_number = blocks.block_number
+											)
 										WHERE block_hash = $1
 										ORDER BY eth.transaction_cids.index ASC`
 	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.leaf_cid, data
 										FROM eth.receipt_cids
-											INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.tx_hash)
-											INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
-											INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
+											INNER JOIN eth.transaction_cids ON (
+												receipt_cids.tx_id = transaction_cids.tx_hash
+												AND receipt_cids.block_number = transaction_cids.block_number
+											)
+											INNER JOIN eth.header_cids ON (
+												transaction_cids.header_id = header_cids.block_hash
+												AND transaction_cids.block_number = header_cids.block_number
+											)
+											INNER JOIN public.blocks ON (
+												receipt_cids.leaf_mh_key = blocks.key
+												AND receipt_cids.block_number = blocks.block_number
+											)
 										WHERE block_number = $1
 										ORDER BY eth.transaction_cids.index ASC`
 	RetrieveReceiptByTxHashPgStr = `SELECT receipt_cids.leaf_cid, data
 									FROM eth.receipt_cids
-										INNER JOIN eth.transaction_cids ON (receipt_cids.tx_id = transaction_cids.tx_hash)
-										INNER JOIN public.blocks ON (receipt_cids.leaf_mh_key = blocks.key)
+										INNER JOIN eth.transaction_cids ON (
+											receipt_cids.tx_id = transaction_cids.tx_hash
+											AND receipt_cids.block_number = transaction_cids.block_number
+										)
+										INNER JOIN public.blocks ON (
+											receipt_cids.leaf_mh_key = blocks.key
+											AND receipt_cids.block_number = blocks.block_number
+										)
 									WHERE tx_hash = $1`
 	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, data, state_cids.node_type
 												FROM eth.state_cids
-													INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
-													INNER JOIN public.blocks ON (state_cids.mh_key = blocks.key)
+													INNER JOIN eth.header_cids ON (
+														state_cids.header_id = header_cids.block_hash
+														AND state_cids.block_number = header_cids.block_number
+													)
+													INNER JOIN public.blocks ON (
+														state_cids.mh_key = blocks.key
+														AND state_cids.block_number = blocks.block_number
+													)
 												WHERE state_leaf_key = $1
 												AND block_number <= (SELECT block_number
 																	FROM eth.header_cids
@@ -121,8 +202,14 @@ const (
 												LIMIT 1`
 	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data, state_cids.node_type
 													FROM eth.state_cids
-														INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
-														INNER JOIN public.blocks ON (state_cids.mh_key = blocks.key)
+														INNER JOIN eth.header_cids ON (
+															state_cids.header_id = header_cids.block_hash
+															AND state_cids.block_number = header_cids.block_number
+														)
+														INNER JOIN public.blocks ON (
+															state_cids.mh_key = blocks.key
+															AND state_cids.block_number = blocks.block_number
+														)
 													WHERE state_leaf_key = $1
 													AND block_number <= $2
 													ORDER BY block_number DESC
@@ -132,9 +219,16 @@ const (
 																		INNER JOIN eth.state_cids ON (
 																			storage_cids.header_id = state_cids.header_id
 																			AND storage_cids.state_path = state_cids.state_path
+																			AND storage_cids.block_number = state_cids.block_number
 																		)
-																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
-																		INNER JOIN public.blocks ON (storage_cids.mh_key = blocks.key)
+																		INNER JOIN eth.header_cids ON (
+																			state_cids.header_id = header_cids.block_hash
+																			AND state_cids.block_number = header_cids.block_number
+																		)
+																		INNER JOIN public.blocks ON (
+																			storage_cids.mh_key = blocks.key
+																			AND storage_cids.block_number = blocks.block_number
+																		)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
 																	AND block_number <= $3
@@ -145,9 +239,16 @@ const (
 																		INNER JOIN eth.state_cids ON (
 																			storage_cids.header_id = state_cids.header_id
 																			AND storage_cids.state_path = state_cids.state_path
+																			AND storage_cids.block_number = state_cids.block_number
 																		)
-																		INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
-																		INNER JOIN public.blocks ON (storage_cids.mh_key = blocks.key)
+																		INNER JOIN eth.header_cids ON (
+																			state_cids.header_id = header_cids.block_hash
+																			AND state_cids.block_number = header_cids.block_number
+																		)
+																		INNER JOIN public.blocks ON (
+																			storage_cids.mh_key = blocks.key
+																			AND storage_cids.block_number = blocks.block_number
+																		)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
 																	AND block_number <= (SELECT block_number
