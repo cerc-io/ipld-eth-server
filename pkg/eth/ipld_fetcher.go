@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
@@ -102,7 +103,12 @@ func (f *IPLDFetcher) Fetch(cids CIDWrapper) (*IPLDs, error) {
 // FetchHeaders fetches headers
 func (f *IPLDFetcher) FetchHeader(tx *sqlx.Tx, c models.HeaderModel) (models.IPLDModel, error) {
 	log.Debug("fetching header ipld")
-	headerBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
+	blockNumber, err := strconv.ParseUint(c.BlockNumber, 10, 64)
+	if err != nil {
+		return models.IPLDModel{}, err
+	}
+
+	headerBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, c.MhKey, blockNumber)
 	if err != nil {
 		return models.IPLDModel{}, err
 	}
@@ -117,7 +123,11 @@ func (f *IPLDFetcher) FetchUncles(tx *sqlx.Tx, cids []models.UncleModel) ([]mode
 	log.Debug("fetching uncle iplds")
 	uncleIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
-		uncleBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
+		blockNumber, err := strconv.ParseUint(c.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		uncleBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, c.MhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +144,11 @@ func (f *IPLDFetcher) FetchTrxs(tx *sqlx.Tx, cids []models.TxModel) ([]models.IP
 	log.Debug("fetching transaction iplds")
 	trxIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
-		txBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
+		blockNumber, err := strconv.ParseUint(c.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		txBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, c.MhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +165,11 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]mode
 	log.Debug("fetching receipt iplds")
 	rctIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
-		rctBytes, err := shared.FetchIPLDByMhKey(tx, c.LeafMhKey)
+		blockNumber, err := strconv.ParseUint(c.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		rctBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, c.LeafMhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +190,11 @@ func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []models.StateNodeModel) ([]S
 		if stateNode.CID == "" {
 			continue
 		}
-		stateBytes, err := shared.FetchIPLDByMhKey(tx, stateNode.MhKey)
+		blockNumber, err := strconv.ParseUint(stateNode.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		stateBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, stateNode.MhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -197,7 +219,11 @@ func (f *IPLDFetcher) FetchStorage(tx *sqlx.Tx, cids []models.StorageNodeWithSta
 		if storageNode.CID == "" || storageNode.StateKey == "" {
 			continue
 		}
-		storageBytes, err := shared.FetchIPLDByMhKey(tx, storageNode.MhKey)
+		blockNumber, err := strconv.ParseUint(storageNode.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		storageBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, storageNode.MhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}

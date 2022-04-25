@@ -77,6 +77,13 @@ func FetchIPLDByMhKey(tx *sqlx.Tx, mhKey string) ([]byte, error) {
 	return block, tx.Get(&block, pgStr, mhKey)
 }
 
+// FetchIPLDByMhKeyAndBlockNumber is used to retrieve an ipld from Postgres blockstore with the provided tx, mhkey string and blockNumber
+func FetchIPLDByMhKeyAndBlockNumber(tx *sqlx.Tx, mhKey string, blockNumber uint64) ([]byte, error) {
+	pgStr := `SELECT data FROM public.blocks WHERE key = $1 AND block_number = $2`
+	var block []byte
+	return block, tx.Get(&block, pgStr, mhKey, blockNumber)
+}
+
 // MultihashKeyFromCID converts a cid into a blockstore-prefixed multihash db key string
 func MultihashKeyFromCID(c cid.Cid) string {
 	dbKey := dshelp.MultihashToDsKey(c.Hash())
