@@ -194,11 +194,11 @@ const (
 														AND state_cids.block_number = blocks.block_number
 													)
 												WHERE state_leaf_key = $1
-												AND block_number <= (SELECT block_number
+												AND header_cids.block_number <= (SELECT block_number
 																	FROM eth.header_cids
 																	WHERE block_hash = $2)
-												AND header_cids.block_hash = (SELECT canonical_header_hash(block_number))
-												ORDER BY block_number DESC
+												AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
+												ORDER BY header_cids.block_number DESC
 												LIMIT 1`
 	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data, state_cids.node_type
 													FROM eth.state_cids
@@ -251,11 +251,11 @@ const (
 																		)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
-																	AND block_number <= (SELECT block_number
+																	AND header_cids.block_number <= (SELECT block_number
 																						FROM eth.header_cids
 																						WHERE block_hash = $3)
-																	AND header_cids.block_hash = (SELECT canonical_header_hash(block_number))
-																	ORDER BY block_number DESC
+																	AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
+																	ORDER BY header_cids.block_number DESC
 																	LIMIT 1`
 )
 

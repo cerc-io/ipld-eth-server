@@ -248,6 +248,7 @@ var _ = Describe("Retriever", func() {
 				AND header_cids.block_number = $1
 				ORDER BY transaction_cids.index`
 			err := db.Select(&expectedRctCIDsAndLeafNodes, pgStr, test_helpers.BlockNumber.Uint64())
+			Expect(err).ToNot(HaveOccurred())
 			cids, empty, err := retriever.Retrieve(openFilter, 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())
@@ -411,12 +412,13 @@ var _ = Describe("Retriever", func() {
 			Expect(len(cids7[0].StorageNodes)).To(Equal(0))
 			Expect(len(cids7[0].StateNodes)).To(Equal(1))
 			Expect(cids7[0].StateNodes[0]).To(Equal(models.StateNodeModel{
-				HeaderID: cids7[0].StateNodes[0].HeaderID,
-				NodeType: 2,
-				StateKey: common.BytesToHash(test_helpers.AccountLeafKey).Hex(),
-				CID:      test_helpers.State2CID.String(),
-				MhKey:    test_helpers.State2MhKey,
-				Path:     []byte{'\x0c'},
+				BlockNumber: "1",
+				HeaderID:    cids7[0].StateNodes[0].HeaderID,
+				NodeType:    2,
+				StateKey:    common.BytesToHash(test_helpers.AccountLeafKey).Hex(),
+				CID:         test_helpers.State2CID.String(),
+				MhKey:       test_helpers.State2MhKey,
+				Path:        []byte{'\x0c'},
 			}))
 
 			_, empty, err = retriever.Retrieve(rctTopicsAndAddressFilterFail, 1)
