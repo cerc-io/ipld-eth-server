@@ -592,7 +592,7 @@ func compareTxs(tx1 *types.Transaction, tx2 *types.Transaction) {
 	Expect(tx1.Hash()).To(Equal(tx2.Hash()))
 	Expect(tx1.Size()).To(Equal(tx2.Size()))
 
-	signer := types.NewEIP155Signer(big.NewInt(4))
+	signer := types.NewEIP155Signer(big.NewInt(99))
 
 	gethSender, err := types.Sender(signer, tx1)
 	Expect(err).ToNot(HaveOccurred())
