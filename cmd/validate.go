@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
-	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+	ipfsethdb "github.com/vulcanize/ipfs-ethdb/v3/postgres"
 
 	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
 )

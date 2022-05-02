@@ -1752,9 +1752,10 @@ github.com/vulcanize/gap-filler v0.3.1 h1:N5d+jCJo/VTWFvBSbTD7biRhK/OqDZzi1tgA85
 github.com/vulcanize/gap-filler v0.3.1/go.mod h1:qowG1cgshVpBqMokiWro/1xhh0uypw7oAu8FQ42JMy4=
 github.com/vulcanize/go-ethereum v1.10.17-statediff-3.2.0 h1:BfExzgnQhpJesYFiwMAHGTYwPWBTwXEQiSvBWJnYhr4=
 github.com/vulcanize/go-ethereum v1.10.17-statediff-3.2.0/go.mod h1:mDwZX+QoWdqzQo6SDG3YVqCYACutcSG6uzpziMvTu28=
+github.com/vulcanize/ipfs-ethdb v0.0.6 h1:Jl+YHtee5Zd8jD9wix2aJLYXwX/WpPt37QBzoz8pVwM=
 github.com/vulcanize/ipfs-ethdb v0.0.6/go.mod h1:DvZpevG89N5ST26WeaErQ+31Q1lQwGBEhn/s9wgGo3g=
-github.com/vulcanize/ipfs-ethdb v0.0.7-0.20220502095257-2966e45d0016 h1:G2rtWZKBB9NEED4dnb3S3FbWmLqt/20iYgi0gqGq/ys=
-github.com/vulcanize/ipfs-ethdb v0.0.7-0.20220502095257-2966e45d0016/go.mod h1:ZjkKyH6JW9DJvdpPLT6qy4sdodJhFIBLLzgMh6kMSkk=
+github.com/vulcanize/ipfs-ethdb/v3 v3.0.1 h1:gm+6SgxcNOCz6mgwvhsxORLXsr9yIFvbJDuoAK85ONs=
+github.com/vulcanize/ipfs-ethdb/v3 v3.0.1/go.mod h1:SPBTTl5CqRexYfkI66pbzE5nQziYpoQ+7hH0XveA9IU=
 github.com/wangjia184/sortedset v0.0.0-20160527075905-f5d03557ba30/go.mod h1:YkocrP2K2tcw938x9gCOmT5G5eCD6jsTz0SZuyAqwIE=
 github.com/warpfork/go-testmark v0.3.0 h1:Q81c4u7hT+BR5kNfNQhEF0VT2pmL7+Kk0wD+ORYl7iA=
 github.com/warpfork/go-testmark v0.3.0/go.mod h1:jhEf8FVxd+F17juRubpmut64NEG6I2rgkUhlcqqXwE0=

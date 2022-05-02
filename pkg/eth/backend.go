@@ -44,7 +44,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
-	ipfsethdb "github.com/vulcanize/ipfs-ethdb/postgres"
+	ipfsethdb "github.com/vulcanize/ipfs-ethdb/v3/postgres"
 
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 

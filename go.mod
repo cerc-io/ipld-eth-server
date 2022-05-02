@@ -25,7 +25,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/vulcanize/eth-ipfs-state-validator v0.1.0
 	github.com/vulcanize/gap-filler v0.3.1
-	github.com/vulcanize/ipfs-ethdb v0.0.7-0.20220502095257-2966e45d0016
+	github.com/vulcanize/ipfs-ethdb/v3 v3.0.1
 )
 
 replace github.com/ethereum/go-ethereum v1.10.17 => github.com/vulcanize/go-ethereum v1.10.17-statediff-3.2.0
