@@ -20,10 +20,10 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	github.com/prometheus/client_golang v1.11.0
-	github.com/sirupsen/logrus v1.7.0
-	github.com/spf13/cobra v1.1.1
-	github.com/spf13/viper v1.7.0
-	github.com/vulcanize/eth-ipfs-state-validator v0.1.0
+	github.com/sirupsen/logrus v1.8.1
+	github.com/spf13/cobra v1.4.0
+	github.com/spf13/viper v1.11.0
+	github.com/vulcanize/eth-ipfs-state-validator/v3 v3.0.0
 	github.com/vulcanize/gap-filler v0.3.1
 	github.com/vulcanize/ipfs-ethdb/v3 v3.0.1
 )

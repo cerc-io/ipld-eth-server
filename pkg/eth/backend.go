@@ -43,7 +43,7 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-	validator "github.com/vulcanize/eth-ipfs-state-validator/pkg"
+	validator "github.com/vulcanize/eth-ipfs-state-validator/v3/pkg"
 	ipfsethdb "github.com/vulcanize/ipfs-ethdb/v3/postgres"
 
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
