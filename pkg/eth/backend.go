@@ -84,7 +84,7 @@ const (
 			AND transaction_cids.header_id = header_cids.block_hash
 			AND transaction_cids.block_number = header_cids.block_number
 			AND transaction_cids.tx_hash = $1`
-	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
+	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT COALESCE(code_hash, '') as code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
 											WHERE state_accounts.header_id = state_cids.header_id
 											AND state_accounts.state_path = state_cids.state_path
 											AND state_accounts.block_number = state_cids.block_number

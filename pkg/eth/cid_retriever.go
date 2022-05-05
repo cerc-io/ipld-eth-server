@@ -194,7 +194,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID
 	id := 1
 	pgStr := fmt.Sprintf(`SELECT CAST(transaction_cids.block_number as Text), transaction_cids.tx_hash,
 				transaction_cids.header_id,transaction_cids.cid, transaction_cids.mh_key, COALESCE(transaction_cids.dst, '') as dst,
-				transaction_cids.src, transaction_cids.index, COALESCE(transaction_cids.tx_data, '') as tx_data
+				COALESCE(transaction_cids.src, '') as src, transaction_cids.index, COALESCE(transaction_cids.tx_data, '') as tx_data
 				FROM eth.transaction_cids
 				INNER JOIN eth.header_cids ON (
 						transaction_cids.header_id = header_cids.block_hash
@@ -437,7 +437,7 @@ func (ecr *CIDRetriever) RetrieveStateCIDs(tx *sqlx.Tx, stateFilter StateFilter,
 	log.Debug("retrieving state cids for header id ", headerID)
 	args := make([]interface{}, 0, 2)
 	pgStr := `SELECT CAST(state_cids.block_number as Text), state_cids.header_id,
-			state_cids.state_leaf_key, state_cids.node_type, state_cids.cid, state_cids.mh_key, state_cids.state_path
+			state_cids.state_leaf_key, state_cids.node_type, state_cids.cid, state_cids.mh_key, COALESCE(state_cids.state_path, '') as state_path
 			FROM eth.state_cids
 			INNER JOIN eth.header_cids ON (
 				state_cids.header_id = header_cids.block_hash
@@ -618,7 +618,7 @@ func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.H
 func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID string, blockNumber int64) ([]models.TxModel, error) {
 	log.Debug("retrieving tx cids for block id ", headerID)
 	pgStr := `SELECT CAST(block_number as Text), header_id, index, tx_hash, cid, mh_key,
-			COALESCE(dst, '') as dst, src, COALESCE(tx_data, '') as tx_data, tx_type, value
+			COALESCE(dst, '') as dst, COALESCE(src, '') as src, COALESCE(tx_data, '') as tx_data, tx_type, value
 			FROM eth.transaction_cids
 			WHERE header_id = $1 AND block_number = $2
 			ORDER BY index`
