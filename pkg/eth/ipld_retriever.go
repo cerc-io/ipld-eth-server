@@ -34,35 +34,35 @@ const (
 	// https://github.com/vulcanize/go-ethereum/blob/271f4d01e7e2767ffd8e0cd469bf545be96f2a84/statediff/indexer/helpers.go#L34
 	removedNode = 3
 
-	RetrieveHeadersByHashesPgStr = `SELECT cid, data
+	RetrieveHeadersByHashesPgStr = `SELECT cid, COALESCE(data, '') as data
 								FROM eth.header_cids
 									INNER JOIN public.blocks ON (
 										header_cids.mh_key = blocks.key
 										AND header_cids.block_number = blocks.block_number
 									)
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveHeadersByBlockNumberPgStr = `SELECT cid, data
+	RetrieveHeadersByBlockNumberPgStr = `SELECT cid, COALESCE(data, '') as data
 								FROM eth.header_cids
 									INNER JOIN public.blocks ON (
 										header_cids.mh_key = blocks.key
 										AND header_cids.block_number = blocks.block_number
 									)
 								WHERE block_number = $1`
-	RetrieveHeaderByHashPgStr = `SELECT cid, data
+	RetrieveHeaderByHashPgStr = `SELECT cid, COALESCE(data, '') as data
 								FROM eth.header_cids
 									INNER JOIN public.blocks ON (
 										header_cids.mh_key = blocks.key
 										AND header_cids.block_number = blocks.block_number
 									)
 								WHERE block_hash = $1`
-	RetrieveUnclesByHashesPgStr = `SELECT cid, data
+	RetrieveUnclesByHashesPgStr = `SELECT cid, COALESCE(data, '') as data
 								FROM eth.uncle_cids
 									INNER JOIN public.blocks ON (
 										uncle_cids.mh_key = blocks.key
 										AND uncle_cids.block_number = blocks.block_number
 									)
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveUnclesByBlockHashPgStr = `SELECT uncle_cids.cid, data
+	RetrieveUnclesByBlockHashPgStr = `SELECT uncle_cids.cid, COALESCE(data, '') as data
 										FROM eth.uncle_cids
 											INNER JOIN eth.header_cids ON (
 												uncle_cids.header_id = header_cids.block_hash
@@ -73,7 +73,7 @@ const (
 												AND uncle_cids.block_number = blocks.block_number
 											)
 										WHERE block_hash = $1`
-	RetrieveUnclesByBlockNumberPgStr = `SELECT uncle_cids.cid, data
+	RetrieveUnclesByBlockNumberPgStr = `SELECT uncle_cids.cid, COALESCE(data, '') as data
 										FROM eth.uncle_cids
 											INNER JOIN eth.header_cids ON (
 												uncle_cids.header_id = header_cids.block_hash
@@ -84,21 +84,21 @@ const (
 												AND uncle_cids.block_number = blocks.block_number
 											)
 										WHERE block_number = $1`
-	RetrieveUncleByHashPgStr = `SELECT cid, data
+	RetrieveUncleByHashPgStr = `SELECT cid, COALESCE(data, '') as data
 								FROM eth.uncle_cids
 									INNER JOIN public.blocks ON (
 										uncle_cids.mh_key = blocks.key
 										AND uncle_cids.block_number = blocks.block_number
 									)
 								WHERE block_hash = $1`
-	RetrieveTransactionsByHashesPgStr = `SELECT cid, data
+	RetrieveTransactionsByHashesPgStr = `SELECT cid, COALESCE(data, '') as data
 									FROM eth.transaction_cids
 										INNER JOIN public.blocks ON (
 											transaction_cids.mh_key = blocks.key
 											AND transaction_cids.block_number = blocks.block_number
 										)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveTransactionsByBlockHashPgStr = `SELECT transaction_cids.cid, data
+	RetrieveTransactionsByBlockHashPgStr = `SELECT transaction_cids.cid, COALESCE(data, '') as data
 											FROM eth.transaction_cids
 												INNER JOIN eth.header_cids ON (
 													transaction_cids.header_id = header_cids.block_hash
@@ -110,7 +110,7 @@ const (
 												)
 											WHERE block_hash = $1
 											ORDER BY eth.transaction_cids.index ASC`
-	RetrieveTransactionsByBlockNumberPgStr = `SELECT transaction_cids.cid, data
+	RetrieveTransactionsByBlockNumberPgStr = `SELECT transaction_cids.cid, COALESCE(data, '') as data
 											FROM eth.transaction_cids
 												INNER JOIN eth.header_cids ON (
 													transaction_cids.header_id = header_cids.block_hash
@@ -122,14 +122,14 @@ const (
 												)
 											WHERE block_number = $1
 											ORDER BY eth.transaction_cids.index ASC`
-	RetrieveTransactionByHashPgStr = `SELECT cid, data
+	RetrieveTransactionByHashPgStr = `SELECT cid, COALESCE(data, '') as data
 									FROM eth.transaction_cids
 										INNER JOIN public.blocks ON (
 											transaction_cids.mh_key = blocks.key
 											AND transaction_cids.block_number = blocks.block_number
 										)
 									WHERE tx_hash = $1`
-	RetrieveReceiptsByTxHashesPgStr = `SELECT receipt_cids.leaf_cid, data
+	RetrieveReceiptsByTxHashesPgStr = `SELECT receipt_cids.leaf_cid, COALESCE(data, '') as data
 									FROM eth.receipt_cids
 										INNER JOIN eth.transaction_cids ON (
 											receipt_cids.tx_id = transaction_cids.tx_hash
@@ -140,7 +140,7 @@ const (
 											AND receipt_cids.block_number = blocks.block_number
 										)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
+	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.leaf_cid, COALESCE(data, '') as data, eth.transaction_cids.tx_hash
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (
 												receipt_cids.tx_id = transaction_cids.tx_hash
@@ -156,7 +156,7 @@ const (
 											)
 										WHERE block_hash = $1
 										ORDER BY eth.transaction_cids.index ASC`
-	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.leaf_cid, data
+	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.leaf_cid, COALESCE(data, '') as data
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (
 												receipt_cids.tx_id = transaction_cids.tx_hash
@@ -172,7 +172,7 @@ const (
 											)
 										WHERE block_number = $1
 										ORDER BY eth.transaction_cids.index ASC`
-	RetrieveReceiptByTxHashPgStr = `SELECT receipt_cids.leaf_cid, data
+	RetrieveReceiptByTxHashPgStr = `SELECT receipt_cids.leaf_cid, COALESCE(data, '') as data
 									FROM eth.receipt_cids
 										INNER JOIN eth.transaction_cids ON (
 											receipt_cids.tx_id = transaction_cids.tx_hash
@@ -183,7 +183,7 @@ const (
 											AND receipt_cids.block_number = blocks.block_number
 										)
 									WHERE tx_hash = $1`
-	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, data, state_cids.node_type
+	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, COALESCE(data, '') as data, state_cids.node_type
 												FROM eth.state_cids
 													INNER JOIN eth.header_cids ON (
 														state_cids.header_id = header_cids.block_hash
@@ -200,7 +200,7 @@ const (
 												AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 												ORDER BY header_cids.block_number DESC
 												LIMIT 1`
-	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data, state_cids.node_type
+	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, COALESCE(data, '') as data, state_cids.node_type
 													FROM eth.state_cids
 														INNER JOIN eth.header_cids ON (
 															state_cids.header_id = header_cids.block_hash
@@ -214,7 +214,7 @@ const (
 													AND block_number <= $2
 													ORDER BY block_number DESC
 													LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, COALESCE(data, '') as data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (
 																			storage_cids.header_id = state_cids.header_id
@@ -234,7 +234,7 @@ const (
 																	AND block_number <= $3
 																	ORDER BY block_number DESC
 																	LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, COALESCE(data, '') as data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (
 																			storage_cids.header_id = state_cids.header_id

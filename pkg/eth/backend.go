@@ -69,7 +69,7 @@ const (
 										AND header_cids.block_number = blocks.block_number
 									)
 									WHERE block_hash = (SELECT canonical_header_hash($1))`
-	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
+	RetrieveCanonicalHeaderByNumber = `SELECT cid, COALESCE(data, '') as data FROM eth.header_cids
 									INNER JOIN public.blocks ON (
 										header_cids.mh_key = blocks.key
 										AND header_cids.block_number = blocks.block_number
@@ -77,7 +77,7 @@ const (
 									WHERE block_hash = (SELECT canonical_header_hash($1))`
 	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
-	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, transaction_cids.block_number, index
+	RetrieveRPCTransaction = `SELECT COALESCE(blocks.data, '') as data, block_hash, transaction_cids.block_number, index
 			FROM public.blocks, eth.transaction_cids, eth.header_cids
 			WHERE blocks.key = transaction_cids.mh_key
 			AND blocks.block_number = transaction_cids.block_number
@@ -97,7 +97,7 @@ const (
 											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 											ORDER BY header_cids.block_number DESC
 											LIMIT 1`
-	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
+	RetrieveCodeByMhKey = `SELECT COALESCE(data, '') as data FROM public.blocks WHERE key = $1`
 )
 
 const (

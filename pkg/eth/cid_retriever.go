@@ -193,8 +193,8 @@ func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID
 	results := make([]models.TxModel, 0)
 	id := 1
 	pgStr := fmt.Sprintf(`SELECT CAST(transaction_cids.block_number as Text), transaction_cids.tx_hash,
-				transaction_cids.header_id,transaction_cids.cid, transaction_cids.mh_key, transaction_cids.dst,
-				transaction_cids.src, transaction_cids.index, transaction_cids.tx_data
+				transaction_cids.header_id,transaction_cids.cid, transaction_cids.mh_key, COALESCE(transaction_cids.dst, '') as dst,
+				transaction_cids.src, transaction_cids.index, COALESCE(transaction_cids.tx_data, '') as tx_data
 				FROM eth.transaction_cids
 				INNER JOIN eth.header_cids ON (
 						transaction_cids.header_id = header_cids.block_hash
@@ -300,7 +300,7 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 	log.Debug("retrieving receipt cids for header id ", headerID)
 	args := make([]interface{}, 0, 4)
 	pgStr := `SELECT CAST(receipt_cids.block_number as Text), receipt_cids.tx_id, receipt_cids.leaf_cid,
-			receipt_cids.leaf_mh_key, receipt_cids.contract, receipt_cids.contract_hash
+			receipt_cids.leaf_mh_key, COALESCE(receipt_cids.contract, '') as contract, COALESCE(receipt_cids.contract_hash, '') as contract_hash
  			FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
 			WHERE receipt_cids.tx_id = transaction_cids.tx_hash
 			AND receipt_cids.block_number = transaction_cids.block_number
@@ -324,8 +324,8 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	args := make([]interface{}, 0, 4)
 	id := 1
 	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
-       			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
-       			eth.log_cids.log_data, eth.transaction_cids.tx_hash, data, eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status
+       			eth.log_cids.address, COALESCE(eth.log_cids.topic0, '') as topic0, COALESCE(eth.log_cids.topic1, '') as topic1, COALESCE(eth.log_cids.topic2, '') as topic2, COALESCE(eth.log_cids.topic3, '') as topic3,
+       			COALESCE(eth.log_cids.log_data, '') as log_data, eth.transaction_cids.tx_hash, data, eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status
 				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
 				WHERE eth.log_cids.rct_id = receipt_cids.tx_id
 				AND eth.log_cids.block_number = eth.receipt_cids.block_number
@@ -358,8 +358,8 @@ func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilte
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
-       			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
-       			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index,
+       			eth.log_cids.address, COALESCE(eth.log_cids.topic0, '') as topic0, COALESCE(eth.log_cids.topic1, '') as topic1, COALESCE(eth.log_cids.topic2, '') as topic2, COALESCE(eth.log_cids.topic3, '') as topic3,
+       			COALESCE(eth.log_cids.log_data, '') as log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index,
        			header_cids.block_hash, CAST(header_cids.block_number as Text)
 							FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids
 							WHERE eth.log_cids.rct_id = receipt_cids.tx_id
@@ -466,7 +466,7 @@ func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageF
 	log.Debug("retrieving storage cids for header id ", headerID)
 	args := make([]interface{}, 0, 3)
 	pgStr := `SELECT CAST(storage_cids.block_number as Text), storage_cids.header_id, storage_cids.storage_leaf_key,
-			storage_cids.node_type, storage_cids.cid, storage_cids.mh_key, storage_cids.storage_path, storage_cids.state_path,
+			storage_cids.node_type, storage_cids.cid, storage_cids.mh_key, COALESCE(storage_cids.storage_path, '') as storage_path, storage_cids.state_path,
 			state_cids.state_leaf_key
  			FROM eth.storage_cids, eth.state_cids, eth.header_cids
 			WHERE storage_cids.header_id = state_cids.header_id
@@ -618,7 +618,7 @@ func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.H
 func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID string, blockNumber int64) ([]models.TxModel, error) {
 	log.Debug("retrieving tx cids for block id ", headerID)
 	pgStr := `SELECT CAST(block_number as Text), header_id, index, tx_hash, cid, mh_key,
-			dst, src, tx_data, tx_type, value
+			COALESCE(dst, '') as dst, src, COALESCE(tx_data, '') as tx_data, tx_type, value
 			FROM eth.transaction_cids
 			WHERE header_id = $1 AND block_number = $2
 			ORDER BY index`
@@ -630,7 +630,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID string, 
 func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txHashes []string) ([]models.ReceiptModel, error) {
 	log.Debugf("retrieving receipt cids for tx hashes %v", txHashes)
 	pgStr := `SELECT CAST(receipt_cids.block_number as Text), receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
- 			receipt_cids.contract, receipt_cids.contract_hash
+			COALESCE(receipt_cids.contract, '') as contract, COALESCE(receipt_cids.contract_hash, '') as contract_hash
 			FROM eth.receipt_cids, eth.transaction_cids
 			WHERE tx_id = ANY($1)
 			AND receipt_cids.tx_id = transaction_cids.tx_hash
