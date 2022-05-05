@@ -1,24 +1,6 @@
 version: '3.2'
 
 services:
-  dapptools:
-    restart: unless-stopped
-    depends_on:
-      - ipld-eth-db
-    image: vulcanize/dapptools:v0.30.0-v1.10.17-statediff-3.2.0
-    environment:
-      DB_USER: vdbm
-      DB_NAME: vulcanize_testing
-      DB_HOST: ipld-eth-db
-      DB_PORT: 5432
-      DB_PASSWORD: password
-      DB_WRITE: $DB_WRITE
-      DB_TYPE: postgres
-      DB_DRIVER: sqlx
-    ports:
-      - "127.0.0.1:8545:8545"
-      - "127.0.0.1:8546:8546"
-
   ipld-eth-db:
     restart: always
     image: vulcanize/ipld-eth-db:v3.2.0
