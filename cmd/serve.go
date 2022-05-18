@@ -101,9 +101,11 @@ func serve() {
 		logWithCommand.Info("state validator disabled")
 	}
 
+	var watchedAddressFillService *fill.Service
 	if serverConfig.WatchedAddressGapFillerEnabled {
-		service := fill.New(serverConfig)
-		go service.Start()
+		watchedAddressFillService = fill.New(serverConfig)
+		wg.Add(1)
+		go watchedAddressFillService.Start(wg)
 		logWithCommand.Info("watched address gap filler enabled")
 	} else {
 		logWithCommand.Info("watched address gap filler disabled")
@@ -114,6 +116,9 @@ func serve() {
 	<-shutdown
 	if graphQL != nil {
 		graphQL.Stop()
+	}
+	if watchedAddressFillService != nil {
+		watchedAddressFillService.Stop()
 	}
 	server.Stop()
 	wg.Wait()
