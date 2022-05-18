@@ -27,13 +27,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/viper"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/pkg/prom"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
 	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
 )
 
@@ -208,7 +207,7 @@ func NewConfig() (*Config, error) {
 	c.IpldGraphqlEnabled = ipldGraphqlEnabled
 
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB, err := shared.NewDB(c.DBConfig.DbConnectionString(), c.DBConfig)
+	serveDB, err := ethServerShared.NewDB(c.DBConfig.DbConnectionString(), c.DBConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -229,9 +228,9 @@ func NewConfig() (*Config, error) {
 	}
 	chainConfigPath := viper.GetString("ethereum.chainConfig")
 	if chainConfigPath != "" {
-		c.ChainConfig, err = eth.LoadConfig(chainConfigPath)
+		c.ChainConfig, err = statediff.LoadConfig(chainConfigPath)
 	} else {
-		c.ChainConfig, err = eth.ChainConfig(nodeInfo.ChainID)
+		c.ChainConfig, err = statediff.ChainConfig(nodeInfo.ChainID)
 	}
 
 	c.loadGroupCacheConfig()

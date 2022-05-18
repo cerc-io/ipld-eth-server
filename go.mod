@@ -28,4 +28,4 @@ require (
 	github.com/vulcanize/ipfs-ethdb/v3 v3.0.1
 )
 
-replace github.com/ethereum/go-ethereum v1.10.17 => github.com/vulcanize/go-ethereum v1.10.17-statediff-3.2.0
+replace github.com/ethereum/go-ethereum v1.10.17 => github.com/vulcanize/go-ethereum v1.10.17-statediff-3.2.1
