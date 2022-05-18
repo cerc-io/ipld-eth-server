@@ -27,14 +27,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/viper"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/pkg/prom"
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
-	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/prom"
+	ethServerShared "github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 // Env variables
@@ -56,6 +55,9 @@ const (
 
 	VALIDATOR_ENABLED         = "VALIDATOR_ENABLED"
 	VALIDATOR_EVERY_NTH_BLOCK = "VALIDATOR_EVERY_NTH_BLOCK"
+
+	WATCHED_ADDRESS_GAP_FILLER_ENABLED  = "WATCHED_ADDRESS_GAP_FILLER_ENABLED"
+	WATCHED_ADDRESS_GAP_FILLER_INTERVAL = "WATCHED_ADDRESS_GAP_FILLER_INTERVAL"
 )
 
 // Config struct
@@ -96,6 +98,9 @@ type Config struct {
 
 	StateValidationEnabled       bool
 	StateValidationEveryNthBlock uint64
+
+	WatchedAddressGapFillerEnabled bool
+	WatchedAddressGapFillInterval  int
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -202,7 +207,7 @@ func NewConfig() (*Config, error) {
 	c.IpldGraphqlEnabled = ipldGraphqlEnabled
 
 	overrideDBConnConfig(&c.DBConfig)
-	serveDB, err := shared.NewDB(c.DBConfig.DbConnectionString(), c.DBConfig)
+	serveDB, err := ethServerShared.NewDB(c.DBConfig.DbConnectionString(), c.DBConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -223,14 +228,16 @@ func NewConfig() (*Config, error) {
 	}
 	chainConfigPath := viper.GetString("ethereum.chainConfig")
 	if chainConfigPath != "" {
-		c.ChainConfig, err = eth.LoadConfig(chainConfigPath)
+		c.ChainConfig, err = statediff.LoadConfig(chainConfigPath)
 	} else {
-		c.ChainConfig, err = eth.ChainConfig(nodeInfo.ChainID)
+		c.ChainConfig, err = statediff.ChainConfig(nodeInfo.ChainID)
 	}
 
 	c.loadGroupCacheConfig()
 
 	c.loadValidatorConfig()
+
+	c.loadWatchedAddressGapFillerConfig()
 
 	return c, err
 }
@@ -293,4 +300,12 @@ func (c *Config) loadValidatorConfig() {
 
 	c.StateValidationEnabled = viper.GetBool("validator.enabled")
 	c.StateValidationEveryNthBlock = viper.GetUint64("validator.everyNthBlock")
+}
+
+func (c *Config) loadWatchedAddressGapFillerConfig() {
+	viper.BindEnv("watch.fill.enabled", WATCHED_ADDRESS_GAP_FILLER_ENABLED)
+	viper.BindEnv("watch.fill.interval", WATCHED_ADDRESS_GAP_FILLER_INTERVAL)
+
+	c.WatchedAddressGapFillerEnabled = viper.GetBool("watch.fill.enabled")
+	c.WatchedAddressGapFillInterval = viper.GetInt("watch.fill.interval")
 }

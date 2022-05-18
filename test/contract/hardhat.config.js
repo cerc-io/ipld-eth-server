@@ -17,15 +17,26 @@ task("accounts", "Prints the list of accounts", async () => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.8.0",
+  solidity: {
+    version: "0.8.0",
+    settings: {
+      outputSelection: {
+        '*': {
+          '*': [
+            'abi', 'storageLayout',
+          ]
+        }
+      }
+    }
+  },
   networks: {
     local: {
       url: 'http://127.0.0.1:8545',
-      chainId: 4
+      chainId: 99
     },
     docker: {
       url: process.env.ETH_ADDR,
-      chainId: 4
+      chainId: 99
     }
   }
 };

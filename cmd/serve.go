@@ -32,11 +32,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vulcanize/gap-filler/pkg/mux"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
-	srpc "github.com/vulcanize/ipld-eth-server/pkg/rpc"
-	s "github.com/vulcanize/ipld-eth-server/pkg/serve"
-	v "github.com/vulcanize/ipld-eth-server/version"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	fill "github.com/vulcanize/ipld-eth-server/v3/pkg/fill"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/graphql"
+	srpc "github.com/vulcanize/ipld-eth-server/v3/pkg/rpc"
+	s "github.com/vulcanize/ipld-eth-server/v3/pkg/serve"
+	v "github.com/vulcanize/ipld-eth-server/v3/version"
 )
 
 var ErrNoRpcEndpoints = errors.New("no rpc endpoints is available")
@@ -100,11 +101,24 @@ func serve() {
 		logWithCommand.Info("state validator disabled")
 	}
 
+	var watchedAddressFillService *fill.Service
+	if serverConfig.WatchedAddressGapFillerEnabled {
+		watchedAddressFillService = fill.New(serverConfig)
+		wg.Add(1)
+		go watchedAddressFillService.Start(wg)
+		logWithCommand.Info("watched address gap filler enabled")
+	} else {
+		logWithCommand.Info("watched address gap filler disabled")
+	}
+
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt)
 	<-shutdown
 	if graphQL != nil {
 		graphQL.Stop()
+	}
+	if watchedAddressFillService != nil {
+		watchedAddressFillService.Stop()
 	}
 	server.Stop()
 	wg.Wait()
@@ -133,7 +147,7 @@ func startServers(server s.Server, settings *s.Config) error {
 
 	if settings.HTTPEnabled {
 		logWithCommand.Info("starting up HTTP server")
-		_, err := srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"eth", "net"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
+		_, err := srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"vdb", "eth", "net"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
 		if err != nil {
 			return err
 		}
@@ -360,6 +374,10 @@ func init() {
 	serveCmd.PersistentFlags().Bool("validator-enabled", false, "turn on the state validator")
 	serveCmd.PersistentFlags().Uint("validator-every-nth-block", 1500, "only validate every Nth block")
 
+	// watched address gap filler flags
+	serveCmd.PersistentFlags().Bool("watched-address-gap-filler-enabled", false, "turn on the watched address gap filler")
+	serveCmd.PersistentFlags().Int("watched-address-gap-filler-interval", 60, "watched address gap fill interval in secs")
+
 	// and their bindings
 	// eth graphql server
 	viper.BindPFlag("eth.server.graphql", serveCmd.PersistentFlags().Lookup("eth-server-graphql"))
@@ -408,4 +426,8 @@ func init() {
 	// state validator flags
 	viper.BindPFlag("validator.enabled", serveCmd.PersistentFlags().Lookup("validator-enabled"))
 	viper.BindPFlag("validator.everyNthBlock", serveCmd.PersistentFlags().Lookup("validator-every-nth-block"))
+
+	// watched address gap filler flags
+	viper.BindPFlag("watch.fill.enabled", serveCmd.PersistentFlags().Lookup("watched-address-gap-filler-enabled"))
+	viper.BindPFlag("watch.fill.interval", serveCmd.PersistentFlags().Lookup("watched-address-gap-filler-interval"))
 }

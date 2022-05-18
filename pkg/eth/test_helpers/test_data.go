@@ -38,7 +38,7 @@ import (
 	"github.com/multiformats/go-multihash"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
 )
 
 // Test variables
@@ -326,7 +326,7 @@ var (
 	StorageLeafKey     = crypto.Keccak256Hash(storageLocation[:]).Bytes()
 	StorageValue       = crypto.Keccak256([]byte{1, 2, 3, 4, 5})
 	StoragePartialPath = common.Hex2Bytes("20290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563")
-	StorageLeafNode, _ = rlp.EncodeToBytes([]interface{}{
+	StorageLeafNode, _ = rlp.EncodeToBytes(&[]interface{}{
 		StoragePartialPath,
 		StorageValue,
 	})
@@ -336,14 +336,14 @@ var (
 	ContractCodeHash   = crypto.Keccak256Hash(MockContractByteCode)
 	contractPath       = common.Bytes2Hex([]byte{'\x06'})
 	ContractLeafKey    = testhelpers.AddressToLeafKey(ContractAddress)
-	ContractAccount, _ = rlp.EncodeToBytes(types.StateAccount{
+	ContractAccount, _ = rlp.EncodeToBytes(&types.StateAccount{
 		Nonce:    nonce1,
 		Balance:  big.NewInt(0),
 		CodeHash: ContractCodeHash.Bytes(),
 		Root:     common.HexToHash(ContractRoot),
 	})
 	ContractPartialPath = common.Hex2Bytes("3114658a74d9cc9f7acf2c5cd696c3494d7c344d78bfec3add0d91ec4e8d1c45")
-	ContractLeafNode, _ = rlp.EncodeToBytes([]interface{}{
+	ContractLeafNode, _ = rlp.EncodeToBytes(&[]interface{}{
 		ContractPartialPath,
 		ContractAccount,
 	})
@@ -354,14 +354,14 @@ var (
 	AccountCodeHash = common.HexToHash("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
 	AccountAddresss = common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e")
 	AccountLeafKey  = testhelpers.Account2LeafKey
-	Account, _      = rlp.EncodeToBytes(types.StateAccount{
+	Account, _      = rlp.EncodeToBytes(&types.StateAccount{
 		Nonce:    nonce0,
 		Balance:  AccountBalance,
 		CodeHash: AccountCodeHash.Bytes(),
 		Root:     common.HexToHash(AccountRoot),
 	})
 	AccountPartialPath = common.Hex2Bytes("3957f3e2f04a0764c3a0491b175f69926da61efbcc8f61fa1455fd2d2b4cdd45")
-	AccountLeafNode, _ = rlp.EncodeToBytes([]interface{}{
+	AccountLeafNode, _ = rlp.EncodeToBytes(&[]interface{}{
 		AccountPartialPath,
 		Account,
 	})

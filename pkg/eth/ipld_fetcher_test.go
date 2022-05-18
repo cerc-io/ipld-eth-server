@@ -23,8 +23,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 var _ = Describe("IPLDFetcher", func() {
@@ -39,8 +40,8 @@ var _ = Describe("IPLDFetcher", func() {
 				err error
 				tx  interfaces.Batch
 			)
-			db = eth.SetupTestDB()
-			pubAndIndexer = eth.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
+			db = shared.SetupDB()
+			pubAndIndexer = shared.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
 
 			tx, err = pubAndIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			for _, node := range test_helpers.MockStateNodes {
@@ -54,7 +55,7 @@ var _ = Describe("IPLDFetcher", func() {
 
 		})
 		AfterEach(func() {
-			eth.TearDownTestDB(db)
+			shared.TearDownDB(db)
 		})
 
 		It("Fetches and returns IPLDs for the CIDs provided in the CIDWrapper", func() {

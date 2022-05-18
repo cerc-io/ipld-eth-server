@@ -25,7 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-eth-server/pkg/prom"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/prom"
 )
 
 var (

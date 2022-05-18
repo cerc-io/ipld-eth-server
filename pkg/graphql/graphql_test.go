@@ -35,10 +35,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
-	"github.com/vulcanize/ipld-eth-server/pkg/graphql"
-	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/graphql"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	ethServerShared "github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 var _ = Describe("GraphQL", func() {
@@ -65,8 +66,8 @@ var _ = Describe("GraphQL", func() {
 
 	It("test init", func() {
 		var err error
-		db = eth.SetupTestDB()
-		transformer := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		db = shared.SetupDB()
+		transformer := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -130,7 +131,7 @@ var _ = Describe("GraphQL", func() {
 		}
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		blockHash = test_helpers.MockBlock.Hash()
 		contractAddress = test_helpers.ContractAddr
@@ -166,7 +167,7 @@ var _ = Describe("GraphQL", func() {
 	defer It("test teardown", func() {
 		err := graphQLServer.Stop()
 		Expect(err).ToNot(HaveOccurred())
-		eth.TearDownTestDB(db)
+		shared.TearDownDB(db)
 		chain.Stop()
 	})
 

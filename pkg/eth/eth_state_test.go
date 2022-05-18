@@ -37,9 +37,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
-	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	ethServerShared "github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 var (
@@ -74,8 +75,8 @@ var _ = Describe("eth state reading tests", func() {
 	It("test init", func() {
 		// db and type initializations
 		var err error
-		db = eth.SetupTestDB()
-		transformer := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		db = shared.SetupDB()
+		transformer := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		backend, err = eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -155,7 +156,7 @@ var _ = Describe("eth state reading tests", func() {
 		}
 
 		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
@@ -181,7 +182,7 @@ var _ = Describe("eth state reading tests", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 	defer It("test teardown", func() {
-		eth.TearDownTestDB(db)
+		shared.TearDownDB(db)
 		chain.Stop()
 	})
 

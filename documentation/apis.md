@@ -12,7 +12,7 @@ We can expose a number of different APIs for remote access to ipld-eth-server da
 ipld-eth-server stores all processed data in Postgres using PG-IPFS, this includes all of the IPLD objects.
 [Postgraphile](https://www.graphile.org/postgraphile/) can be used to expose GraphQL endpoints for the Postgres tables.
 
-e.g. 
+e.g.
 
 `postgraphile --plugins @graphile/pg-pubsub --subscriptions --simple-subscriptions -c postgres://localhost:5432/vulcanize_public?sslmode=disable -s public,btc,eth -a -j`
 
@@ -33,16 +33,16 @@ by ipld-eth-server to filter and return a requested subset of chain data to the 
 An example of how to subscribe to a real-time Ethereum data feed from ipld-eth-server using the `Stream` RPC method is provided below
 
 ```go
-    package main 
+    package main
 
     import (
     	"github.com/ethereum/go-ethereum/rlp"
     	"github.com/ethereum/go-ethereum/rpc"
     	"github.com/spf13/viper"
-    	
-        "github.com/vulcanize/ipld-eth-server/pkg/client"
-        "github.com/vulcanize/ipld-eth-server/pkg/eth"
-        "github.com/vulcanize/ipld-eth-server/pkg/watch"
+
+        "github.com/vulcanize/ipld-eth-server/v3/pkg/client"
+        "github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+        "github.com/vulcanize/ipld-eth-server/v3/pkg/watch"
     )
 
     config, _ := eth.NewEthSubscriptionConfig()
@@ -153,16 +153,16 @@ the addresses in the `addresses` fields are pre-hashed ETH addresses.
 An example of how to subscribe to a real-time Bitcoin data feed from ipld-eth-server using the `Stream` RPC method is provided below
 
 ```go
-    package main 
+    package main
 
     import (
     	"github.com/ethereum/go-ethereum/rlp"
     	"github.com/ethereum/go-ethereum/rpc"
     	"github.com/spf13/viper"
-    	
-    	"github.com/vulcanize/ipld-eth-server/pkg/btc"
-    	"github.com/vulcanize/ipld-eth-server/pkg/client"
-    	"github.com/vulcanize/ipld-eth-server/pkg/watch"
+
+    	"github.com/vulcanize/ipld-eth-server/v3/pkg/btc"
+    	"github.com/vulcanize/ipld-eth-server/v3/pkg/client"
+    	"github.com/vulcanize/ipld-eth-server/v3/pkg/watch"
     )
 
     config, _ := btc.NewBtcSubscriptionConfig()

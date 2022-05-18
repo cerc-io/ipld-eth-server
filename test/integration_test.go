@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	integration "github.com/vulcanize/ipld-eth-server/test"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	integration "github.com/vulcanize/ipld-eth-server/v3/test"
 )
 
 const nonExistingBlockHash = "0x111111111111111111111111111111111111111111111111111111111111111"
@@ -30,6 +30,8 @@ var (
 
 var _ = Describe("Integration test", func() {
 	directProxyEthCalls, err := strconv.ParseBool(os.Getenv("ETH_FORWARD_ETH_CALLS"))
+	Expect(err).To(BeNil())
+	watchedAddressServiceEnabled, err := strconv.ParseBool(os.Getenv("WATCHED_ADDRESS_GAP_FILLER_ENABLED"))
 	Expect(err).To(BeNil())
 	gethHttpPath := "http://127.0.0.1:8545"
 	gethClient, err := ethclient.Dial(gethHttpPath)
@@ -49,11 +51,14 @@ var _ = Describe("Integration test", func() {
 	var txErr error
 	sleepInterval := 2 * time.Second
 
+	BeforeEach(func() {
+		if directProxyEthCalls || watchedAddressServiceEnabled {
+			Skip("skipping no-direct-proxy-forwarding integration tests")
+		}
+	})
+
 	Describe("get Block", func() {
 		BeforeEach(func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -123,9 +128,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Transaction", func() {
 		BeforeEach(func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -157,9 +159,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Receipt", func() {
 		BeforeEach(func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -187,9 +186,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("FilterLogs", func() {
 		BeforeEach(func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -220,9 +216,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("CodeAt", func() {
 		BeforeEach(func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			time.Sleep(sleepInterval)
 		})
@@ -270,9 +263,6 @@ var _ = Describe("Integration test", func() {
 	Describe("Get balance", func() {
 		address := "0x1111111111111111111111111111111111111112"
 		BeforeEach(func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			tx, txErr = integration.SendEth(address, "0.01")
 			time.Sleep(sleepInterval)
 		})
@@ -335,10 +325,12 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Describe("Get Storage", func() {
+		var slvContract *integration.ContractDeployed
+		var slvCountA *big.Int
+
+		contractSalt := "SLVContractSalt"
+
 		BeforeEach(func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			erc20TotalSupply, bigIntResult = new(big.Int).SetString("1000000000000000000000", 10)
 
@@ -418,10 +410,46 @@ var _ = Describe("Integration test", func() {
 			Expect(gethStorage).To(Equal(ipldStorage))
 		})
 
+		It("get storage for SLV countA after tx", func() {
+			slvContract, contractErr = integration.Create2Contract("SLVToken", contractSalt)
+			Expect(contractErr).ToNot(HaveOccurred())
+			countAIndex := "0x5"
+
+			time.Sleep(sleepInterval)
+
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			gethCountA := new(big.Int).SetBytes(gethStorage)
+			slvCountA = gethCountA
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldCountA := new(big.Int).SetBytes(ipldStorage)
+			Expect(ipldCountA.String()).To(Equal(slvCountA.String()))
+
+			_, txErr = integration.IncrementCount(slvContract.Address, "A")
+			Expect(txErr).ToNot(HaveOccurred())
+			slvCountA.Add(slvCountA, big.NewInt(1))
+
+			time.Sleep(sleepInterval)
+
+			ipldStorage, err = ipldClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldCountA = new(big.Int).SetBytes(ipldStorage)
+			Expect(ipldCountA.String()).To(Equal(slvCountA.String()))
+		})
+
 		It("get storage after self destruct", func() {
 			totalSupplyIndex := "0x2"
+			countAIndex := "0x5"
 
 			tx, err := integration.DestroyContract(contract.Address)
+			Expect(err).ToNot(HaveOccurred())
+
+			slvTx, err := integration.DestroyContract(slvContract.Address)
 			Expect(err).ToNot(HaveOccurred())
 
 			time.Sleep(sleepInterval)
@@ -447,14 +475,44 @@ var _ = Describe("Integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(ipldStorage2).To(Equal(ipldStorage3))
+
+			// Check for SLV contract
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), big.NewInt(slvTx.BlockNumber))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gethStorage).To(Equal(eth.EmptyNodeValue))
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), big.NewInt(slvTx.BlockNumber))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ipldStorage).To(Equal(gethStorage))
+
+			slvCountA.Set(big.NewInt(0))
+		})
+
+		It("get storage after redeploying", func() {
+			slvContract, contractErr = integration.Create2Contract("SLVToken", contractSalt)
+			Expect(contractErr).ToNot(HaveOccurred())
+			time.Sleep(sleepInterval)
+
+			countAIndex := "0x5"
+
+			gethStorage, err := gethClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			gethCountA := new(big.Int).SetBytes(gethStorage)
+			Expect(gethCountA.String()).To(Equal(slvCountA.String()))
+
+			ipldStorage, err := ipldClient.StorageAt(ctx, common.HexToAddress(slvContract.Address), common.HexToHash(countAIndex), nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			ipldCountA := new(big.Int).SetBytes(ipldStorage)
+			Expect(ipldCountA.String()).To(Equal(slvCountA.String()))
+
+			Expect(gethStorage).To(Equal(ipldStorage))
 		})
 	})
 
 	Describe("eth call", func() {
 		BeforeEach(func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			contract, contractErr = integration.DeployContract()
 			erc20TotalSupply, bigIntResult = new(big.Int).SetString("1000000000000000000000", 10)
 
@@ -505,9 +563,6 @@ var _ = Describe("Integration test", func() {
 
 	Describe("Chain ID", func() {
 		It("Check chain id", func() {
-			if directProxyEthCalls {
-				Skip("skipping no-direct-proxy-forwarding integration tests")
-			}
 			gethChainId, err := gethClient.ChainID(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -537,7 +592,7 @@ func compareTxs(tx1 *types.Transaction, tx2 *types.Transaction) {
 	Expect(tx1.Hash()).To(Equal(tx2.Hash()))
 	Expect(tx1.Size()).To(Equal(tx2.Size()))
 
-	signer := types.NewEIP155Signer(big.NewInt(4))
+	signer := types.NewEIP155Signer(big.NewInt(99))
 
 	gethSender, err := types.Sender(signer, tx1)
 	Expect(err).ToNot(HaveOccurred())

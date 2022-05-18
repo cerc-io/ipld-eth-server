@@ -16,6 +16,7 @@
     graphqlEndpoint = "127.0.0.1:8083" # $SERVER_GRAPHQL_ENDPOINT
 
 [ethereum]
+    chainConfig = "./chain.json" # ETH_CHAIN_CONFIG
     chainID = "1" # $ETH_CHAIN_ID
     defaultSender = "" # $ETH_DEFAULT_SENDER_ADDR
     rpcGasCap = "1000000000000" # $ETH_RPC_GAS_CAP
@@ -27,3 +28,8 @@
     clientName = "Geth" # $ETH_CLIENT_NAME
     genesisBlock = "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3" # $ETH_GENESIS_BLOCK
     networkID = "1" # $ETH_NETWORK_ID
+
+[watch]
+    [watch.fill]
+        enabled = false
+        interval = 30

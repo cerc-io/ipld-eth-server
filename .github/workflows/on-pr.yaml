@@ -60,11 +60,15 @@ jobs:
   integrationtest:
     name: Run integration tests
     env:
+      STACK_ORCHESTRATOR_REF: fcbc74451c5494664fe21f765e89c9c6565c07cb
+      GO_ETHEREUM_REF: 498101102c891c4f8c3cab5649158c642ee1fd6b
       GOPATH: /tmp/go
       DB_WRITE: true
       ETH_FORWARD_ETH_CALLS: false
       ETH_PROXY_ON_ERROR: false
-      ETH_HTTP_PATH: ""
+      ETH_HTTP_PATH: "go-ethereum:8545"
+      WATCHED_ADDRESS_GAP_FILLER_ENABLED: false
+      WATCHED_ADDRESS_GAP_FILLER_INTERVAL: 2
     strategy:
       matrix:
         go-version: [1.16.x]
@@ -78,10 +82,44 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
       - uses: actions/checkout@v2
-      - name: Run database
-        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
+        with:
+          path: "./ipld-eth-server"
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.STACK_ORCHESTRATOR_REF }}
+          path: "./stack-orchestrator/"
+          repository: vulcanize/stack-orchestrator
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.GO_ETHEREUM_REF }}
+          repository: vulcanize/go-ethereum
+          path: "./go-ethereum/"
+      - name: Create config file
+        run: |
+          echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
+          echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
+          echo db_write=$DB_WRITE >> ./config.sh
+          echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
+          echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
+          echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
+          cat ./config.sh
+      - name: Build geth
+        run: |
+          cd $GITHUB_WORKSPACE/stack-orchestrator/helper-scripts
+          ./compile-geth.sh \
+          -p "$GITHUB_WORKSPACE/config.sh" \
+          -e docker
+      - name: Run docker compose
+        run: |
+          docker-compose  \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-db.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
+          --env-file "$GITHUB_WORKSPACE/config.sh" \
+          up -d --build
       - name: Test
         run: |
+          cd $GITHUB_WORKSPACE/ipld-eth-server
           while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
           while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
           make integrationtest
@@ -89,11 +127,15 @@ jobs:
   integrationtest_forwardethcalls:
     name: Run integration tests for direct proxy fall-through of eth_calls
     env:
+      STACK_ORCHESTRATOR_REF: fcbc74451c5494664fe21f765e89c9c6565c07cb
+      GO_ETHEREUM_REF: 498101102c891c4f8c3cab5649158c642ee1fd6b
       GOPATH: /tmp/go
       DB_WRITE: false
       ETH_FORWARD_ETH_CALLS: true
       ETH_PROXY_ON_ERROR: false
-      ETH_HTTP_PATH: "dapptools:8545"
+      ETH_HTTP_PATH: "go-ethereum:8545"
+      WATCHED_ADDRESS_GAP_FILLER_ENABLED: false
+      WATCHED_ADDRESS_GAP_FILLER_INTERVAL: 2
     strategy:
       matrix:
         go-version: [1.16.x]
@@ -107,10 +149,113 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
       - uses: actions/checkout@v2
-      - name: Run database
-        run: docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
+        with:
+          path: "./ipld-eth-server"
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.STACK_ORCHESTRATOR_REF }}
+          path: "./stack-orchestrator/"
+          repository: vulcanize/stack-orchestrator
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.GO_ETHEREUM_REF }}
+          repository: vulcanize/go-ethereum
+          path: "./go-ethereum/"
+      - name: Create config file
+        run: |
+          echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
+          echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
+          echo db_write=$DB_WRITE >> ./config.sh
+          echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
+          echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
+          echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
+          cat ./config.sh
+      - name: Build geth
+        run: |
+          cd $GITHUB_WORKSPACE/stack-orchestrator/helper-scripts
+          ./compile-geth.sh \
+          -p "$GITHUB_WORKSPACE/config.sh" \
+          -e docker
+      - name: Run docker compose
+        run: |
+          docker-compose  \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-db.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
+          --env-file "$GITHUB_WORKSPACE/config.sh" \
+          up -d --build
       - name: Test
         run: |
+          cd $GITHUB_WORKSPACE/ipld-eth-server
+          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
+          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
+          make integrationtest
+
+  integrationtest_watchedaddress_gapfillingservice:
+    name: Run integration tests for watched addresses with gap filling service enabled
+    env:
+      STACK_ORCHESTRATOR_REF: fcbc74451c5494664fe21f765e89c9c6565c07cb
+      GO_ETHEREUM_REF: 498101102c891c4f8c3cab5649158c642ee1fd6b
+      GOPATH: /tmp/go
+      DB_WRITE: true
+      ETH_FORWARD_ETH_CALLS: false
+      ETH_PROXY_ON_ERROR: false
+      ETH_HTTP_PATH: "go-ethereum:8545"
+      WATCHED_ADDRESS_GAP_FILLER_ENABLED: true
+      WATCHED_ADDRESS_GAP_FILLER_INTERVAL: 2
+    strategy:
+      matrix:
+        go-version: [1.16.x]
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Create GOPATH
+        run: mkdir -p /tmp/go
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+      - uses: actions/checkout@v2
+        with:
+          path: "./ipld-eth-server"
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.STACK_ORCHESTRATOR_REF }}
+          path: "./stack-orchestrator/"
+          repository: vulcanize/stack-orchestrator
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.GO_ETHEREUM_REF }}
+          repository: vulcanize/go-ethereum
+          path: "./go-ethereum/"
+      - name: Create config file
+        run: |
+          echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
+          echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
+          echo db_write=$DB_WRITE >> ./config.sh
+          echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
+          echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
+          echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
+          echo watched_addres_gap_filler_enabled=$WATCHED_ADDRESS_GAP_FILLER_ENABLED >> ./config.sh
+          echo watched_addres_gap_filler_interval=$WATCHED_ADDRESS_GAP_FILLER_INTERVAL >> ./config.sh
+          cat ./config.sh
+      - name: Build geth
+        run: |
+          cd $GITHUB_WORKSPACE/stack-orchestrator/helper-scripts
+          ./compile-geth.sh \
+          -p "$GITHUB_WORKSPACE/config.sh" \
+          -e docker
+      - name: Run docker compose
+        run: |
+          docker-compose  \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-db.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
+          --env-file "$GITHUB_WORKSPACE/config.sh" \
+          up -d --build
+      - name: Test
+        run: |
+          cd $GITHUB_WORKSPACE/ipld-eth-server
           while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
           while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
           make integrationtest

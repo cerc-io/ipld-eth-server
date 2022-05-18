@@ -24,7 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/prom"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/prom"
 )
 
 // StartWSEndpoint starts a websocket endpoint.

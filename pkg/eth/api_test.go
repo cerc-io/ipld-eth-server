@@ -36,9 +36,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
-	ethServerShared "github.com/vulcanize/ipld-eth-server/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	ethServerShared "github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 var (
@@ -195,8 +196,8 @@ var _ = Describe("API", func() {
 			tx  interfaces.Batch
 		)
 
-		db = eth.SetupTestDB()
-		indexAndPublisher := eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		db = shared.SetupDB()
+		indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		backend, err := eth.NewEthBackend(db, &eth.Config{
 			ChainConfig: chainConfig,
@@ -241,7 +242,7 @@ var _ = Describe("API", func() {
 
 		// setting chain config to for london block
 		chainConfig.LondonBlock = big.NewInt(2)
-		indexAndPublisher = eth.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+		indexAndPublisher = shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
 		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
@@ -251,7 +252,7 @@ var _ = Describe("API", func() {
 	})
 
 	// Single test db tear down at end of all tests
-	defer It("test teardown", func() { eth.TearDownTestDB(db) })
+	defer It("test teardown", func() { shared.TearDownDB(db) })
 	/*
 
 	   Headers and blocks

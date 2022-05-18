@@ -33,9 +33,9 @@ External dependency
 ## Install
 Start by downloading ipld-eth-server and moving into the repo:
 
-`GO111MODULE=off go get -d github.com/vulcanize/ipld-eth-server`
+`GO111MODULE=off go get -d github.com/vulcanize/ipld-eth-server/v3`
 
-`cd $GOPATH/src/github.com/vulcanize/ipld-eth-server`
+`cd $GOPATH/src/github.com/vulcanize/ipld-eth-server/v3@v3.x.x`
 
 Then, build the binary:
 
@@ -148,8 +148,8 @@ TODO: Add the rest of the standard endpoints and unique endpoints (e.g. getSlice
 
 
 ### Testing
-`make test` will run the unit tests  
-`make test` setups a clean `vulcanize_testing` db
+
+Follow steps in [test/README.md](./test/README.md)
 
 ## Monitoring
 

@@ -29,7 +29,7 @@ import (
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
 )
 
 // Service encapsulates a GraphQL service.
@@ -69,7 +69,7 @@ func (s *Service) Start(server *p2p.Server) error {
 		return err
 	}
 
-	handler := node.NewHTTPHandlerStack(s.handler, s.cors, s.vhosts)
+	handler := node.NewHTTPHandlerStack(s.handler, s.cors, s.vhosts, nil)
 
 	// start http server
 	_, addr, err := node.StartHTTPEndpoint(s.endpoint, rpc.DefaultHTTPTimeouts, handler)

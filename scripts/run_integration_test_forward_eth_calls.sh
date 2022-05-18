@@ -3,16 +3,9 @@ set -o xtrace
 
 export ETH_FORWARD_ETH_CALLS=true
 export DB_WRITE=false
-export ETH_HTTP_PATH="dapptools:8545"
 export ETH_PROXY_ON_ERROR=false
-
-# Clear up existing docker images and volume.
-docker-compose down --remove-orphans --volumes
-
-# Build and start the containers.
-# Note: Build only if `ipld-eth-server` or other container code is modified. Otherwise comment this line.
-docker-compose -f docker-compose.test.yml -f docker-compose.yml build eth-server
-docker-compose -f docker-compose.test.yml -f docker-compose.yml up -d ipld-eth-db dapptools contract eth-server
+export WATCHED_ADDRESS_GAP_FILLER_ENABLED=false
+export WATCHED_ADDRESS_GAP_FILLER_INTERVAL=5
 
 export PGPASSWORD=password
 export DATABASE_USER=vdbm

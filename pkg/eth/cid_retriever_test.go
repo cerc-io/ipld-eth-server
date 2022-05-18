@@ -29,8 +29,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth/test_helpers"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 var (
@@ -215,13 +216,13 @@ var _ = Describe("Retriever", func() {
 		retriever   *eth.CIDRetriever
 	)
 	BeforeEach(func() {
-		db = eth.SetupTestDB()
-		diffIndexer = eth.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
+		db = shared.SetupDB()
+		diffIndexer = shared.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
 
 		retriever = eth.NewCIDRetriever(db)
 	})
 	AfterEach(func() {
-		eth.TearDownTestDB(db)
+		shared.TearDownDB(db)
 	})
 
 	Describe("Retrieve", func() {
