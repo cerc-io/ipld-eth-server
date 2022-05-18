@@ -113,8 +113,9 @@ func (f *IPLDFetcher) FetchHeader(tx *sqlx.Tx, c models.HeaderModel) (models.IPL
 		return models.IPLDModel{}, err
 	}
 	return models.IPLDModel{
-		Data: headerBytes,
-		Key:  c.CID,
+		BlockNumber: c.BlockNumber,
+		Data:        headerBytes,
+		Key:         c.CID,
 	}, nil
 }
 
@@ -132,8 +133,9 @@ func (f *IPLDFetcher) FetchUncles(tx *sqlx.Tx, cids []models.UncleModel) ([]mode
 			return nil, err
 		}
 		uncleIPLDs[i] = models.IPLDModel{
-			Data: uncleBytes,
-			Key:  c.CID,
+			BlockNumber: c.BlockNumber,
+			Data:        uncleBytes,
+			Key:         c.CID,
 		}
 	}
 	return uncleIPLDs, nil
@@ -153,8 +155,9 @@ func (f *IPLDFetcher) FetchTrxs(tx *sqlx.Tx, cids []models.TxModel) ([]models.IP
 			return nil, err
 		}
 		trxIPLDs[i] = models.IPLDModel{
-			Data: txBytes,
-			Key:  c.CID,
+			BlockNumber: c.BlockNumber,
+			Data:        txBytes,
+			Key:         c.CID,
 		}
 	}
 	return trxIPLDs, nil
@@ -175,8 +178,9 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]mode
 		}
 		//nodeVal, err := DecodeLeafNode(rctBytes)
 		rctIPLDs[i] = models.IPLDModel{
-			Data: rctBytes,
-			Key:  c.LeafCID,
+			BlockNumber: c.BlockNumber,
+			Data:        rctBytes,
+			Key:         c.LeafCID,
 		}
 	}
 	return rctIPLDs, nil
@@ -200,8 +204,9 @@ func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []models.StateNodeModel) ([]S
 		}
 		stateNodes = append(stateNodes, StateNode{
 			IPLD: models.IPLDModel{
-				Data: stateBytes,
-				Key:  stateNode.CID,
+				BlockNumber: stateNode.BlockNumber,
+				Data:        stateBytes,
+				Key:         stateNode.CID,
 			},
 			StateLeafKey: common.HexToHash(stateNode.StateKey),
 			Type:         ResolveToNodeType(stateNode.NodeType),
@@ -229,8 +234,9 @@ func (f *IPLDFetcher) FetchStorage(tx *sqlx.Tx, cids []models.StorageNodeWithSta
 		}
 		storageNodes = append(storageNodes, StorageNode{
 			IPLD: models.IPLDModel{
-				Data: storageBytes,
-				Key:  storageNode.CID,
+				BlockNumber: storageNode.BlockNumber,
+				Data:        storageBytes,
+				Key:         storageNode.CID,
 			},
 			StateLeafKey:   common.HexToHash(storageNode.StateKey),
 			StorageLeafKey: common.HexToHash(storageNode.StorageKey),
