@@ -27,9 +27,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/client"
-	"github.com/vulcanize/ipld-eth-server/pkg/eth"
-	w "github.com/vulcanize/ipld-eth-server/pkg/serve"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/client"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	w "github.com/vulcanize/ipld-eth-server/v3/pkg/serve"
 )
 
 // subscribeCmd represents the subscribe command

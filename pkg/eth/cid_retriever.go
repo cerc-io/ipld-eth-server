@@ -27,7 +27,7 @@ import (
 	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 // Retriever interface for substituting mocks in tests

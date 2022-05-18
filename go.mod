@@ -1,4 +1,4 @@
-module github.com/vulcanize/ipld-eth-server
+module github.com/vulcanize/ipld-eth-server/v3
 
 go 1.15
 
