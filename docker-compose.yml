@@ -2,17 +2,16 @@ version: '3.2'
 
 services:
   ipld-eth-db:
-    restart: always
-    image: vulcanize/ipld-eth-db:v3.2.0
+    restart: on-failure
+    depends_on:
+      - access-node
+    image: vulcanize/ipld-eth-db:v4.1.1-alpha
     environment:
-      POSTGRES_USER: "vdbm"
-      POSTGRES_DB: "vulcanize_testing"
-      POSTGRES_PASSWORD: "password"
-    volumes:
-     - vdb_db_eth_server:/var/lib/postgresql/data
-    ports:
-     - "127.0.0.1:8077:5432"
-    command: ["postgres", "-c", "log_statement=all"]
+      DATABASE_USER: "vdbm"
+      DATABASE_NAME: "vulcanize_testing_v4"
+      DATABASE_PASSWORD: "password"
+      DATABASE_HOSTNAME: "access-node"
+      DATABASE_PORT: 5432
 
   eth-server:
     restart: unless-stopped
