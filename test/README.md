@@ -27,7 +27,18 @@
 
 - Run integration tests:
 
-  - Update (Replace existing content) config file [config.sh](https://github.com/vulcanize/stack-orchestrator/blob/main/config.sh) in stack-orchestrator repo:
+  - In stack-orchestrator repo, create config file:
+
+    ```bash
+    cd helper-scripts
+
+    ./create-config.sh
+    ```
+
+    A `config.sh` will be created in the root directory.
+
+  - Update/Edit the generated config file with:
+
     ```bash
     #!/bin/bash
 
@@ -37,13 +48,17 @@
     # Path to ipld-eth-server repo.
     vulcanize_ipld_eth_server=~/ipld-eth-server/
 
+    # Path to test contract.
+    vulcanize_test_contract=~/ipld-eth-server/test/contract
+
     db_write=true
     eth_forward_eth_calls=false
     eth_proxy_on_error=false
     eth_http_path="go-ethereum:8545"
-    ```
+      ```
 
   - Run stack-orchestrator:
+
     ```bash
     # In stack-orchestrator root directory.
     cd helper-scripts
@@ -53,17 +68,20 @@
     -d ../docker/latest/docker-compose-db.yml \
     -d ../docker/local/docker-compose-go-ethereum.yml \
     -d ../docker/local/docker-compose-ipld-eth-server.yml \
+    -d ../docker/local/docker-compose-contract.yml \
     -v remove \
     -p ../config.sh
     ```
 
   - Run test:
+
     ```bash
     # In ipld-eth-server root directory.
     ./scripts/run_integration_test.sh
     ```
 
-  - Update `config.sh` file:
+  - Update stack-orchestrator `config.sh` file:
+
     ```bash
     #!/bin/bash
 
@@ -72,6 +90,9 @@
 
     # Path to ipld-eth-server repo.
     vulcanize_ipld_eth_server=~/ipld-eth-server/
+
+    # Path to test contract.
+    vulcanize_test_contract=~/ipld-eth-server/test/contract
 
     db_write=false
     eth_forward_eth_calls=true
@@ -86,7 +107,7 @@
     ./scripts/run_integration_test_forward_eth_calls.sh
     ```
 
-  - Update `config.sh` file:
+  - Update stack-orchestrator `config.sh` file:
     ```bash
     #!/bin/bash
 
@@ -95,6 +116,9 @@
 
     # Path to ipld-eth-server repo.
     vulcanize_ipld_eth_server=~/ipld-eth-server/
+
+    # Path to test contract.
+    vulcanize_test_contract=~/ipld-eth-server/test/contract
 
     db_write=true
     eth_forward_eth_calls=false
