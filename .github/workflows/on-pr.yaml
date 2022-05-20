@@ -60,7 +60,7 @@ jobs:
   integrationtest:
     name: Run integration tests
     env:
-      STACK_ORCHESTRATOR_REF: 38545ad36144800d16d61e53050bb8e784729f26
+      STACK_ORCHESTRATOR_REF: 35c677433aee5fafdf74eb3c251a453691b818d0
       GO_ETHEREUM_REF: ef8c9f2580dd577a7c5eca538fb0ed64d53dc4a4
       GOPATH: /tmp/go
       DB_WRITE: true
@@ -127,7 +127,7 @@ jobs:
   integrationtest_forwardethcalls:
     name: Run integration tests for direct proxy fall-through of eth_calls
     env:
-      STACK_ORCHESTRATOR_REF: 38545ad36144800d16d61e53050bb8e784729f26
+      STACK_ORCHESTRATOR_REF: 35c677433aee5fafdf74eb3c251a453691b818d0
       GO_ETHEREUM_REF: ef8c9f2580dd577a7c5eca538fb0ed64d53dc4a4
       GOPATH: /tmp/go
       DB_WRITE: false
@@ -194,7 +194,7 @@ jobs:
   integrationtest_watchedaddress_gapfillingservice:
     name: Run integration tests for watched addresses with gap filling service enabled
     env:
-      STACK_ORCHESTRATOR_REF: 38545ad36144800d16d61e53050bb8e784729f26
+      STACK_ORCHESTRATOR_REF: 35c677433aee5fafdf74eb3c251a453691b818d0
       GO_ETHEREUM_REF: ef8c9f2580dd577a7c5eca538fb0ed64d53dc4a4
       GOPATH: /tmp/go
       DB_WRITE: true

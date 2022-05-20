@@ -4,16 +4,16 @@
 
 - Clone [stack-orchestrator](https://github.com/vulcanize/stack-orchestrator) and [go-ethereum](https://github.com/vulcanize/go-ethereum) repositories.
 
-- Checkout [v3 release](https://github.com/vulcanize/go-ethereum/releases/tag/v1.10.17-statediff-3.2.0) in go-ethereum repo.
+- Checkout [v4 release](https://github.com/vulcanize/go-ethereum/releases/tag/v1.10.17-statediff-4.0.1-alpha) in go-ethereum repo.
   ```bash
   # In go-ethereum repo.
-  git checkout v1.10.17-statediff-3.2.0
+  git checkout v1.10.17-statediff-4.0.1-alpha
   ```
 
 - Checkout working commit in stack-orchestrator repo.
   ```bash
   # In stack-orchestrator repo.
-  git checkout fcbc74451c5494664fe21f765e89c9c6565c07cb
+  git checkout 35c677433aee5fafdf74eb3c251a453691b818d0
   ```
 
 ## Run
