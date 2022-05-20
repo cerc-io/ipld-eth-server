@@ -4,10 +4,10 @@
 
 - Clone [stack-orchestrator](https://github.com/vulcanize/stack-orchestrator) and [go-ethereum](https://github.com/vulcanize/go-ethereum) repositories.
 
-- Checkout [v3 release](https://github.com/vulcanize/go-ethereum/releases/tag/v1.10.17-statediff-3.2.0) in go-ethereum repo.
+- Checkout [v3 release](https://github.com/vulcanize/go-ethereum/releases/tag/v1.10.17-statediff-3.2.1) in go-ethereum repo.
   ```bash
   # In go-ethereum repo.
-  git checkout v1.10.17-statediff-3.2.0
+  git checkout v1.10.17-statediff-3.2.1
   ```
 
 - Checkout working commit in stack-orchestrator repo.
@@ -84,29 +84,4 @@
   - Run integration tests for direct proxy fall-through of eth_calls:
     ```bash
     ./scripts/run_integration_test_forward_eth_calls.sh
-    ```
-
-  - Update `config.sh` file:
-    ```bash
-    #!/bin/bash
-
-    # Path to go-ethereum repo.
-    vulcanize_go_ethereum=~/go-ethereum/
-
-    # Path to ipld-eth-server repo.
-    vulcanize_ipld_eth_server=~/ipld-eth-server/
-
-    db_write=true
-    eth_forward_eth_calls=false
-    eth_proxy_on_error=false
-    eth_http_path="go-ethereum:8545"
-    watched_addres_gap_filler_enabled=true
-    watched_addres_gap_filler_interval=5
-    ```
-
-  - Stop the stack-orchestrator and start again using the same command
-
-  - Run integration tests for watched addresses with gap filling service enabled:
-    ```bash
-    ./scripts/run_integration_test_watched_address_gap_filler.sh
     ```
