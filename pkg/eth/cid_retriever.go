@@ -19,6 +19,7 @@ package eth
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -59,7 +60,7 @@ func (ecr *CIDRetriever) RetrieveFirstBlockNumber() (int64, error) {
 // RetrieveLastBlockNumber is used to retrieve the latest block number in the db
 func (ecr *CIDRetriever) RetrieveLastBlockNumber() (int64, error) {
 	var blockNumber int64
-	err := ecr.db.Get(&blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number DESC LIMIT 1 ")
+	err := ecr.db.Get(&blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number DESC LIMIT 1")
 	return blockNumber, err
 }
 
@@ -167,9 +168,9 @@ func (ecr *CIDRetriever) Retrieve(filter SubscriptionSettings, blockNumber int64
 func (ecr *CIDRetriever) RetrieveHeaderCIDs(tx *sqlx.Tx, blockNumber int64) ([]models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block ", blockNumber)
 	headers := make([]models.HeaderModel, 0)
-	pgStr := `SELECT CAST(block_number as Text), block_hash,parent_hash,cid,mh_key,CAST(td as Text),node_id,
-				CAST(reward as Text), state_root,uncle_root,tx_root,receipt_root,bloom,timestamp,times_validated,
-				coinbase FROM eth.header_cids
+	pgStr := `SELECT CAST(block_number as Text), block_hash, parent_hash, cid, mh_key, CAST(td as Text), node_id,
+				CAST(reward as Text), state_root, uncle_root,tx_root, receipt_root,bloom, timestamp, times_validated, coinbase
+				FROM eth.header_cids
 				WHERE block_number = $1`
 	return headers, tx.Select(&headers, pgStr, blockNumber)
 }
@@ -178,7 +179,8 @@ func (ecr *CIDRetriever) RetrieveHeaderCIDs(tx *sqlx.Tx, blockNumber int64) ([]m
 func (ecr *CIDRetriever) RetrieveUncleCIDsByHeaderID(tx *sqlx.Tx, headerID string) ([]models.UncleModel, error) {
 	log.Debug("retrieving uncle cids for block id ", headerID)
 	headers := make([]models.UncleModel, 0)
-	pgStr := `SELECT header_id,block_hash,parent_hash,cid,mh_key, CAST(reward as text) FROM eth.uncle_cids
+	pgStr := `SELECT CAST(block_number as Text), header_id, block_hash, parent_hash, cid, mh_key, CAST(reward as text)
+				FROM eth.uncle_cids
 				WHERE header_id = $1`
 	return headers, tx.Select(&headers, pgStr, headerID)
 }
@@ -190,10 +192,15 @@ func (ecr *CIDRetriever) RetrieveTxCIDs(tx *sqlx.Tx, txFilter TxFilter, headerID
 	args := make([]interface{}, 0, 3)
 	results := make([]models.TxModel, 0)
 	id := 1
-	pgStr := fmt.Sprintf(`SELECT transaction_cids.tx_hash, transaction_cids.header_id,transaction_cids.cid, transaction_cids.mh_key,
-				transaction_cids.dst, transaction_cids.src, transaction_cids.index, transaction_cids.tx_data
-				FROM eth.transaction_cids INNER JOIN eth.header_cids ON (transaction_cids.header_id = header_cids.block_hash)
-			WHERE header_cids.block_hash = $%d`, id)
+	pgStr := fmt.Sprintf(`SELECT CAST(transaction_cids.block_number as Text), transaction_cids.tx_hash,
+				transaction_cids.header_id,transaction_cids.cid, transaction_cids.mh_key, transaction_cids.dst,
+				transaction_cids.src, transaction_cids.index, transaction_cids.tx_data
+				FROM eth.transaction_cids
+				INNER JOIN eth.header_cids ON (
+						transaction_cids.header_id = header_cids.block_hash
+						AND transaction_cids.block_number = header_cids.block_number
+					)
+				WHERE header_cids.block_hash = $%d`, id)
 	args = append(args, headerID)
 	id++
 	if len(txFilter.Dst) > 0 {
@@ -292,11 +299,13 @@ func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilte
 func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter ReceiptFilter, headerID string, trxHashes []string) ([]models.ReceiptModel, error) {
 	log.Debug("retrieving receipt cids for header id ", headerID)
 	args := make([]interface{}, 0, 4)
-	pgStr := `SELECT receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
- 			receipt_cids.contract, receipt_cids.contract_hash
+	pgStr := `SELECT CAST(receipt_cids.block_number as Text), receipt_cids.tx_id, receipt_cids.leaf_cid,
+			receipt_cids.leaf_mh_key, receipt_cids.contract, receipt_cids.contract_hash
  			FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
 			WHERE receipt_cids.tx_id = transaction_cids.tx_hash
+			AND receipt_cids.block_number = transaction_cids.block_number
 			AND transaction_cids.header_id = header_cids.block_hash
+			AND transaction_cids.block_number = header_cids.block_number
 			AND header_cids.block_hash = $1`
 	id := 2
 	args = append(args, headerID)
@@ -308,20 +317,25 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 	return receiptCids, tx.Select(&receiptCids, pgStr, args...)
 }
 
-// RetrieveFilteredGQLLogs retrieves and returns all the log cIDs provided blockHash that conform to the provided
+// RetrieveFilteredGQLLogs retrieves and returns all the log CIDs provided blockHash that conform to the provided
 // filter parameters.
 func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	id := 1
-	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
+	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
        			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
        			eth.log_cids.log_data, eth.transaction_cids.tx_hash, data, eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status
 				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
 				WHERE eth.log_cids.rct_id = receipt_cids.tx_id
+				AND eth.log_cids.block_number = eth.receipt_cids.block_number
 				AND receipt_cids.tx_id = transaction_cids.tx_hash
- 				AND transaction_cids.header_id = header_cids.block_hash
- 				AND log_cids.leaf_mh_key = blocks.key AND header_cids.block_hash = $1`
+				AND receipt_cids.block_number = transaction_cids.block_number
+				AND transaction_cids.header_id = header_cids.block_hash
+				AND transaction_cids.block_number = header_cids.block_number
+ 				AND log_cids.leaf_mh_key = blocks.key
+				AND log_cids.block_number = blocks.block_number
+				AND header_cids.block_hash = $1`
 
 	args = append(args, blockHash.String())
 	id++
@@ -343,14 +357,17 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
-	pgStr := `SELECT eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
+	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
        			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
        			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index,
        			header_cids.block_hash, CAST(header_cids.block_number as Text)
 							FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids
 							WHERE eth.log_cids.rct_id = receipt_cids.tx_id
+							AND eth.log_cids.block_number = eth.receipt_cids.block_number
 							AND receipt_cids.tx_id = transaction_cids.tx_hash
-							AND transaction_cids.header_id = header_cids.block_hash`
+							AND receipt_cids.block_number = transaction_cids.block_number
+							AND transaction_cids.header_id = header_cids.block_hash
+							AND transaction_cids.block_number = header_cids.block_number`
 	id := 1
 	if blockNumber > 0 {
 		pgStr += fmt.Sprintf(` AND header_cids.block_number = $%d`, id)
@@ -380,10 +397,13 @@ func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilte
 func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash, txHashes []string) ([]models.ReceiptModel, error) {
 	log.Debug("retrieving receipt cids for block ", blockNumber)
 	args := make([]interface{}, 0, 5)
-	pgStr := `SELECT receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key, receipt_cids.tx_id
+	pgStr := `SELECT CAST(receipt_cids.block_number as Text), receipt_cids.tx_id, receipt_cids.leaf_cid,
+			receipt_cids.leaf_mh_key,
  			FROM eth.receipt_cids, eth.transaction_cids, eth.header_cids
 			WHERE receipt_cids.tx_id = transaction_cids.tx_hash
-			AND transaction_cids.header_id = header_cids.block_hash`
+			AND receipt_cids.block_number = transaction_cids.block_number
+			AND transaction_cids.header_id = header_cids.block_hash
+			AND transaction_cids.block_number = header_cids.block_number`
 	id := 1
 	if blockNumber > 0 {
 		pgStr += fmt.Sprintf(` AND header_cids.block_number = $%d`, id)
@@ -416,9 +436,13 @@ func hasTopics(topics [][]string) bool {
 func (ecr *CIDRetriever) RetrieveStateCIDs(tx *sqlx.Tx, stateFilter StateFilter, headerID string) ([]models.StateNodeModel, error) {
 	log.Debug("retrieving state cids for header id ", headerID)
 	args := make([]interface{}, 0, 2)
-	pgStr := `SELECT state_cids.header_id,
+	pgStr := `SELECT CAST(state_cids.block_number as Text), state_cids.header_id,
 			state_cids.state_leaf_key, state_cids.node_type, state_cids.cid, state_cids.mh_key, state_cids.state_path
-			FROM eth.state_cids INNER JOIN eth.header_cids ON (state_cids.header_id = header_cids.block_hash)
+			FROM eth.state_cids
+			INNER JOIN eth.header_cids ON (
+				state_cids.header_id = header_cids.block_hash
+				AND state_cids.block_number = header_cids.block_number
+			)
 			WHERE header_cids.block_hash = $1`
 	args = append(args, headerID)
 	addrLen := len(stateFilter.Addresses)
@@ -441,11 +465,15 @@ func (ecr *CIDRetriever) RetrieveStateCIDs(tx *sqlx.Tx, stateFilter StateFilter,
 func (ecr *CIDRetriever) RetrieveStorageCIDs(tx *sqlx.Tx, storageFilter StorageFilter, headerID string) ([]models.StorageNodeWithStateKeyModel, error) {
 	log.Debug("retrieving storage cids for header id ", headerID)
 	args := make([]interface{}, 0, 3)
-	pgStr := `SELECT storage_cids.header_id, storage_cids.storage_leaf_key, storage_cids.node_type,
- 			storage_cids.cid, storage_cids.mh_key, storage_cids.storage_path, storage_cids.state_path, state_cids.state_leaf_key
+	pgStr := `SELECT CAST(storage_cids.block_number as Text), storage_cids.header_id, storage_cids.storage_leaf_key,
+			storage_cids.node_type, storage_cids.cid, storage_cids.mh_key, storage_cids.storage_path, storage_cids.state_path,
+			state_cids.state_leaf_key
  			FROM eth.storage_cids, eth.state_cids, eth.header_cids
-			WHERE storage_cids.header_id = state_cids.header_id AND storage_cids.state_path = state_cids.state_path
+			WHERE storage_cids.header_id = state_cids.header_id
+			AND storage_cids.state_path = state_cids.state_path
+			AND storage_cids.block_number = state_cids.block_number
 			AND state_cids.header_id = header_cids.block_hash
+			AND state_cids.block_number = header_cids.block_number
 			AND header_cids.block_hash = $1`
 	args = append(args, headerID)
 	id := 2
@@ -496,6 +524,10 @@ func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (models.Head
 		log.Error("header cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
+	blockNumber, err := strconv.ParseInt(headerCID.BlockNumber, 10, 64)
+	if err != nil {
+		return models.HeaderModel{}, nil, nil, nil, err
+	}
 	var uncleCIDs []models.UncleModel
 	uncleCIDs, err = ecr.RetrieveUncleCIDsByHeaderID(tx, headerCID.BlockHash)
 	if err != nil {
@@ -503,7 +535,7 @@ func (ecr *CIDRetriever) RetrieveBlockByHash(blockHash common.Hash) (models.Head
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
 	var txCIDs []models.TxModel
-	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.BlockHash)
+	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.BlockHash, blockNumber)
 	if err != nil {
 		log.Error("tx cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
@@ -556,7 +588,7 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (models.Header
 		return models.HeaderModel{}, nil, nil, nil, err
 	}
 	var txCIDs []models.TxModel
-	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID[0].BlockHash)
+	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID[0].BlockHash, blockNumber)
 	if err != nil {
 		log.Error("tx cid retrieval error")
 		return models.HeaderModel{}, nil, nil, nil, err
@@ -576,30 +608,33 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (models.Header
 // RetrieveHeaderCIDByHash returns the header for the given block hash
 func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.Hash) (models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block hash ", blockHash.String())
-	pgStr := `SELECT block_hash,cid,mh_key FROM eth.header_cids
+	pgStr := `SELECT block_hash, CAST(block_number as Text), cid, mh_key FROM eth.header_cids
 			WHERE block_hash = $1`
 	var headerCID models.HeaderModel
 	return headerCID, tx.Get(&headerCID, pgStr, blockHash.String())
 }
 
 // RetrieveTxCIDsByHeaderID retrieves all tx CIDs for the given header id
-func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID string) ([]models.TxModel, error) {
+func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID string, blockNumber int64) ([]models.TxModel, error) {
 	log.Debug("retrieving tx cids for block id ", headerID)
-	pgStr := `SELECT * FROM eth.transaction_cids
-			WHERE header_id = $1
+	pgStr := `SELECT CAST(block_number as Text), header_id, index, tx_hash, cid, mh_key,
+			dst, src, tx_data, tx_type, value
+			FROM eth.transaction_cids
+			WHERE header_id = $1 AND block_number = $2
 			ORDER BY index`
 	var txCIDs []models.TxModel
-	return txCIDs, tx.Select(&txCIDs, pgStr, headerID)
+	return txCIDs, tx.Select(&txCIDs, pgStr, headerID, blockNumber)
 }
 
 // RetrieveReceiptCIDsByTxIDs retrieves receipt CIDs by their associated tx IDs
 func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txHashes []string) ([]models.ReceiptModel, error) {
 	log.Debugf("retrieving receipt cids for tx hashes %v", txHashes)
-	pgStr := `SELECT receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
+	pgStr := `SELECT CAST(receipt_cids.block_number as Text), receipt_cids.tx_id, receipt_cids.leaf_cid, receipt_cids.leaf_mh_key,
  			receipt_cids.contract, receipt_cids.contract_hash
 			FROM eth.receipt_cids, eth.transaction_cids
 			WHERE tx_id = ANY($1)
 			AND receipt_cids.tx_id = transaction_cids.tx_hash
+			AND receipt_cids.block_number = transaction_cids.block_number
 			ORDER BY transaction_cids.index`
 	var rctCIDs []models.ReceiptModel
 	return rctCIDs, tx.Select(&rctCIDs, pgStr, pq.Array(txHashes))

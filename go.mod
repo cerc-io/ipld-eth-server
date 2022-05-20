@@ -23,9 +23,9 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
-	github.com/vulcanize/eth-ipfs-state-validator/v3 v3.0.0
+	github.com/vulcanize/eth-ipfs-state-validator/v4 v4.0.0-alpha
 	github.com/vulcanize/gap-filler v0.3.1
-	github.com/vulcanize/ipfs-ethdb/v3 v3.0.1
+	github.com/vulcanize/ipfs-ethdb/v4 v4.0.0-alpha
 )
 
-replace github.com/ethereum/go-ethereum v1.10.17 => github.com/vulcanize/go-ethereum v1.10.17-statediff-3.2.1
+replace github.com/ethereum/go-ethereum v1.10.17 => github.com/vulcanize/go-ethereum v1.10.17-statediff-4.0.1-alpha

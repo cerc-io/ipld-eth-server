@@ -43,8 +43,8 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-	validator "github.com/vulcanize/eth-ipfs-state-validator/v3/pkg"
-	ipfsethdb "github.com/vulcanize/ipfs-ethdb/v3/postgres"
+	validator "github.com/vulcanize/eth-ipfs-state-validator/v4/pkg"
+	ipfsethdb "github.com/vulcanize/ipfs-ethdb/v4/postgres"
 
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 
@@ -59,31 +59,42 @@ var (
 
 	// errMissingSignature is returned if a block's extra-data section doesn't seem
 	// to contain a 65 byte secp256k1 signature.
-	errMissingSignature = errors.New("extra-data 65 byte signature suffix missing")
 )
 
 const (
 	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
-									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
+									INNER JOIN public.blocks ON (
+										header_cids.mh_key = blocks.key
+										AND header_cids.block_number = blocks.block_number
+									)
 									WHERE block_hash = (SELECT canonical_header_hash($1))`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
-									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
+									INNER JOIN public.blocks ON (
+										header_cids.mh_key = blocks.key
+										AND header_cids.block_number = blocks.block_number
+									)
 									WHERE block_hash = (SELECT canonical_header_hash($1))`
 	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
-	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, block_number, index FROM public.blocks, eth.transaction_cids, eth.header_cids
+	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, transaction_cids.block_number, index
+			FROM public.blocks, eth.transaction_cids, eth.header_cids
 			WHERE blocks.key = transaction_cids.mh_key
+			AND blocks.block_number = transaction_cids.block_number
 			AND transaction_cids.header_id = header_cids.block_hash
+			AND transaction_cids.block_number = header_cids.block_number
 			AND transaction_cids.tx_hash = $1`
 	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
-											WHERE state_accounts.header_id = state_cids.header_id AND state_accounts.state_path = state_cids.state_path
+											WHERE state_accounts.header_id = state_cids.header_id
+											AND state_accounts.state_path = state_cids.state_path
+											AND state_accounts.block_number = state_cids.block_number
 											AND state_cids.header_id = header_cids.block_hash
+											AND state_cids.block_number = header_cids.block_number
 											AND state_leaf_key = $1
-											AND block_number <= (SELECT block_number
+											AND header_cids.block_number <= (SELECT block_number
 																FROM eth.header_cids
 																WHERE block_hash = $2)
-											AND header_cids.block_hash = (SELECT canonical_header_hash(block_number))
-											ORDER BY block_number DESC
+											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
+											ORDER BY header_cids.block_number DESC
 											LIMIT 1`
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
