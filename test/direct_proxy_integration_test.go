@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-	integration "github.com/vulcanize/ipld-eth-server/v3/test"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
+	integration "github.com/vulcanize/ipld-eth-server/v4/test"
 )
 
 var _ = Describe("Integration test", func() {

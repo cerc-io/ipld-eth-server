@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/types"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
 )
 
 // APIName is the namespace used for the state diffing service API

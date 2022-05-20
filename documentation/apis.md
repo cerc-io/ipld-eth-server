@@ -40,9 +40,9 @@ An example of how to subscribe to a real-time Ethereum data feed from ipld-eth-s
     	"github.com/ethereum/go-ethereum/rpc"
     	"github.com/spf13/viper"
 
-        "github.com/vulcanize/ipld-eth-server/v3/pkg/client"
-        "github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-        "github.com/vulcanize/ipld-eth-server/v3/pkg/watch"
+        "github.com/vulcanize/ipld-eth-server/v4/pkg/client"
+        "github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
+        "github.com/vulcanize/ipld-eth-server/v4/pkg/watch"
     )
 
     config, _ := eth.NewEthSubscriptionConfig()
@@ -160,9 +160,9 @@ An example of how to subscribe to a real-time Bitcoin data feed from ipld-eth-se
     	"github.com/ethereum/go-ethereum/rpc"
     	"github.com/spf13/viper"
 
-    	"github.com/vulcanize/ipld-eth-server/v3/pkg/btc"
-    	"github.com/vulcanize/ipld-eth-server/v3/pkg/client"
-    	"github.com/vulcanize/ipld-eth-server/v3/pkg/watch"
+    	"github.com/vulcanize/ipld-eth-server/v4/pkg/btc"
+    	"github.com/vulcanize/ipld-eth-server/v4/pkg/client"
+    	"github.com/vulcanize/ipld-eth-server/v4/pkg/watch"
     )
 
     config, _ := btc.NewBtcSubscriptionConfig()

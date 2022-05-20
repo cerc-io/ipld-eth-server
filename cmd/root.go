@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/prom"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/prom"
 )
 
 var (

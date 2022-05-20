@@ -48,7 +48,7 @@ import (
 
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
 )
 
 var (

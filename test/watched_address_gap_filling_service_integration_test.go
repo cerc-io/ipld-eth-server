@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	integration "github.com/vulcanize/ipld-eth-server/v3/test"
+	integration "github.com/vulcanize/ipld-eth-server/v4/test"
 )
 
 var _ = Describe("Watched address gap filling service integration test", func() {

@@ -25,7 +25,7 @@ import (
 	validator "github.com/vulcanize/eth-ipfs-state-validator/v4/pkg"
 	ipfsethdb "github.com/vulcanize/ipfs-ethdb/v4/postgres"
 
-	s "github.com/vulcanize/ipld-eth-server/v3/pkg/serve"
+	s "github.com/vulcanize/ipld-eth-server/v4/pkg/serve"
 )
 
 const GroupName = "statedb-validate"

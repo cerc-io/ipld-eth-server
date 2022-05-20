@@ -33,9 +33,9 @@ External dependency
 ## Install
 Start by downloading ipld-eth-server and moving into the repo:
 
-`GO111MODULE=off go get -d github.com/vulcanize/ipld-eth-server/v3`
+`GO111MODULE=off go get -d github.com/vulcanize/ipld-eth-server/v4`
 
-`cd $GOPATH/src/github.com/vulcanize/ipld-eth-server/v3@v3.x.x`
+`cd $GOPATH/src/github.com/vulcanize/ipld-eth-server/v4@v4.x.x`
 
 Then, build the binary:
 
