@@ -32,12 +32,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vulcanize/gap-filler/pkg/mux"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-	fill "github.com/vulcanize/ipld-eth-server/v3/pkg/fill"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/graphql"
-	srpc "github.com/vulcanize/ipld-eth-server/v3/pkg/rpc"
-	s "github.com/vulcanize/ipld-eth-server/v3/pkg/serve"
-	v "github.com/vulcanize/ipld-eth-server/v3/version"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
+	fill "github.com/vulcanize/ipld-eth-server/v4/pkg/fill"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/graphql"
+	srpc "github.com/vulcanize/ipld-eth-server/v4/pkg/rpc"
+	s "github.com/vulcanize/ipld-eth-server/v4/pkg/serve"
+	v "github.com/vulcanize/ipld-eth-server/v4/version"
 )
 
 var ErrNoRpcEndpoints = errors.New("no rpc endpoints is available")

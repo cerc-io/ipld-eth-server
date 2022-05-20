@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/net"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/net"
 )
 
 var _ = Describe("API", func() {

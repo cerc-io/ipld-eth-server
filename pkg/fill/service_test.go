@@ -28,10 +28,10 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth/test_helpers"
-	fill "github.com/vulcanize/ipld-eth-server/v3/pkg/fill"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/serve"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth/test_helpers"
+	fill "github.com/vulcanize/ipld-eth-server/v4/pkg/fill"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/serve"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
 )
 
 var _ = Describe("Service", func() {

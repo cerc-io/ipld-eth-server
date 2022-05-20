@@ -1,4 +1,4 @@
-module github.com/vulcanize/ipld-eth-server/v3
+module github.com/vulcanize/ipld-eth-server/v4
 
 go 1.15
 
@@ -9,7 +9,6 @@ require (
 	github.com/ipfs/go-cid v0.0.7
 	github.com/ipfs/go-ipfs-blockstore v1.0.1
 	github.com/ipfs/go-ipfs-ds-help v1.0.0
-	github.com/ipfs/go-ipld-format v0.2.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.5

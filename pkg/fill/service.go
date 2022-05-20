@@ -28,7 +28,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/serve"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/serve"
 )
 
 // WatchedAddress type is used to process currently watched addresses
