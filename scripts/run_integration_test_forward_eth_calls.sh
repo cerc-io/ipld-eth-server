@@ -4,8 +4,6 @@ set -o xtrace
 export ETH_FORWARD_ETH_CALLS=true
 export DB_WRITE=false
 export ETH_PROXY_ON_ERROR=false
-export WATCHED_ADDRESS_GAP_FILLER_ENABLED=false
-export WATCHED_ADDRESS_GAP_FILLER_INTERVAL=5
 
 export PGPASSWORD=password
 export DATABASE_USER=vdbm

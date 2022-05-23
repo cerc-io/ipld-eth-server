@@ -31,8 +31,6 @@ var (
 var _ = Describe("Integration test", func() {
 	directProxyEthCalls, err := strconv.ParseBool(os.Getenv("ETH_FORWARD_ETH_CALLS"))
 	Expect(err).To(BeNil())
-	watchedAddressServiceEnabled, err := strconv.ParseBool(os.Getenv("WATCHED_ADDRESS_GAP_FILLER_ENABLED"))
-	Expect(err).To(BeNil())
 	gethHttpPath := "http://127.0.0.1:8545"
 	gethClient, err := ethclient.Dial(gethHttpPath)
 	Expect(err).ToNot(HaveOccurred())
@@ -52,7 +50,7 @@ var _ = Describe("Integration test", func() {
 	sleepInterval := 2 * time.Second
 
 	BeforeEach(func() {
-		if directProxyEthCalls || watchedAddressServiceEnabled {
+		if directProxyEthCalls {
 			Skip("skipping no-direct-proxy-forwarding integration tests")
 		}
 	})
