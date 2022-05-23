@@ -27,9 +27,6 @@ var _ = Describe("WatchAddress integration test", func() {
 	dbWrite, err := strconv.ParseBool(os.Getenv("DB_WRITE"))
 	Expect(err).To(BeNil())
 
-	watchedAddressServiceEnabled, err := strconv.ParseBool(os.Getenv("WATCHED_ADDRESS_GAP_FILLER_ENABLED"))
-	Expect(err).To(BeNil())
-
 	gethHttpPath := "http://127.0.0.1:8545"
 	gethRPCClient, err := rpc.Dial(gethHttpPath)
 	Expect(err).ToNot(HaveOccurred())
@@ -71,7 +68,7 @@ var _ = Describe("WatchAddress integration test", func() {
 	)
 
 	BeforeEach(func() {
-		if !dbWrite || watchedAddressServiceEnabled {
+		if !dbWrite {
 			Skip("skipping WatchAddress API integration tests")
 		}
 	})

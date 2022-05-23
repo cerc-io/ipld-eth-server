@@ -67,8 +67,6 @@ jobs:
       ETH_FORWARD_ETH_CALLS: false
       ETH_PROXY_ON_ERROR: false
       ETH_HTTP_PATH: "go-ethereum:8545"
-      WATCHED_ADDRESS_GAP_FILLER_ENABLED: false
-      WATCHED_ADDRESS_GAP_FILLER_INTERVAL: 2
     strategy:
       matrix:
         go-version: [1.16.x]
@@ -136,8 +134,6 @@ jobs:
       ETH_FORWARD_ETH_CALLS: true
       ETH_PROXY_ON_ERROR: false
       ETH_HTTP_PATH: "go-ethereum:8545"
-      WATCHED_ADDRESS_GAP_FILLER_ENABLED: false
-      WATCHED_ADDRESS_GAP_FILLER_INTERVAL: 2
     strategy:
       matrix:
         go-version: [1.16.x]
@@ -172,77 +168,6 @@ jobs:
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
           echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
-          cat ./config.sh
-      - name: Build geth
-        run: |
-          cd $GITHUB_WORKSPACE/stack-orchestrator/helper-scripts
-          ./compile-geth.sh \
-          -p "$GITHUB_WORKSPACE/config.sh" \
-          -e docker
-      - name: Run docker compose
-        run: |
-          docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-db.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-contract.yml" \
-          --env-file "$GITHUB_WORKSPACE/config.sh" \
-          up -d --build
-      - name: Test
-        run: |
-          cd $GITHUB_WORKSPACE/ipld-eth-server
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
-          make integrationtest
-
-  integrationtest_watchedaddress_gapfillingservice:
-    name: Run integration tests for watched addresses with gap filling service enabled
-    env:
-      STACK_ORCHESTRATOR_REF: 35c677433aee5fafdf74eb3c251a453691b818d0
-      GO_ETHEREUM_REF: ef8c9f2580dd577a7c5eca538fb0ed64d53dc4a4
-      GOPATH: /tmp/go
-      DB_WRITE: true
-      ETH_FORWARD_ETH_CALLS: false
-      ETH_PROXY_ON_ERROR: false
-      ETH_HTTP_PATH: "go-ethereum:8545"
-      WATCHED_ADDRESS_GAP_FILLER_ENABLED: true
-      WATCHED_ADDRESS_GAP_FILLER_INTERVAL: 2
-    strategy:
-      matrix:
-        go-version: [1.16.x]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-      - name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v2
-        with:
-          path: "./ipld-eth-server"
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ env.STACK_ORCHESTRATOR_REF }}
-          path: "./stack-orchestrator/"
-          repository: vulcanize/stack-orchestrator
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ env.GO_ETHEREUM_REF }}
-          repository: vulcanize/go-ethereum
-          path: "./go-ethereum/"
-      - name: Create config file
-        run: |
-          echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
-          echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
-          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-server/test/contract >> ./config.sh
-          echo db_write=$DB_WRITE >> ./config.sh
-          echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
-          echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
-          echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
-          echo watched_addres_gap_filler_enabled=$WATCHED_ADDRESS_GAP_FILLER_ENABLED >> ./config.sh
-          echo watched_addres_gap_filler_interval=$WATCHED_ADDRESS_GAP_FILLER_INTERVAL >> ./config.sh
           cat ./config.sh
       - name: Build geth
         run: |
