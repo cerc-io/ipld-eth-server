@@ -576,7 +576,7 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (models.Header
 // RetrieveHeaderCIDByHash returns the header for the given block hash
 func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.Hash) (models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block hash ", blockHash.String())
-	pgStr := `SELECT block_hash,cid,mh_key FROM eth.header_cids
+	pgStr := `SELECT block_hash, CAST(block_number as Text), parent_hash, cid, mh_key, timestamp FROM eth.header_cids
 			WHERE block_hash = $1`
 	var headerCID models.HeaderModel
 	return headerCID, tx.Get(&headerCID, pgStr, blockHash.String())
@@ -603,4 +603,87 @@ func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txHashes []stri
 			ORDER BY transaction_cids.index`
 	var rctCIDs []models.ReceiptModel
 	return rctCIDs, tx.Select(&rctCIDs, pgStr, pq.Array(txHashes))
+}
+
+func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64) ([]models.HeaderModel, [][]models.TxModel, error) {
+	log.Debug("retrieving header cids and tx cids for block number ", blockNumber)
+
+	// Begin new db tx
+	tx, err := ecr.db.Beginx()
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	var headerCIDs []models.HeaderModel
+	headerCIDs, err = ecr.RetrieveHeaderCIDs(tx, blockNumber)
+	if err != nil {
+		log.Error("header cid retrieval error")
+		return nil, nil, err
+	}
+	if len(headerCIDs) < 1 {
+		return nil, nil, fmt.Errorf("header cid retrieval error, no header CIDs found at block %d", blockNumber)
+	}
+
+	var allTxCIDs [][]models.TxModel
+	for _, headerCID := range headerCIDs {
+		var txCIDs []models.TxModel
+		txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.BlockHash)
+		if err != nil {
+			log.Error("tx cid retrieval error")
+			return nil, nil, err
+		}
+		allTxCIDs = append(allTxCIDs, txCIDs)
+	}
+
+	return headerCIDs, allTxCIDs, nil
+}
+
+func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Hash) (models.HeaderModel, []models.TxModel, error) {
+	log.Debug("retrieving header cid and tx cids for block hash ", blockHash.String())
+
+	// Begin new db tx
+	tx, err := ecr.db.Beginx()
+	if err != nil {
+		return models.HeaderModel{}, nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	var headerCID models.HeaderModel
+	headerCID, err = ecr.RetrieveHeaderCIDByHash(tx, blockHash)
+	if err != nil {
+		log.Error("header cid retrieval error")
+		return models.HeaderModel{}, nil, err
+	}
+	if err != nil {
+		return models.HeaderModel{}, nil, err
+	}
+	fmt.Println("RetrieveHeaderAndTxCIDsByBlockHash", headerCID.ParentHash, headerCID.Timestamp)
+
+	var txCIDs []models.TxModel
+	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.BlockHash)
+	if err != nil {
+		log.Error("tx cid retrieval error")
+		return models.HeaderModel{}, nil, err
+	}
+
+	return headerCID, txCIDs, nil
 }
