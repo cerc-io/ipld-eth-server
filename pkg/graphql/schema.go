@@ -138,16 +138,16 @@ const schema string = `
         # empty, results will not be filtered by address.
         addresses: [Address!]
         # Topics list restricts matches to particular event topics. Each event has a list
-      # of topics. Topics matches a prefix of that list. An empty element array matches any
-      # topic. Non-empty elements represent an alternative that matches any of the
-      # contained topics.
-      #
-      # Examples:
-      #  - [] or nil          matches any topic list
-      #  - [[A]]              matches topic A in first position
-      #  - [[], [B]]          matches any topic in first position, B in second position
-      #  - [[A], [B]]         matches topic A in first position, B in second position
-      #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
+        # of topics. Topics matches a prefix of that list. An empty element array matches any
+        # topic. Non-empty elements represent an alternative that matches any of the
+        # contained topics.
+        #
+        # Examples:
+        #  - [] or nil          matches any topic list
+        #  - [[A]]              matches topic A in first position
+        #  - [[], [B]]          matches any topic in first position, B in second position
+        #  - [[A], [B]]         matches topic A in first position, B in second position
+        #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
         topics: [[Bytes32!]!]
     }
 
@@ -258,16 +258,16 @@ const schema string = `
         # empty, results will not be filtered by address.
         addresses: [Address!]
         # Topics list restricts matches to particular event topics. Each event has a list
-      # of topics. Topics matches a prefix of that list. An empty element array matches any
-      # topic. Non-empty elements represent an alternative that matches any of the
-      # contained topics.
-      #
-      # Examples:
-      #  - [] or nil          matches any topic list
-      #  - [[A]]              matches topic A in first position
-      #  - [[], [B]]          matches any topic in first position, B in second position
-      #  - [[A], [B]]         matches topic A in first position, B in second position
-      #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
+        # of topics. Topics matches a prefix of that list. An empty element array matches any
+        # topic. Non-empty elements represent an alternative that matches any of the
+        # contained topics.
+        #
+        # Examples:
+        #  - [] or nil          matches any topic list
+        #  - [[A]]              matches topic A in first position
+        #  - [[], [B]]          matches any topic in first position, B in second position
+        #  - [[A], [B]]         matches topic A in first position, B in second position
+        #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
         topics: [[Bytes32!]!]
     }
 
@@ -280,6 +280,36 @@ const schema string = `
 
         # Storage trie IPLD block.
         ipldBlock: Bytes!
+    }
+
+    input EthHeaderCidCondition {
+        blockNumber: BigInt
+        blockHash: String
+    }
+
+    type EthTransactionCid {
+        cid: String!
+        txHash: String!
+        index: Int!
+        src: String!
+        dst: String!
+    }
+
+    type EthTransactionCidsConnection {
+        nodes: [EthTransactionCid]!
+    }
+
+    type EthHeaderCid {
+        cid: String!
+        blockNumber: Long!
+        blockHash: String!
+        parentHash: String!
+        timestamp: Long!
+        ethTransactionCidsByHeaderId: EthTransactionCidsConnection!
+    }
+
+    type EthHeaderCidsConnection {
+        nodes: [EthHeaderCid]!
     }
 
     type Query {
@@ -302,5 +332,7 @@ const schema string = `
 
         # Get contract logs by block hash and contract address.
         getLogs(blockHash: Bytes32!, contract: Address): [Log!]
+
+        allEthHeaderCids(condition: EthHeaderCidCondition): EthHeaderCidsConnection
     }
 `
