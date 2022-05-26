@@ -23,7 +23,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -1164,10 +1163,10 @@ func (transactionCIDResult EthTransactionCidsConnection) Nodes(ctx context.Conte
 
 type EthHeaderCid struct {
 	cid          string
-	blockNumber  hexutil.Uint64
+	blockNumber  BigInt
 	blockHash    string
 	parentHash   string
-	timestamp    hexutil.Uint64
+	timestamp    BigInt
 	transactions []*EthTransactionCid
 }
 
@@ -1175,7 +1174,7 @@ func (h EthHeaderCid) Cid(ctx context.Context) string {
 	return h.cid
 }
 
-func (h EthHeaderCid) BlockNumber(ctx context.Context) hexutil.Uint64 {
+func (h EthHeaderCid) BlockNumber(ctx context.Context) BigInt {
 	return h.blockNumber
 }
 
@@ -1187,7 +1186,7 @@ func (h EthHeaderCid) ParentHash(ctx context.Context) string {
 	return h.parentHash
 }
 
-func (h EthHeaderCid) Timestamp(ctx context.Context) hexutil.Uint64 {
+func (h EthHeaderCid) Timestamp(ctx context.Context) BigInt {
 	return h.timestamp
 }
 
@@ -1204,7 +1203,7 @@ func (headerCIDResult EthHeaderCidsConnection) Nodes(ctx context.Context) []*Eth
 }
 
 type EthHeaderCidCondition struct {
-	BlockNumber *hexutil.Big
+	BlockNumber *BigInt
 	BlockHash   *string
 }
 
@@ -1233,15 +1232,18 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 
 	var resultNodes []*EthHeaderCid
 	for idx, headerCID := range headerCIDs {
-		blockNumber := new(big.Int)
-		blockNumber.SetString(headerCID.BlockNumber, 10)
+		var blockNumber BigInt
+		blockNumber.UnmarshalText([]byte(headerCID.BlockNumber))
+
+		var timestamp BigInt
+		timestamp.SetUint64(headerCID.Timestamp)
 
 		ethHeaderCidNode := EthHeaderCid{
 			cid:         headerCID.CID,
-			blockNumber: hexutil.Uint64(blockNumber.Uint64()),
+			blockNumber: blockNumber,
 			blockHash:   headerCID.BlockHash,
 			parentHash:  headerCID.ParentHash,
-			timestamp:   hexutil.Uint64(headerCID.Timestamp),
+			timestamp:   timestamp,
 		}
 
 		txCIDs := allTxCIDs[idx]

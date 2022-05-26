@@ -25,8 +25,7 @@ const schema string = `
     # An empty byte string is represented as '0x'. Byte strings must have an even number of hexadecimal nybbles.
     scalar Bytes
     # BigInt is a large integer. Input is accepted as either a JSON number or as a string.
-    # Strings may be either decimal or 0x-prefixed hexadecimal. Output values are all
-    # 0x-prefixed hexadecimal.
+    # Input and output strings may be either decimal or 0x-prefixed hexadecimal depending upon the resolver implementation.
     scalar BigInt
     # Long is a 64 bit unsigned integer.
     scalar Long
@@ -301,10 +300,10 @@ const schema string = `
 
     type EthHeaderCid {
         cid: String!
-        blockNumber: Long!
+        blockNumber: BigInt!
         blockHash: String!
         parentHash: String!
-        timestamp: Long!
+        timestamp: BigInt!
         ethTransactionCidsByHeaderId: EthTransactionCidsConnection!
     }
 
@@ -333,6 +332,7 @@ const schema string = `
         # Get contract logs by block hash and contract address.
         getLogs(blockHash: Bytes32!, contract: Address): [Log!]
 
+        # PostGraphile alternative to get headers with transactions using block number or block hash.
         allEthHeaderCids(condition: EthHeaderCidCondition): EthHeaderCidsConnection
     }
 `
