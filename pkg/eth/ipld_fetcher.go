@@ -20,11 +20,13 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
+	"github.com/thoas/go-funk"
 	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
@@ -99,7 +101,7 @@ func (f *IPLDFetcher) Fetch(cids CIDWrapper) (*IPLDs, error) {
 	return iplds, err
 }
 
-// FetchHeaders fetches headers
+// FetchHeader fetches header
 func (f *IPLDFetcher) FetchHeader(tx *sqlx.Tx, c models.HeaderModel) (models.IPLDModel, error) {
 	log.Debug("fetching header ipld")
 	headerBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
@@ -110,6 +112,38 @@ func (f *IPLDFetcher) FetchHeader(tx *sqlx.Tx, c models.HeaderModel) (models.IPL
 		Data: headerBytes,
 		Key:  c.CID,
 	}, nil
+}
+
+// FetchHeaders fetches headers
+func (f *IPLDFetcher) FetchHeaders(tx *sqlx.Tx, cids []models.HeaderModel) ([]models.IPLDModel, error) {
+	log.Debug("fetching header iplds")
+	headerIPLDs := make([]models.IPLDModel, len(cids))
+
+	blockNumbers := make([]uint64, len(cids))
+	mhKeys := make([]string, len(cids))
+	for i, c := range cids {
+		var err error
+		mhKeys[i] = c.MhKey
+		blockNumbers[i], err = strconv.ParseUint(c.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	fetchedIPLDs, err := shared.FetchIPLDsByMhKeysAndBlockNumbers(tx, mhKeys, blockNumbers)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, c := range cids {
+		headerIPLD := funk.Find(fetchedIPLDs, func(ipld models.IPLDModel) bool {
+			return ipld.Key == c.MhKey
+		}).(models.IPLDModel)
+
+		headerIPLDs[i] = headerIPLD
+	}
+
+	return headerIPLDs, nil
 }
 
 // FetchUncles fetches uncles
