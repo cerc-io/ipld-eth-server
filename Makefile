@@ -28,6 +28,7 @@ $(BIN)/gometalinter.v2:
 .PHONY: installtools
 installtools: | $(LINT) $(GOOSE) $(GINKGO)
 	echo "Installing tools"
+	go mod download
 
 .PHONY: metalint
 metalint: | $(METALINT)
