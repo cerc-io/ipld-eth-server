@@ -27,6 +27,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
+	"github.com/thoas/go-funk"
 
 	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
 )
@@ -626,6 +627,17 @@ func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID string, 
 	return txCIDs, tx.Select(&txCIDs, pgStr, headerID, blockNumber)
 }
 
+func (ecr *CIDRetriever) RetrieveTxCIDsByBlockNumber(tx *sqlx.Tx, blockNumber int64) ([]models.TxModel, error) {
+	log.Debug("retrieving tx cids for block number ", blockNumber)
+	pgStr := `SELECT CAST(block_number as Text), header_id, index, tx_hash, cid, mh_key,
+			dst, src, tx_data, tx_type, value
+			FROM eth.transaction_cids
+			WHERE block_number = $1
+			ORDER BY index`
+	var txCIDs []models.TxModel
+	return txCIDs, tx.Select(&txCIDs, pgStr, blockNumber)
+}
+
 // RetrieveReceiptCIDsByTxIDs retrieves receipt CIDs by their associated tx IDs
 func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txHashes []string) ([]models.ReceiptModel, error) {
 	log.Debugf("retrieving receipt cids for tx hashes %v", txHashes)
@@ -670,13 +682,30 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64)
 	}
 
 	var allTxCIDs [][]models.TxModel
+	txCIDs, err := ecr.RetrieveTxCIDsByBlockNumber(tx, blockNumber)
+	if err != nil {
+		log.Error("tx cid retrieval error")
+		return nil, nil, err
+	}
+
+	txCIDsByHeaderID := funk.Reduce(
+		txCIDs,
+		func(acc map[string][]models.TxModel, txCID models.TxModel) map[string][]models.TxModel {
+			if _, ok := acc[txCID.HeaderID]; !ok {
+				acc[txCID.HeaderID] = []models.TxModel{}
+			}
+
+			txCIDs = append(acc[txCID.HeaderID], txCID)
+			acc[txCID.HeaderID] = txCIDs
+			return acc
+		},
+		make(map[string][]models.TxModel),
+	)
+
+	txCIDsByHeaderIDMap := txCIDsByHeaderID.(map[string][]models.TxModel)
+
 	for _, headerCID := range headerCIDs {
-		var txCIDs []models.TxModel
-		txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.BlockHash, blockNumber)
-		if err != nil {
-			log.Error("tx cid retrieval error")
-			return nil, nil, err
-		}
+		txCIDs := txCIDsByHeaderIDMap[headerCID.BlockHash]
 		allTxCIDs = append(allTxCIDs, txCIDs)
 	}
 
@@ -712,7 +741,6 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Has
 	if err != nil {
 		return models.HeaderModel{}, nil, err
 	}
-	fmt.Println("RetrieveHeaderAndTxCIDsByBlockHash", headerCID.ParentHash, headerCID.Timestamp)
 
 	var txCIDs []models.TxModel
 	txCIDs, err = ecr.RetrieveTxCIDsByHeaderID(tx, headerCID.BlockHash, blockNumber)

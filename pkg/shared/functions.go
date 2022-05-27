@@ -18,6 +18,7 @@ package shared
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
@@ -53,6 +54,19 @@ func FetchIPLDByMhKeyAndBlockNumber(tx *sqlx.Tx, mhKey string, blockNumber uint6
 	pgStr := `SELECT data FROM public.blocks WHERE key = $1 AND block_number = $2`
 	var block []byte
 	return block, tx.Get(&block, pgStr, mhKey, blockNumber)
+}
+
+// FetchIPLDByMhKeysAndBlockNumbers is used to retrieve iplds from Postgres blockstore with the provided tx, mhkey strings and blockNumbers
+func FetchIPLDsByMhKeysAndBlockNumbers(tx *sqlx.Tx, mhKeys []string, blockNumbers []uint64) ([]models.IPLDModel, error) {
+	var blocks []models.IPLDModel
+	pgStr := `SELECT key, data, block_number FROM public.blocks WHERE key IN (?) AND block_number IN (?)`
+	query, args, err := sqlx.In(pgStr, mhKeys, blockNumbers)
+	if err != nil {
+		return blocks, err
+	}
+	query = tx.Rebind(query)
+
+	return blocks, tx.Select(&blocks, query, args...)
 }
 
 // MultihashKeyFromCID converts a cid into a blockstore-prefixed multihash db key string

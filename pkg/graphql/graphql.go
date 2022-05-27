@@ -1161,13 +1161,33 @@ func (transactionCIDResult EthTransactionCidsConnection) Nodes(ctx context.Conte
 	return transactionCIDResult.nodes
 }
 
+type IPFSBlock struct {
+	key  string
+	data string
+}
+
+func (b IPFSBlock) Key(ctx context.Context) string {
+	return b.key
+}
+
+func (b IPFSBlock) Data(ctx context.Context) string {
+	return b.data
+}
+
 type EthHeaderCid struct {
 	cid          string
 	blockNumber  BigInt
 	blockHash    string
 	parentHash   string
 	timestamp    BigInt
+	stateRoot    string
+	td           BigInt
+	txRoot       string
+	receiptRoot  string
+	uncleRoot    string
+	bloom        string
 	transactions []*EthTransactionCid
+	ipfsBlock    IPFSBlock
 }
 
 func (h EthHeaderCid) Cid(ctx context.Context) string {
@@ -1190,8 +1210,36 @@ func (h EthHeaderCid) Timestamp(ctx context.Context) BigInt {
 	return h.timestamp
 }
 
+func (h EthHeaderCid) StateRoot(ctx context.Context) string {
+	return h.stateRoot
+}
+
+func (h EthHeaderCid) Td(ctx context.Context) BigInt {
+	return h.td
+}
+
+func (h EthHeaderCid) TxRoot(ctx context.Context) string {
+	return h.txRoot
+}
+
+func (h EthHeaderCid) ReceiptRoot(ctx context.Context) string {
+	return h.receiptRoot
+}
+
+func (h EthHeaderCid) UncleRoot(ctx context.Context) string {
+	return h.uncleRoot
+}
+
+func (h EthHeaderCid) Bloom(ctx context.Context) string {
+	return h.bloom
+}
+
 func (h EthHeaderCid) EthTransactionCidsByHeaderId(ctx context.Context) EthTransactionCidsConnection {
 	return EthTransactionCidsConnection{nodes: h.transactions}
+}
+
+func (h EthHeaderCid) BlockByMhKey(ctx context.Context) IPFSBlock {
+	return h.ipfsBlock
 }
 
 type EthHeaderCidsConnection struct {
@@ -1230,6 +1278,17 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 		return nil, fmt.Errorf("provide block number or block hash")
 	}
 
+	// Begin tx
+	tx, err := r.backend.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+
+	headerIPLDs, err := r.backend.Fetcher.FetchHeaders(tx, headerCIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	var resultNodes []*EthHeaderCid
 	for idx, headerCID := range headerCIDs {
 		var blockNumber BigInt
@@ -1238,12 +1297,21 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 		var timestamp BigInt
 		timestamp.SetUint64(headerCID.Timestamp)
 
+		var td BigInt
+		td.UnmarshalText([]byte(headerCID.TotalDifficulty))
+
 		ethHeaderCidNode := EthHeaderCid{
 			cid:         headerCID.CID,
 			blockNumber: blockNumber,
 			blockHash:   headerCID.BlockHash,
 			parentHash:  headerCID.ParentHash,
 			timestamp:   timestamp,
+			stateRoot:   headerCID.StateRoot,
+			td:          td,
+			txRoot:      headerCID.TxRoot,
+			receiptRoot: headerCID.RctRoot,
+			uncleRoot:   headerCID.UncleRoot,
+			bloom:       hexutil.Bytes(headerCID.Bloom).String(),
 		}
 
 		txCIDs := allTxCIDs[idx]
@@ -1255,6 +1323,11 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 				src:    txCID.Src,
 				dst:    txCID.Dst,
 			})
+		}
+
+		ethHeaderCidNode.ipfsBlock = IPFSBlock{
+			key:  headerIPLDs[idx].Key,
+			data: hexutil.Bytes(headerIPLDs[idx].Data).String(),
 		}
 
 		resultNodes = append(resultNodes, &ethHeaderCidNode)
