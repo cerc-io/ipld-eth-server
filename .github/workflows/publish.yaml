@@ -4,7 +4,7 @@ on:
     types: [published]
 jobs:
   run-tests:
-    uses: ./.github/workflows/tests.yml
+    uses: ./.github/workflows/tests.yaml
   build:
     name: Run docker build
     runs-on: ubuntu-latest
