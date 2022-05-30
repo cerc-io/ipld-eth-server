@@ -17,11 +17,39 @@
 package graphql
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
+
+// Bytes marshals as a JSON string with \x prefix.
+// The empty slice marshals as "\x".
+type Bytes []byte
+
+// MarshalText implements encoding.TextMarshaler
+func (b Bytes) MarshalText() ([]byte, error) {
+	result := make([]byte, len(b)*2+2)
+	copy(result, `\x`)
+	hex.Encode(result[2:], b)
+	return result, nil
+}
+
+// String returns the hex encoding of b.
+func (b Bytes) String() string {
+	return b.encode()
+}
+
+// Encode encodes b as a hex string with "\x" prefix.
+// This is to make the output to be the same as given by postgraphile.
+// graphql-go prepends another "\" to the output resulting in prefix "\\x".
+func (b Bytes) encode() string {
+	result := make([]byte, len(b)*2+2)
+	copy(result, `\x`)
+	hex.Encode(result[2:], b)
+	return string(result)
+}
 
 type BigInt big.Int
 
