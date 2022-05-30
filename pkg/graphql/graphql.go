@@ -1327,7 +1327,7 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 			txRoot:      headerCID.TxRoot,
 			receiptRoot: headerCID.RctRoot,
 			uncleRoot:   headerCID.UncleRoot,
-			bloom:       hexutil.Bytes(headerCID.Bloom).String(),
+			bloom:       Bytes(headerCID.Bloom).String(),
 		}
 
 		txCIDs := allTxCIDs[idx]
@@ -1343,7 +1343,7 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 
 		ethHeaderCidNode.ipfsBlock = IPFSBlock{
 			key:  headerIPLDs[idx].Key,
-			data: hexutil.Bytes(headerIPLDs[idx].Data).String(),
+			data: Bytes(headerIPLDs[idx].Data).String(),
 		}
 
 		resultNodes = append(resultNodes, &ethHeaderCidNode)
@@ -1392,7 +1392,7 @@ func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
 		dst:    txCID.Dst,
 		ipfsBlock: IPFSBlock{
 			key:  txIPLDs[0].Key,
-			data: hexutil.Bytes(txIPLDs[0].Data).String(),
+			data: Bytes(txIPLDs[0].Data).String(),
 		},
 	}, nil
 }
