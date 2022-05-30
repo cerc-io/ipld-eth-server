@@ -1126,11 +1126,12 @@ func decomposeGQLLogs(logCIDs []eth.LogResult) []logsCID {
 }
 
 type EthTransactionCid struct {
-	cid    string
-	txHash string
-	index  int32
-	src    string
-	dst    string
+	cid       string
+	txHash    string
+	index     int32
+	src       string
+	dst       string
+	ipfsBlock IPFSBlock
 }
 
 func (t EthTransactionCid) Cid(ctx context.Context) string {
@@ -1151,6 +1152,10 @@ func (t EthTransactionCid) Src(ctx context.Context) string {
 
 func (t EthTransactionCid) Dst(ctx context.Context) string {
 	return t.dst
+}
+
+func (t EthTransactionCid) BlockByMhKey(ctx context.Context) IPFSBlock {
+	return t.ipfsBlock
 }
 
 type EthTransactionCidsConnection struct {
@@ -1335,5 +1340,38 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 
 	return &EthHeaderCidsConnection{
 		nodes: resultNodes,
+	}, nil
+}
+
+func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
+	TxHash string
+}) (*EthTransactionCid, error) {
+	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Begin tx
+	tx, err := r.backend.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+
+	txIPLDs, err := r.backend.Fetcher.FetchTrxs(tx, []models.TxModel{txCID})
+	if err != nil {
+		return nil, err
+	}
+
+	return &EthTransactionCid{
+		cid:    txCID.CID,
+		txHash: txCID.TxHash,
+		index:  int32(txCID.Index),
+		src:    txCID.Src,
+		dst:    txCID.Dst,
+		ipfsBlock: IPFSBlock{
+			key:  txIPLDs[0].Key,
+			data: hexutil.Bytes(txIPLDs[0].Data).String(),
+		},
 	}, nil
 }
