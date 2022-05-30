@@ -294,6 +294,7 @@ const schema string = `
         index: Int!
         src: String!
         dst: String!
+        blockByMhKey: IPFSBlock!
     }
 
     type EthTransactionCidsConnection {
@@ -351,5 +352,8 @@ const schema string = `
 
         # PostGraphile alternative to get headers with transactions using block number or block hash.
         allEthHeaderCids(condition: EthHeaderCidCondition): EthHeaderCidsConnection
+
+        # PostGraphile alternative to get transactions using transaction hash.
+        ethTransactionCidByTxHash(txHash: String!): EthTransactionCid
     }
 `

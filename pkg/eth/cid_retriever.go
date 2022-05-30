@@ -627,6 +627,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID string, 
 	return txCIDs, tx.Select(&txCIDs, pgStr, headerID, blockNumber)
 }
 
+// RetrieveTxCIDsByBlockNumber retrieves all tx CIDs for the given blockNumber
 func (ecr *CIDRetriever) RetrieveTxCIDsByBlockNumber(tx *sqlx.Tx, blockNumber int64) ([]models.TxModel, error) {
 	log.Debug("retrieving tx cids for block number ", blockNumber)
 	pgStr := `SELECT CAST(block_number as Text), header_id, index, tx_hash, cid, mh_key,
@@ -652,6 +653,7 @@ func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txHashes []stri
 	return rctCIDs, tx.Select(&rctCIDs, pgStr, pq.Array(txHashes))
 }
 
+// RetrieveHeaderAndTxCIDsByBlockNumber retrieves header CIDs and their associated tx CIDs by block number
 func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64) ([]models.HeaderModel, [][]models.TxModel, error) {
 	log.Debug("retrieving header cids and tx cids for block number ", blockNumber)
 
@@ -712,6 +714,7 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64)
 	return headerCIDs, allTxCIDs, nil
 }
 
+// RetrieveHeaderAndTxCIDsByBlockHash retrieves header CID and their associated tx CIDs by block hash
 func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Hash) (models.HeaderModel, []models.TxModel, error) {
 	log.Debug("retrieving header cid and tx cids for block hash ", blockHash.String())
 
@@ -750,4 +753,33 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Has
 	}
 
 	return headerCID, txCIDs, nil
+}
+
+// RetrieveTxCIDByHash returns the tx for the given tx hash
+func (ecr *CIDRetriever) RetrieveTxCIDByHash(txHash string) (models.TxModel, error) {
+	log.Debug("retrieving tx cid for tx hash ", txHash)
+
+	// Begin new db tx
+	tx, err := ecr.db.Beginx()
+	if err != nil {
+		return models.TxModel{}, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	pgStr := `SELECT CAST(block_number as Text), header_id, index, tx_hash, cid, mh_key,
+		dst, src, tx_data, tx_type, value
+		FROM eth.transaction_cids
+		WHERE tx_hash = $1
+		ORDER BY index`
+	var txCID models.TxModel
+	return txCID, tx.Get(&txCID, pgStr, txHash)
 }
