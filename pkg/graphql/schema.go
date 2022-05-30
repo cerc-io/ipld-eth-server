@@ -29,8 +29,6 @@ const schema string = `
     scalar BigInt
     # Long is a 64 bit unsigned integer.
     scalar Long
-    # BigFloat is a floating point number.
-    scalar BigFloat
 
     schema {
         query: Query
@@ -313,10 +311,7 @@ const schema string = `
         parentHash: String!
         timestamp: BigInt!
         stateRoot: String!
-
-        # TODO: Use BigFloat
         td: BigInt!
-
         txRoot: String!
         receiptRoot: String!
         uncleRoot: String!

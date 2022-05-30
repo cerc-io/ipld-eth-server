@@ -644,9 +644,6 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64)
 		log.Error("header cid retrieval error")
 		return nil, nil, err
 	}
-	if len(headerCIDs) < 1 {
-		return nil, nil, fmt.Errorf("header cid retrieval error, no header CIDs found at block %d", blockNumber)
-	}
 
 	var allTxCIDs [][]models.TxModel
 	txCIDs, err := ecr.RetrieveTxCIDsByBlockNumber(tx, blockNumber)
