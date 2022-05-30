@@ -79,10 +79,10 @@ func FetchIPLDByMhKey(tx *sqlx.Tx, mhKey string) ([]byte, error) {
 }
 
 // FetchIPLDByMhKeysAndBlockNumbers is used to retrieve iplds from Postgres blockstore with the provided tx, mhkey strings and blockNumbers
-func FetchIPLDsByMhKeysAndBlockNumbers(tx *sqlx.Tx, mhKeys []string, blockNumbers []uint64) ([]models.IPLDModel, error) {
+func FetchIPLDsByMhKeys(tx *sqlx.Tx, mhKeys []string) ([]models.IPLDModel, error) {
 	var blocks []models.IPLDModel
-	pgStr := `SELECT key, data, block_number FROM public.blocks WHERE key IN (?) AND block_number IN (?)`
-	query, args, err := sqlx.In(pgStr, mhKeys, blockNumbers)
+	pgStr := `SELECT key, data FROM public.blocks WHERE key IN (?)`
+	query, args, err := sqlx.In(pgStr, mhKeys)
 	if err != nil {
 		return blocks, err
 	}

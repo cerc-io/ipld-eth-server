@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
@@ -123,18 +122,16 @@ func (f *IPLDFetcher) FetchHeaders(tx *sqlx.Tx, cids []models.HeaderModel) ([]mo
 		return headerIPLDs, nil
 	}
 
-	blockNumbers := make([]uint64, len(cids))
 	mhKeys := make([]string, len(cids))
 	for i, c := range cids {
 		var err error
 		mhKeys[i] = c.MhKey
-		blockNumbers[i], err = strconv.ParseUint(c.BlockNumber, 10, 64)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	fetchedIPLDs, err := shared.FetchIPLDsByMhKeysAndBlockNumbers(tx, mhKeys, blockNumbers)
+	fetchedIPLDs, err := shared.FetchIPLDsByMhKeys(tx, mhKeys)
 	if err != nil {
 		return nil, err
 	}

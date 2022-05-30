@@ -577,7 +577,8 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (models.Header
 // RetrieveHeaderCIDByHash returns the header for the given block hash
 func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.Hash) (models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block hash ", blockHash.String())
-	pgStr := `SELECT block_hash, CAST(block_number as Text), parent_hash, cid, mh_key, timestamp FROM eth.header_cids
+	pgStr := `SELECT block_hash, CAST(block_number as Text), parent_hash, cid, mh_key, CAST(td as Text),
+			state_root,uncle_root,tx_root,receipt_root,bloom,timestamp FROM eth.header_cids
 			WHERE block_hash = $1`
 	var headerCID models.HeaderModel
 	return headerCID, tx.Get(&headerCID, pgStr, blockHash.String())
@@ -593,16 +594,27 @@ func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderID(tx *sqlx.Tx, headerID string) 
 	return txCIDs, tx.Select(&txCIDs, pgStr, headerID)
 }
 
-// RetrieveTxCIDsByBlockNumber retrieves all tx CIDs for the given blockNumber
-func (ecr *CIDRetriever) RetrieveTxCIDsByBlockNumber(tx *sqlx.Tx, blockNumber int64) ([]models.TxModel, error) {
-	log.Debug("retrieving tx cids for block number ", blockNumber)
-	pgStr := `SELECT CAST(block_number as Text), header_id, index, tx_hash, cid, mh_key,
+// RetrieveTxCIDsByHeaderIDs retrieves all tx CIDs for the given headerIDs
+func (ecr *CIDRetriever) RetrieveTxCIDsByHeaderIDs(tx *sqlx.Tx, headerIDs []string) ([]models.TxModel, error) {
+	log.Debug("retrieving tx cids for headerIDs ", headerIDs)
+	pgStr := `SELECT header_id, index, tx_hash, cid, mh_key,
 			dst, src, tx_data, tx_type, value
 			FROM eth.transaction_cids
-			WHERE block_number = $1
+			WHERE header_id in (?)
 			ORDER BY index`
+
 	var txCIDs []models.TxModel
-	return txCIDs, tx.Select(&txCIDs, pgStr, blockNumber)
+	if len(headerIDs) < 1 {
+		return txCIDs, nil
+	}
+
+	query, args, err := sqlx.In(pgStr, headerIDs)
+	if err != nil {
+		return txCIDs, err
+	}
+	query = tx.Rebind(query)
+
+	return txCIDs, tx.Select(&txCIDs, query, args...)
 }
 
 // RetrieveReceiptCIDsByTxIDs retrieves receipt CIDs by their associated tx IDs
@@ -646,7 +658,13 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64)
 	}
 
 	var allTxCIDs [][]models.TxModel
-	txCIDs, err := ecr.RetrieveTxCIDsByBlockNumber(tx, blockNumber)
+	txHeaderIDs := funk.Map(
+		headerCIDs,
+		func(headerCID models.HeaderModel) string {
+			return headerCID.BlockHash
+		},
+	)
+	txCIDs, err := ecr.RetrieveTxCIDsByHeaderIDs(tx, txHeaderIDs.([]string))
 	if err != nil {
 		log.Error("tx cid retrieval error")
 		return nil, nil, err
@@ -736,7 +754,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDByHash(txHash string) (models.TxModel, err
 		}
 	}()
 
-	pgStr := `SELECT CAST(block_number as Text), header_id, index, tx_hash, cid, mh_key,
+	pgStr := `SELECT header_id, index, tx_hash, cid, mh_key,
 		dst, src, tx_data, tx_type, value
 		FROM eth.transaction_cids
 		WHERE tx_hash = $1
