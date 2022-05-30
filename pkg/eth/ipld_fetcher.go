@@ -125,6 +125,10 @@ func (f *IPLDFetcher) FetchHeaders(tx *sqlx.Tx, cids []models.HeaderModel) ([]mo
 	log.Debug("fetching header iplds")
 	headerIPLDs := make([]models.IPLDModel, len(cids))
 
+	if len(cids) < 1 {
+		return headerIPLDs, nil
+	}
+
 	blockNumbers := make([]uint64, len(cids))
 	mhKeys := make([]string, len(cids))
 	for i, c := range cids {

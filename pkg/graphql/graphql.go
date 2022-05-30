@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 
 	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
 )
 
 var (
@@ -1288,6 +1289,16 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
 
 	headerIPLDs, err := r.backend.Fetcher.FetchHeaders(tx, headerCIDs)
 	if err != nil {
@@ -1357,6 +1368,16 @@ func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
 
 	txIPLDs, err := r.backend.Fetcher.FetchTrxs(tx, []models.TxModel{txCID})
 	if err != nil {
