@@ -1,6 +1,13 @@
 name: Test the stack.
 on:
   workflow_call:
+    secrets:
+      BUILD_HOSTNAME:
+        required: true
+      BUILD_USERNAME:
+        required: true
+      BUILD_KEY:
+        required: true
 
 jobs:
   build:
@@ -45,6 +52,7 @@ jobs:
 
       - name: Trigger Unit Test
         run: |
+          ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} go install github.com/onsi/ginkgo/v2/ginkgo@latest
           ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} chmod +x /tmp/run_unit_test.sh /tmp/run_unit_test.sh
           ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} /tmp/run_unit_test.sh
 
@@ -112,10 +120,6 @@ jobs:
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
           --env-file "$GITHUB_WORKSPACE/config.sh" \
           up -d --build
-      - name: Install packages
-        run: |
-          go install github.com/onsi/ginkgo/v2/ginkgo@latest
-          which ginkgo
       - name: Test
         run: |
           cd $GITHUB_WORKSPACE/ipld-eth-server
@@ -177,10 +181,6 @@ jobs:
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
           --env-file "$GITHUB_WORKSPACE/config.sh" \
           up -d --build
-      - name: Install packages
-        run: |
-          go install github.com/onsi/ginkgo/v2/ginkgo@latest
-          which ginkgo
       - name: Test
         run: |
           cd $GITHUB_WORKSPACE/ipld-eth-server

@@ -6,7 +6,7 @@ PKGS = go list ./... | grep -v "^vendor/"
 ## Testing library
 GINKGO = $(BIN)/ginkgo
 $(BIN)/ginkgo:
-	go get -u github.com/onsi/ginkgo/ginkgo
+	go run github.com/onsi/ginkgo/ginkgo
 
 ## Migration tool
 GOOSE = $(BIN)/goose
