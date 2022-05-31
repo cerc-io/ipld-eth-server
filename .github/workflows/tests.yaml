@@ -52,8 +52,7 @@ jobs:
 
       - name: Trigger Unit Test
         run: |
-          ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} go install github.com/onsi/ginkgo/v2/ginkgo@latest
-          ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} chmod +x /tmp/run_unit_test.sh /tmp/run_unit_test.sh
+          ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} go install github.com/onsi/ginkgo/ginkgo@latest
           ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} /tmp/run_unit_test.sh
 
       - name: Get the logs and cat them
