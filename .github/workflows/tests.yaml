@@ -70,6 +70,7 @@ jobs:
     env:
       STACK_ORCHESTRATOR_REF: 418957a1f745c921b21286c13bb033f922a91ae9
       GO_ETHEREUM_REF: "v1.10.18-statediff-4.0.2-alpha"
+      IPLD_ETH_DB_REF: 91d30b9ea1acecd0a7f4307390a98bf3e289b8d7
       GOPATH: /tmp/go
       DB_WRITE: true
       ETH_FORWARD_ETH_CALLS: false
@@ -96,9 +97,15 @@ jobs:
           ref: ${{ env.GO_ETHEREUM_REF }}
           repository: vulcanize/go-ethereum
           path: "./go-ethereum/"
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.IPLD_ETH_DB_REF }}
+          repository: vulcanize/ipld-eth-db
+          path: "./ipld-eth-db/"
       - name: Create config file
         run: |
           echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
+          echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
           echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
           echo db_write=$DB_WRITE >> ./config.sh
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
@@ -135,6 +142,7 @@ jobs:
     env:
       STACK_ORCHESTRATOR_REF: 418957a1f745c921b21286c13bb033f922a91ae9
       GO_ETHEREUM_REF: "v1.10.18-statediff-4.0.2-alpha"
+      IPLD_ETH_DB_REF: 91d30b9ea1acecd0a7f4307390a98bf3e289b8d7
       GOPATH: /tmp/go
       DB_WRITE: false
       ETH_FORWARD_ETH_CALLS: true
@@ -161,9 +169,15 @@ jobs:
           ref: ${{ env.GO_ETHEREUM_REF }}
           repository: vulcanize/go-ethereum
           path: "./go-ethereum/"
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ env.IPLD_ETH_DB_REF }}
+          repository: vulcanize/ipld-eth-db
+          path: "./ipld-eth-db/"
       - name: Create config file
         run: |
           echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
+          echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
           echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
           echo db_write=$DB_WRITE >> ./config.sh
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
