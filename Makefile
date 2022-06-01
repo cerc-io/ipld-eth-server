@@ -3,10 +3,6 @@ BASE = $(GOPATH)/src/$(PACKAGE)
 PKGS = go list ./... | grep -v "^vendor/"
 
 # Tools
-## Testing library
-GINKGO = $(BIN)/ginkgo
-$(BIN)/ginkgo:
-	go get -u github.com/onsi/ginkgo/ginkgo
 
 ## Migration tool
 GOOSE = $(BIN)/goose
@@ -26,8 +22,9 @@ $(BIN)/gometalinter.v2:
 
 
 .PHONY: installtools
-installtools: | $(LINT) $(GOOSE) $(GINKGO)
+installtools: | $(LINT) $(GOOSE)
 	echo "Installing tools"
+	go mod download
 
 .PHONY: metalint
 metalint: | $(METALINT)
@@ -54,19 +51,19 @@ TEST_CONNECT_STRING = postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATAB
 TEST_CONNECT_STRING_LOCAL = postgresql://$(USER)@$(HOST_NAME):$(PORT)/$(TEST_DB)?sslmode=disable
 
 .PHONY: test
-test: | $(GINKGO) $(GOOSE)
+test: |  $(GOOSE)
 	go vet ./...
 	go fmt ./...
-	$(GINKGO) -r --skipPackage=test
+	go run github.com/onsi/ginkgo/ginkgo  -r --skipPackage=test
 
 .PHONY: integrationtest
-integrationtest: | $(GINKGO) $(GOOSE)
+integrationtest: | $(GOOSE)
 	go vet ./...
 	go fmt ./...
-	$(GINKGO) -r test/ -v
+	go run github.com/onsi/ginkgo/ginkgo -r test/ -v
 
 .PHONY: test_local
-test_local: | $(GINKGO) $(GOOSE)
+test_local: | $(GOOSE)
 	go vet ./...
 	go fmt ./...
 	./scripts/run_unit_test.sh
