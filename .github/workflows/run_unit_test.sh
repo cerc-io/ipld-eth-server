@@ -13,7 +13,7 @@ cd ipld-eth-server
 rm -f /tmp/git_head_ref /tmp/git_repository
 
 # Spin up DB
-docker-compose up -d ipld-eth-db
+docker-compose -f docker-compose.yml up -d ipld-eth-db
 trap "docker-compose down --remove-orphans; cd $start_dir ; rm -r $temp_dir" SIGINT SIGTERM ERR
 sleep 10
 
@@ -23,7 +23,7 @@ PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=pass
 echo $? > /tmp/return_test.txt
 
 # Clean up
-docker-compose down -v --remove-orphans
+docker-compose -f docker-compose.yml down -v --remove-orphans
 cd $start_dir
 rm -fr $temp_dir
 
