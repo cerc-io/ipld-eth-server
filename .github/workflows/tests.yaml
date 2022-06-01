@@ -106,7 +106,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           ref: ${{ env.DB_VALIDATOR }}
-          repository: vulcanize/ipld-eth-db
+          repository: vulcanize/ipld-eth-db-validator
           path: "./ipld-eth-db-validator/"
       - name: Create config file
         run: |
@@ -186,7 +186,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           ref: ${{ env.DB_VALIDATOR }}
-          repository: vulcanize/ipld-eth-db
+          repository: vulcanize/ipld-eth-db-validator
           path: "./ipld-eth-db-validator/"
       - name: Create config file
         run: |
