@@ -21,9 +21,9 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
-	github.com/vulcanize/eth-ipfs-state-validator/v4 v4.0.0-alpha
+	github.com/vulcanize/eth-ipfs-state-validator/v4 v4.0.1-alpha
 	github.com/vulcanize/gap-filler v0.3.1
-	github.com/vulcanize/ipfs-ethdb/v4 v4.0.0-alpha
+	github.com/vulcanize/ipfs-ethdb/v4 v4.0.1-alpha
 )
 
 require (
@@ -185,10 +185,11 @@ require (
 	github.com/libp2p/go-ws-transport v0.5.0 // indirect
 	github.com/libp2p/go-yamux/v2 v2.2.0 // indirect
 	github.com/libp2p/zeroconf/v2 v2.0.0 // indirect
-	github.com/lucas-clemente/quic-go v0.23.0 // indirect
+	github.com/lucas-clemente/quic-go v0.26.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
-	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
+	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
+	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/matryer/is v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect

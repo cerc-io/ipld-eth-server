@@ -68,8 +68,8 @@ jobs:
   integrationtest:
     name: Run integration tests
     env:
-      STACK_ORCHESTRATOR_REF: fcbc74451c5494664fe21f765e89c9c6565c07cb
-      GO_ETHEREUM_REF: 498101102c891c4f8c3cab5649158c642ee1fd6b
+      STACK_ORCHESTRATOR_REF: e10025903ee8f2e7379cb89724f8f5b9f4dccc7b
+      GO_ETHEREUM_REF: "v1.10.18-statediff-4.0.2-alpha"
       GOPATH: /tmp/go
       DB_WRITE: true
       ETH_FORWARD_ETH_CALLS: false
@@ -114,9 +114,10 @@ jobs:
       - name: Run docker compose
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-db.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-migration.yml \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum4.yml \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-timescale-db.yml \
           --env-file "$GITHUB_WORKSPACE/config.sh" \
           up -d --build
       - name: Test
@@ -129,8 +130,8 @@ jobs:
   integrationtest_forwardethcalls:
     name: Run integration tests for direct proxy fall-through of eth_calls
     env:
-      STACK_ORCHESTRATOR_REF: fcbc74451c5494664fe21f765e89c9c6565c07cb
-      GO_ETHEREUM_REF: 498101102c891c4f8c3cab5649158c642ee1fd6b
+      STACK_ORCHESTRATOR_REF: e10025903ee8f2e7379cb89724f8f5b9f4dccc7b
+      GO_ETHEREUM_REF: "v1.10.18-statediff-4.0.2-alpha"
       GOPATH: /tmp/go
       DB_WRITE: false
       ETH_FORWARD_ETH_CALLS: true
@@ -175,9 +176,10 @@ jobs:
       - name: Run docker compose
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-db.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-migration.yml \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum4.yml \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-timescale-db.yml \
           --env-file "$GITHUB_WORKSPACE/config.sh" \
           up -d --build
       - name: Test
