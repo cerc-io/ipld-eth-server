@@ -113,7 +113,7 @@ jobs:
           echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
           echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
           echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
-          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-db-validator/test/contract
+          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-db-validator/test/contract >> ./config.sh
           echo db_write=$DB_WRITE >> ./config.sh
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
@@ -121,6 +121,8 @@ jobs:
           echo ipld_eth_server_db_dependency=access-node >> ./config.sh
           echo go_ethereum_db_dependency=access-node >> ./config.sh
           echo connecting_db_name=vulcanize_testing_v4 >> ./config.sh
+          echo watched_address_gap_filler_enabled=false >> ./config.sh
+          echo watched_address_gap_filler_interval=5 >> ./config.sh
           cat ./config.sh
       - name: Build geth
         run: |
@@ -193,7 +195,7 @@ jobs:
           echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
           echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
           echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
-          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-db-validator/test/contract
+          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-db-validator/test/contract >>./config.sh
           echo db_write=$DB_WRITE >> ./config.sh
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
@@ -201,6 +203,8 @@ jobs:
           echo ipld_eth_server_db_dependency=access-node >> ./config.sh
           echo go_ethereum_db_dependency=access-node >> ./config.sh
           echo connecting_db_name=vulcanize_testing_v4 >> ./config.sh
+          echo watched_address_gap_filler_enabled=false >> ./config.sh
+          echo watched_address_gap_filler_interval=5 >> ./config.sh
           cat ./config.sh
       - name: Build geth
         run: |
