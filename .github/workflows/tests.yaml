@@ -68,7 +68,7 @@ jobs:
   integrationtest:
     name: Run integration tests
     env:
-      STACK_ORCHESTRATOR_REF: e10025903ee8f2e7379cb89724f8f5b9f4dccc7b
+      STACK_ORCHESTRATOR_REF: 418957a1f745c921b21286c13bb033f922a91ae9
       GO_ETHEREUM_REF: "v1.10.18-statediff-4.0.2-alpha"
       GOPATH: /tmp/go
       DB_WRITE: true
@@ -104,6 +104,9 @@ jobs:
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
           echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
+          echo ipld_eth_server_db_dependency=access-node >> ./config.sh
+          echo go_ethereum_db_dependency=access-node >> ./config.sh
+          echo connecting_db_name=vulcanize_testing_v4 >> ./config.sh
           cat ./config.sh
       - name: Build geth
         run: |
@@ -130,7 +133,7 @@ jobs:
   integrationtest_forwardethcalls:
     name: Run integration tests for direct proxy fall-through of eth_calls
     env:
-      STACK_ORCHESTRATOR_REF: e10025903ee8f2e7379cb89724f8f5b9f4dccc7b
+      STACK_ORCHESTRATOR_REF: 418957a1f745c921b21286c13bb033f922a91ae9
       GO_ETHEREUM_REF: "v1.10.18-statediff-4.0.2-alpha"
       GOPATH: /tmp/go
       DB_WRITE: false
@@ -166,6 +169,9 @@ jobs:
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
           echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
+          echo ipld_eth_server_db_dependency=access-node >> ./config.sh
+          echo go_ethereum_db_dependency=access-node >> ./config.sh
+          echo connecting_db_name=vulcanize_testing_v4 >> ./config.sh
           cat ./config.sh
       - name: Build geth
         run: |
