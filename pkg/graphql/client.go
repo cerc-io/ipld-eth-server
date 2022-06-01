@@ -50,6 +50,10 @@ type EthTransactionCidResp struct {
 	BlockByMhKey IPFSBlockResp `json:"blockByMhKey"`
 }
 
+type EthTransactionCidByTxHash struct {
+	Response EthTransactionCidResp `json:"ethTransactionCidByTxHash"`
+}
+
 type EthTransactionCidsByHeaderIdResp struct {
 	Nodes []EthTransactionCidResp `json:"nodes"`
 }
@@ -169,7 +173,7 @@ func (c *Client) AllEthHeaderCids(ctx context.Context, condition EthHeaderCidCon
 		params += fmt.Sprintf(`blockNumber: "%s"`, condition.BlockNumber.String())
 	}
 
-	getLogsQuery := fmt.Sprintf(`
+	getHeadersQuery := fmt.Sprintf(`
 		query{
 			allEthHeaderCids(condition: { %s }) {
 				nodes {
@@ -202,7 +206,7 @@ func (c *Client) AllEthHeaderCids(ctx context.Context, condition EthHeaderCidCon
 		}
 	`, params)
 
-	req := gqlclient.NewRequest(getLogsQuery)
+	req := gqlclient.NewRequest(getHeadersQuery)
 	req.Header.Set("Cache-Control", "no-cache")
 
 	var respData map[string]interface{}
@@ -222,4 +226,42 @@ func (c *Client) AllEthHeaderCids(ctx context.Context, condition EthHeaderCidCon
 		return nil, err
 	}
 	return &allEthHeaderCids.Response, nil
+}
+
+func (c *Client) EthTransactionCidByTxHash(ctx context.Context, txHash string) (*EthTransactionCidResp, error) {
+	getTxQuery := fmt.Sprintf(`
+		query{
+			ethTransactionCidByTxHash(txHash: "%s") {
+				cid
+				txHash
+				index
+				src
+				dst
+				blockByMhKey {
+					data
+				}
+			}
+		}
+	`, txHash)
+
+	req := gqlclient.NewRequest(getTxQuery)
+	req.Header.Set("Cache-Control", "no-cache")
+
+	var respData map[string]interface{}
+	err := c.client.Run(ctx, req, &respData)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonStr, err := json.Marshal(respData)
+	if err != nil {
+		return nil, err
+	}
+
+	var ethTxCid EthTransactionCidByTxHash
+	err = json.Unmarshal(jsonStr, &ethTxCid)
+	if err != nil {
+		return nil, err
+	}
+	return &ethTxCid.Response, nil
 }

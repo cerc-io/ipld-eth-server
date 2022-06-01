@@ -286,11 +286,11 @@ var _ = Describe("GraphQL", func() {
 		})
 
 		It("Retrieves header_cids that matches the provided blockHash", func() {
-			blockHash := blocks[2].Hash().String()
+			blockHash := blocks[1].Hash().String()
 			allEthHeaderCidsResp, err := client.AllEthHeaderCids(ctx, graphql.EthHeaderCidCondition{BlockHash: &blockHash})
 			Expect(err).ToNot(HaveOccurred())
 
-			headerCID, txCIDs, err := backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(blocks[2].Hash())
+			headerCID, txCIDs, err := backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(blocks[1].Hash())
 			Expect(err).ToNot(HaveOccurred())
 
 			// Begin tx
@@ -316,6 +316,38 @@ var _ = Describe("GraphQL", func() {
 			compareEthHeaderCid(ethHeaderCid, headerCID, txCIDs, headerIPLDs[0])
 		})
 	})
+
+	Describe("ethTransactionCidByTxHash", func() {
+		It("Retrieves tx_cid that matches the provided txHash", func() {
+			txHash := blocks[2].Transactions()[0].Hash().String()
+			ethTransactionCidResp, err := client.EthTransactionCidByTxHash(ctx, txHash)
+			Expect(err).ToNot(HaveOccurred())
+
+			txCID, err := backend.Retriever.RetrieveTxCIDByHash(txHash)
+			Expect(err).ToNot(HaveOccurred())
+
+			compareEthTxCid(*ethTransactionCidResp, txCID)
+
+			// Begin tx
+			tx, err := backend.DB.Beginx()
+			Expect(err).ToNot(HaveOccurred())
+			defer func() {
+				if p := recover(); p != nil {
+					shared.Rollback(tx)
+					panic(p)
+				} else if err != nil {
+					shared.Rollback(tx)
+				} else {
+					err = tx.Commit()
+				}
+			}()
+
+			txIPLDs, err := backend.Fetcher.FetchTrxs(tx, []models.TxModel{txCID})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(txIPLDs)).To(Equal(1))
+			Expect(ethTransactionCidResp.BlockByMhKey.Data).To(Equal(graphql.Bytes(txIPLDs[0].Data).String()))
+		})
+	})
 })
 
 func compareEthHeaderCid(ethHeaderCid graphql.EthHeaderCidResp, headerCID models.HeaderModel, txCIDs []models.TxModel, headerIPLD models.IPLDModel) {
@@ -339,14 +371,17 @@ func compareEthHeaderCid(ethHeaderCid graphql.EthHeaderCidResp, headerCID models
 
 	for tIdx, txCID := range txCIDs {
 		ethTxCid := ethHeaderCid.EthTransactionCidsByHeaderId.Nodes[tIdx]
-
-		Expect(ethTxCid.Cid).To(Equal(txCID.CID))
-		Expect(ethTxCid.TxHash).To(Equal(txCID.TxHash))
-		Expect(ethTxCid.Index).To(Equal(int32(txCID.Index)))
-		Expect(ethTxCid.Src).To(Equal(txCID.Src))
-		Expect(ethTxCid.Dst).To(Equal(txCID.Dst))
+		compareEthTxCid(ethTxCid, txCID)
 	}
 
 	Expect(ethHeaderCid.BlockByMhKey.Data).To(Equal(graphql.Bytes(headerIPLD.Data).String()))
 	Expect(ethHeaderCid.BlockByMhKey.Key).To(Equal(headerIPLD.Key))
+}
+
+func compareEthTxCid(ethTxCid graphql.EthTransactionCidResp, txCID models.TxModel) {
+	Expect(ethTxCid.Cid).To(Equal(txCID.CID))
+	Expect(ethTxCid.TxHash).To(Equal(txCID.TxHash))
+	Expect(ethTxCid.Index).To(Equal(int32(txCID.Index)))
+	Expect(ethTxCid.Src).To(Equal(txCID.Src))
+	Expect(ethTxCid.Dst).To(Equal(txCID.Dst))
 }
