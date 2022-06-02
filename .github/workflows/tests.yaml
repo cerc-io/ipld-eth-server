@@ -43,6 +43,8 @@ jobs:
           chmod 400 /tmp/key
           cat  /tmp/git_repository
           cat  /tmp/git_head_ref
+          echo $GITHUB_REF
+          echo $GITHUB_HEAD_REF
 
       - name: Raw SCP
         run: |
