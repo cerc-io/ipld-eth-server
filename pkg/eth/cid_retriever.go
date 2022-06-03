@@ -673,7 +673,9 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64)
 
 	// https://github.com/go-gorm/gorm/issues/4083#issuecomment-778883283
 	// Will use join for TransactionCids once preload for 1:N is supported.
-	err := ecr.gormDB.Preload("TransactionCids").Joins("IPLD").Find(&headerCIDs, "block_number = ?", blockNumber).Error
+	err := ecr.gormDB.Preload("TransactionCids", func(tx *gorm.DB) *gorm.DB {
+		return tx.Select("cid", "tx_hash", "index", "src", "dst", "header_id")
+	}).Joins("IPLD").Find(&headerCIDs, "block_number = ?", blockNumber).Error
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return nil, err
@@ -690,7 +692,9 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Has
 
 	// https://github.com/go-gorm/gorm/issues/4083#issuecomment-778883283
 	// Will use join for TransactionCids once preload for 1:N is supported.
-	err := ecr.gormDB.Preload("TransactionCids").Joins("IPLD").First(&headerCID, "block_hash = ?", blockHash.String()).Error
+	err := ecr.gormDB.Preload("TransactionCids", func(tx *gorm.DB) *gorm.DB {
+		return tx.Select("cid", "tx_hash", "index", "src", "dst", "header_id")
+	}).Joins("IPLD").First(&headerCID, "block_hash = ?", blockHash.String()).Error
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return headerCID, err
