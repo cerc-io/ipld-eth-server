@@ -33,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 
 	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
 	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
@@ -1264,19 +1263,17 @@ type EthHeaderCidCondition struct {
 func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 	Condition *EthHeaderCidCondition
 }) (*EthHeaderCidsConnection, error) {
-	var headerCIDs []models.HeaderModel
-	var allTxCIDs [][]models.TxModel
+	var headerCIDs []eth.HeaderCid
 	var err error
 	if args.Condition.BlockHash != nil {
-		headerCID, txCIDs, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash))
+		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash))
 		if err != nil {
 			return nil, err
 		}
 
 		headerCIDs = append(headerCIDs, headerCID)
-		allTxCIDs = append(allTxCIDs, txCIDs)
 	} else if args.Condition.BlockNumber != nil {
-		headerCIDs, allTxCIDs, err = r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockNumber(args.Condition.BlockNumber.ToInt().Int64())
+		headerCIDs, err = r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockNumber(args.Condition.BlockNumber.ToInt().Int64())
 		if err != nil {
 			return nil, err
 		}
@@ -1300,13 +1297,8 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 		}
 	}()
 
-	headerIPLDs, err := r.backend.Fetcher.FetchHeaders(tx, headerCIDs)
-	if err != nil {
-		return nil, err
-	}
-
 	var resultNodes []*EthHeaderCid
-	for idx, headerCID := range headerCIDs {
+	for _, headerCID := range headerCIDs {
 		var blockNumber BigInt
 		blockNumber.UnmarshalText([]byte(headerCID.BlockNumber))
 
@@ -1328,10 +1320,13 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 			receiptRoot: headerCID.RctRoot,
 			uncleRoot:   headerCID.UncleRoot,
 			bloom:       Bytes(headerCID.Bloom).String(),
+			ipfsBlock: IPFSBlock{
+				key:  headerCID.IPLD.Key,
+				data: Bytes(headerCID.IPLD.Data).String(),
+			},
 		}
 
-		txCIDs := allTxCIDs[idx]
-		for _, txCID := range txCIDs {
+		for _, txCID := range headerCID.TransactionCids {
 			ethHeaderCidNode.transactions = append(ethHeaderCidNode.transactions, &EthTransactionCid{
 				cid:    txCID.CID,
 				txHash: txCID.TxHash,
@@ -1339,11 +1334,6 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 				src:    txCID.Src,
 				dst:    txCID.Dst,
 			})
-		}
-
-		ethHeaderCidNode.ipfsBlock = IPFSBlock{
-			key:  headerIPLDs[idx].Key,
-			data: Bytes(headerIPLDs[idx].Data).String(),
 		}
 
 		resultNodes = append(resultNodes, &ethHeaderCidNode)
@@ -1363,27 +1353,6 @@ func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	// Begin tx
-	tx, err := r.backend.DB.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
-
-	txIPLDs, err := r.backend.Fetcher.FetchTrxs(tx, []models.TxModel{txCID})
-	if err != nil {
-		return nil, err
-	}
-
 	return &EthTransactionCid{
 		cid:    txCID.CID,
 		txHash: txCID.TxHash,
@@ -1391,8 +1360,8 @@ func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
 		src:    txCID.Src,
 		dst:    txCID.Dst,
 		ipfsBlock: IPFSBlock{
-			key:  txIPLDs[0].Key,
-			data: Bytes(txIPLDs[0].Data).String(),
+			key:  txCID.IPLD.Key,
+			data: Bytes(txCID.IPLD.Data).String(),
 		},
 	}, nil
 }

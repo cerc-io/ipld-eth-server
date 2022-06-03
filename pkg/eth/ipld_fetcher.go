@@ -25,7 +25,6 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-	"github.com/thoas/go-funk"
 	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
@@ -111,40 +110,6 @@ func (f *IPLDFetcher) FetchHeader(tx *sqlx.Tx, c models.HeaderModel) (models.IPL
 		Data: headerBytes,
 		Key:  c.CID,
 	}, nil
-}
-
-// FetchHeaders fetches headers
-func (f *IPLDFetcher) FetchHeaders(tx *sqlx.Tx, cids []models.HeaderModel) ([]models.IPLDModel, error) {
-	log.Debug("fetching header iplds")
-	headerIPLDs := make([]models.IPLDModel, len(cids))
-
-	if len(cids) < 1 {
-		return headerIPLDs, nil
-	}
-
-	mhKeys := make([]string, len(cids))
-	for i, c := range cids {
-		var err error
-		mhKeys[i] = c.MhKey
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	fetchedIPLDs, err := shared.FetchIPLDsByMhKeys(tx, mhKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, c := range cids {
-		headerIPLD := funk.Find(fetchedIPLDs, func(ipld models.IPLDModel) bool {
-			return ipld.Key == c.MhKey
-		}).(models.IPLDModel)
-
-		headerIPLDs[i] = headerIPLD
-	}
-
-	return headerIPLDs, nil
 }
 
 // FetchUncles fetches uncles
