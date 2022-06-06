@@ -1263,7 +1263,7 @@ type EthHeaderCidCondition struct {
 func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 	Condition *EthHeaderCidCondition
 }) (*EthHeaderCidsConnection, error) {
-	var headerCIDs []eth.HeaderCid
+	var headerCIDs []eth.HeaderCidRecord
 	var err error
 	if args.Condition.BlockHash != nil {
 		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash))

@@ -181,7 +181,7 @@ var _ = Describe("GraphQL", func() {
 				{
 					Topics:      test_helpers.MockLog1.Topics,
 					Data:        hexutil.Bytes(test_helpers.MockLog1.Data),
-					Transaction: graphql.TransactionResp{Hash: test_helpers.MockTransactions[0].Hash()},
+					Transaction: graphql.TransactionResponse{Hash: test_helpers.MockTransactions[0].Hash()},
 					ReceiptCID:  test_helpers.Rct1CID.String(),
 					Status:      int32(test_helpers.MockReceipts[0].Status),
 				},
@@ -198,7 +198,7 @@ var _ = Describe("GraphQL", func() {
 				{
 					Topics:      test_helpers.MockLog6.Topics,
 					Data:        hexutil.Bytes(test_helpers.MockLog6.Data),
-					Transaction: graphql.TransactionResp{Hash: test_helpers.MockTransactions[3].Hash()},
+					Transaction: graphql.TransactionResponse{Hash: test_helpers.MockTransactions[3].Hash()},
 					ReceiptCID:  test_helpers.Rct4CID.String(),
 					Status:      int32(test_helpers.MockReceipts[3].Status),
 				},
@@ -297,7 +297,7 @@ var _ = Describe("GraphQL", func() {
 	})
 })
 
-func compareEthHeaderCid(ethHeaderCid graphql.EthHeaderCidResp, headerCID eth.HeaderCid) {
+func compareEthHeaderCid(ethHeaderCid graphql.EthHeaderCidResponse, headerCID eth.HeaderCidRecord) {
 	blockNumber, err := strconv.ParseInt(headerCID.BlockNumber, 10, 64)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -325,7 +325,7 @@ func compareEthHeaderCid(ethHeaderCid graphql.EthHeaderCidResp, headerCID eth.He
 	Expect(ethHeaderCid.BlockByMhKey.Key).To(Equal(headerCID.IPLD.Key))
 }
 
-func compareEthTxCid(ethTxCid graphql.EthTransactionCidResp, txCID eth.TransactionCid) {
+func compareEthTxCid(ethTxCid graphql.EthTransactionCidResponse, txCID eth.TransactionCidRecord) {
 	Expect(ethTxCid.Cid).To(Equal(txCID.CID))
 	Expect(ethTxCid.TxHash).To(Equal(txCID.TxHash))
 	Expect(ethTxCid.Index).To(Equal(int32(txCID.Index)))

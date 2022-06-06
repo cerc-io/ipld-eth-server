@@ -21,14 +21,14 @@ type GetStorageAt struct {
 }
 
 type LogResponse struct {
-	Topics      []common.Hash   `json:"topics"`
-	Data        hexutil.Bytes   `json:"data"`
-	Transaction TransactionResp `json:"transaction"`
-	ReceiptCID  string          `json:"receiptCID"`
-	Status      int32           `json:"status"`
+	Topics      []common.Hash       `json:"topics"`
+	Data        hexutil.Bytes       `json:"data"`
+	Transaction TransactionResponse `json:"transaction"`
+	ReceiptCID  string              `json:"receiptCID"`
+	Status      int32               `json:"status"`
 }
 
-type TransactionResp struct {
+type TransactionResponse struct {
 	Hash common.Hash `json:"hash"`
 }
 
@@ -36,50 +36,50 @@ type GetLogs struct {
 	Responses []LogResponse `json:"getLogs"`
 }
 
-type IPFSBlockResp struct {
+type IPFSBlockResponse struct {
 	Key  string `json:"key"`
 	Data string `json:"data"`
 }
 
-type EthTransactionCidResp struct {
-	Cid          string        `json:"cid"`
-	TxHash       string        `json:"txHash"`
-	Index        int32         `json:"index"`
-	Src          string        `json:"src"`
-	Dst          string        `json:"dst"`
-	BlockByMhKey IPFSBlockResp `json:"blockByMhKey"`
+type EthTransactionCidResponse struct {
+	Cid          string            `json:"cid"`
+	TxHash       string            `json:"txHash"`
+	Index        int32             `json:"index"`
+	Src          string            `json:"src"`
+	Dst          string            `json:"dst"`
+	BlockByMhKey IPFSBlockResponse `json:"blockByMhKey"`
 }
 
 type EthTransactionCidByTxHash struct {
-	Response EthTransactionCidResp `json:"ethTransactionCidByTxHash"`
+	Response EthTransactionCidResponse `json:"ethTransactionCidByTxHash"`
 }
 
-type EthTransactionCidsByHeaderIdResp struct {
-	Nodes []EthTransactionCidResp `json:"nodes"`
+type EthTransactionCidsByHeaderIdResponse struct {
+	Nodes []EthTransactionCidResponse `json:"nodes"`
 }
 
-type EthHeaderCidResp struct {
-	Cid                          string                           `json:"cid"`
-	BlockNumber                  BigInt                           `json:"blockNumber"`
-	BlockHash                    string                           `json:"blockHash"`
-	ParentHash                   string                           `json:"parentHash"`
-	Timestamp                    BigInt                           `json:"timestamp"`
-	StateRoot                    string                           `json:"stateRoot"`
-	Td                           BigInt                           `json:"td"`
-	TxRoot                       string                           `json:"txRoot"`
-	ReceiptRoot                  string                           `json:"receiptRoot"`
-	UncleRoot                    string                           `json:"uncleRoot"`
-	Bloom                        string                           `json:"bloom"`
-	EthTransactionCidsByHeaderId EthTransactionCidsByHeaderIdResp `json:"ethTransactionCidsByHeaderId"`
-	BlockByMhKey                 IPFSBlockResp                    `json:"blockByMhKey"`
+type EthHeaderCidResponse struct {
+	Cid                          string                               `json:"cid"`
+	BlockNumber                  BigInt                               `json:"blockNumber"`
+	BlockHash                    string                               `json:"blockHash"`
+	ParentHash                   string                               `json:"parentHash"`
+	Timestamp                    BigInt                               `json:"timestamp"`
+	StateRoot                    string                               `json:"stateRoot"`
+	Td                           BigInt                               `json:"td"`
+	TxRoot                       string                               `json:"txRoot"`
+	ReceiptRoot                  string                               `json:"receiptRoot"`
+	UncleRoot                    string                               `json:"uncleRoot"`
+	Bloom                        string                               `json:"bloom"`
+	EthTransactionCidsByHeaderId EthTransactionCidsByHeaderIdResponse `json:"ethTransactionCidsByHeaderId"`
+	BlockByMhKey                 IPFSBlockResponse                    `json:"blockByMhKey"`
 }
 
-type AllEthHeaderCidsResp struct {
-	Nodes []EthHeaderCidResp `json:"nodes"`
+type AllEthHeaderCidsResponse struct {
+	Nodes []EthHeaderCidResponse `json:"nodes"`
 }
 
 type AllEthHeaderCids struct {
-	Response AllEthHeaderCidsResp `json:"allEthHeaderCids"`
+	Response AllEthHeaderCidsResponse `json:"allEthHeaderCids"`
 }
 
 type Client struct {
@@ -164,7 +164,7 @@ func (c *Client) GetStorageAt(ctx context.Context, hash common.Hash, address com
 	return &storageAt.Response, nil
 }
 
-func (c *Client) AllEthHeaderCids(ctx context.Context, condition EthHeaderCidCondition) (*AllEthHeaderCidsResp, error) {
+func (c *Client) AllEthHeaderCids(ctx context.Context, condition EthHeaderCidCondition) (*AllEthHeaderCidsResponse, error) {
 	var params string
 	if condition.BlockHash != nil {
 		params = fmt.Sprintf(`blockHash: "%s"`, *condition.BlockHash)
@@ -228,7 +228,7 @@ func (c *Client) AllEthHeaderCids(ctx context.Context, condition EthHeaderCidCon
 	return &allEthHeaderCids.Response, nil
 }
 
-func (c *Client) EthTransactionCidByTxHash(ctx context.Context, txHash string) (*EthTransactionCidResp, error) {
+func (c *Client) EthTransactionCidByTxHash(ctx context.Context, txHash string) (*EthTransactionCidResponse, error) {
 	getTxQuery := fmt.Sprintf(`
 		query{
 			ethTransactionCidByTxHash(txHash: "%s") {
