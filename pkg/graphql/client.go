@@ -11,7 +11,7 @@ import (
 )
 
 type StorageResponse struct {
-	Cid       string        `json:"cid"`
+	CID       string        `json:"cid"`
 	Value     common.Hash   `json:"value"`
 	IpldBlock hexutil.Bytes `json:"ipldBlock"`
 }
@@ -41,8 +41,8 @@ type IPFSBlockResponse struct {
 	Data string `json:"data"`
 }
 
-type EthTransactionCidResponse struct {
-	Cid          string            `json:"cid"`
+type EthTransactionCIDResponse struct {
+	CID          string            `json:"cid"`
 	TxHash       string            `json:"txHash"`
 	Index        int32             `json:"index"`
 	Src          string            `json:"src"`
@@ -50,16 +50,16 @@ type EthTransactionCidResponse struct {
 	BlockByMhKey IPFSBlockResponse `json:"blockByMhKey"`
 }
 
-type EthTransactionCidByTxHash struct {
-	Response EthTransactionCidResponse `json:"ethTransactionCidByTxHash"`
+type EthTransactionCIDByTxHash struct {
+	Response EthTransactionCIDResponse `json:"ethTransactionCidByTxHash"`
 }
 
-type EthTransactionCidsByHeaderIdResponse struct {
-	Nodes []EthTransactionCidResponse `json:"nodes"`
+type EthTransactionCIDsByHeaderIdResponse struct {
+	Nodes []EthTransactionCIDResponse `json:"nodes"`
 }
 
-type EthHeaderCidResponse struct {
-	Cid                          string                               `json:"cid"`
+type EthHeaderCIDResponse struct {
+	CID                          string                               `json:"cid"`
 	BlockNumber                  BigInt                               `json:"blockNumber"`
 	BlockHash                    string                               `json:"blockHash"`
 	ParentHash                   string                               `json:"parentHash"`
@@ -70,16 +70,16 @@ type EthHeaderCidResponse struct {
 	ReceiptRoot                  string                               `json:"receiptRoot"`
 	UncleRoot                    string                               `json:"uncleRoot"`
 	Bloom                        string                               `json:"bloom"`
-	EthTransactionCidsByHeaderId EthTransactionCidsByHeaderIdResponse `json:"ethTransactionCidsByHeaderId"`
+	EthTransactionCIDsByHeaderId EthTransactionCIDsByHeaderIdResponse `json:"ethTransactionCidsByHeaderId"`
 	BlockByMhKey                 IPFSBlockResponse                    `json:"blockByMhKey"`
 }
 
-type AllEthHeaderCidsResponse struct {
-	Nodes []EthHeaderCidResponse `json:"nodes"`
+type AllEthHeaderCIDsResponse struct {
+	Nodes []EthHeaderCIDResponse `json:"nodes"`
 }
 
-type AllEthHeaderCids struct {
-	Response AllEthHeaderCidsResponse `json:"allEthHeaderCids"`
+type AllEthHeaderCIDs struct {
+	Response AllEthHeaderCIDsResponse `json:"allEthHeaderCids"`
 }
 
 type Client struct {
@@ -164,7 +164,7 @@ func (c *Client) GetStorageAt(ctx context.Context, hash common.Hash, address com
 	return &storageAt.Response, nil
 }
 
-func (c *Client) AllEthHeaderCids(ctx context.Context, condition EthHeaderCidCondition) (*AllEthHeaderCidsResponse, error) {
+func (c *Client) AllEthHeaderCIDs(ctx context.Context, condition EthHeaderCIDCondition) (*AllEthHeaderCIDsResponse, error) {
 	var params string
 	if condition.BlockHash != nil {
 		params = fmt.Sprintf(`blockHash: "%s"`, *condition.BlockHash)
@@ -220,15 +220,15 @@ func (c *Client) AllEthHeaderCids(ctx context.Context, condition EthHeaderCidCon
 		return nil, err
 	}
 
-	var allEthHeaderCids AllEthHeaderCids
-	err = json.Unmarshal(jsonStr, &allEthHeaderCids)
+	var allEthHeaderCIDs AllEthHeaderCIDs
+	err = json.Unmarshal(jsonStr, &allEthHeaderCIDs)
 	if err != nil {
 		return nil, err
 	}
-	return &allEthHeaderCids.Response, nil
+	return &allEthHeaderCIDs.Response, nil
 }
 
-func (c *Client) EthTransactionCidByTxHash(ctx context.Context, txHash string) (*EthTransactionCidResponse, error) {
+func (c *Client) EthTransactionCIDByTxHash(ctx context.Context, txHash string) (*EthTransactionCIDResponse, error) {
 	getTxQuery := fmt.Sprintf(`
 		query{
 			ethTransactionCidByTxHash(txHash: "%s") {
@@ -258,10 +258,10 @@ func (c *Client) EthTransactionCidByTxHash(ctx context.Context, txHash string) (
 		return nil, err
 	}
 
-	var ethTxCid EthTransactionCidByTxHash
-	err = json.Unmarshal(jsonStr, &ethTxCid)
+	var ethTxCID EthTransactionCIDByTxHash
+	err = json.Unmarshal(jsonStr, &ethTxCID)
 	if err != nil {
 		return nil, err
 	}
-	return &ethTxCid.Response, nil
+	return &ethTxCID.Response, nil
 }

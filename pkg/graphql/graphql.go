@@ -1125,7 +1125,7 @@ func decomposeGQLLogs(logCIDs []eth.LogResult) []logsCID {
 	return logs
 }
 
-type EthTransactionCid struct {
+type EthTransactionCID struct {
 	cid       string
 	txHash    string
 	index     int32
@@ -1134,35 +1134,35 @@ type EthTransactionCid struct {
 	ipfsBlock IPFSBlock
 }
 
-func (t EthTransactionCid) Cid(ctx context.Context) string {
+func (t EthTransactionCID) Cid(ctx context.Context) string {
 	return t.cid
 }
 
-func (t EthTransactionCid) TxHash(ctx context.Context) string {
+func (t EthTransactionCID) TxHash(ctx context.Context) string {
 	return t.txHash
 }
 
-func (t EthTransactionCid) Index(ctx context.Context) int32 {
+func (t EthTransactionCID) Index(ctx context.Context) int32 {
 	return t.index
 }
 
-func (t EthTransactionCid) Src(ctx context.Context) string {
+func (t EthTransactionCID) Src(ctx context.Context) string {
 	return t.src
 }
 
-func (t EthTransactionCid) Dst(ctx context.Context) string {
+func (t EthTransactionCID) Dst(ctx context.Context) string {
 	return t.dst
 }
 
-func (t EthTransactionCid) BlockByMhKey(ctx context.Context) IPFSBlock {
+func (t EthTransactionCID) BlockByMhKey(ctx context.Context) IPFSBlock {
 	return t.ipfsBlock
 }
 
-type EthTransactionCidsConnection struct {
-	nodes []*EthTransactionCid
+type EthTransactionCIDsConnection struct {
+	nodes []*EthTransactionCID
 }
 
-func (transactionCIDResult EthTransactionCidsConnection) Nodes(ctx context.Context) []*EthTransactionCid {
+func (transactionCIDResult EthTransactionCIDsConnection) Nodes(ctx context.Context) []*EthTransactionCID {
 	return transactionCIDResult.nodes
 }
 
@@ -1179,7 +1179,7 @@ func (b IPFSBlock) Data(ctx context.Context) string {
 	return b.data
 }
 
-type EthHeaderCid struct {
+type EthHeaderCID struct {
 	cid          string
 	blockNumber  BigInt
 	blockHash    string
@@ -1191,79 +1191,79 @@ type EthHeaderCid struct {
 	receiptRoot  string
 	uncleRoot    string
 	bloom        string
-	transactions []*EthTransactionCid
+	transactions []*EthTransactionCID
 	ipfsBlock    IPFSBlock
 }
 
-func (h EthHeaderCid) Cid(ctx context.Context) string {
+func (h EthHeaderCID) Cid(ctx context.Context) string {
 	return h.cid
 }
 
-func (h EthHeaderCid) BlockNumber(ctx context.Context) BigInt {
+func (h EthHeaderCID) BlockNumber(ctx context.Context) BigInt {
 	return h.blockNumber
 }
 
-func (h EthHeaderCid) BlockHash(ctx context.Context) string {
+func (h EthHeaderCID) BlockHash(ctx context.Context) string {
 	return h.blockHash
 }
 
-func (h EthHeaderCid) ParentHash(ctx context.Context) string {
+func (h EthHeaderCID) ParentHash(ctx context.Context) string {
 	return h.parentHash
 }
 
-func (h EthHeaderCid) Timestamp(ctx context.Context) BigInt {
+func (h EthHeaderCID) Timestamp(ctx context.Context) BigInt {
 	return h.timestamp
 }
 
-func (h EthHeaderCid) StateRoot(ctx context.Context) string {
+func (h EthHeaderCID) StateRoot(ctx context.Context) string {
 	return h.stateRoot
 }
 
-func (h EthHeaderCid) Td(ctx context.Context) BigInt {
+func (h EthHeaderCID) Td(ctx context.Context) BigInt {
 	return h.td
 }
 
-func (h EthHeaderCid) TxRoot(ctx context.Context) string {
+func (h EthHeaderCID) TxRoot(ctx context.Context) string {
 	return h.txRoot
 }
 
-func (h EthHeaderCid) ReceiptRoot(ctx context.Context) string {
+func (h EthHeaderCID) ReceiptRoot(ctx context.Context) string {
 	return h.receiptRoot
 }
 
-func (h EthHeaderCid) UncleRoot(ctx context.Context) string {
+func (h EthHeaderCID) UncleRoot(ctx context.Context) string {
 	return h.uncleRoot
 }
 
-func (h EthHeaderCid) Bloom(ctx context.Context) string {
+func (h EthHeaderCID) Bloom(ctx context.Context) string {
 	return h.bloom
 }
 
-func (h EthHeaderCid) EthTransactionCidsByHeaderId(ctx context.Context) EthTransactionCidsConnection {
-	return EthTransactionCidsConnection{nodes: h.transactions}
+func (h EthHeaderCID) EthTransactionCidsByHeaderId(ctx context.Context) EthTransactionCIDsConnection {
+	return EthTransactionCIDsConnection{nodes: h.transactions}
 }
 
-func (h EthHeaderCid) BlockByMhKey(ctx context.Context) IPFSBlock {
+func (h EthHeaderCID) BlockByMhKey(ctx context.Context) IPFSBlock {
 	return h.ipfsBlock
 }
 
-type EthHeaderCidsConnection struct {
-	nodes []*EthHeaderCid
+type EthHeaderCIDsConnection struct {
+	nodes []*EthHeaderCID
 }
 
-func (headerCIDResult EthHeaderCidsConnection) Nodes(ctx context.Context) []*EthHeaderCid {
+func (headerCIDResult EthHeaderCIDsConnection) Nodes(ctx context.Context) []*EthHeaderCID {
 	return headerCIDResult.nodes
 }
 
-type EthHeaderCidCondition struct {
+type EthHeaderCIDCondition struct {
 	BlockNumber *BigInt
 	BlockHash   *string
 }
 
 func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
-	Condition *EthHeaderCidCondition
-}) (*EthHeaderCidsConnection, error) {
-	var headerCIDs []eth.HeaderCidRecord
+	Condition *EthHeaderCIDCondition
+}) (*EthHeaderCIDsConnection, error) {
+	var headerCIDs []eth.HeaderCIDRecord
 	var err error
 	if args.Condition.BlockHash != nil {
 		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash))
@@ -1297,7 +1297,7 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 		}
 	}()
 
-	var resultNodes []*EthHeaderCid
+	var resultNodes []*EthHeaderCID
 	for _, headerCID := range headerCIDs {
 		var blockNumber BigInt
 		blockNumber.UnmarshalText([]byte(headerCID.BlockNumber))
@@ -1308,7 +1308,7 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 		var td BigInt
 		td.UnmarshalText([]byte(headerCID.TotalDifficulty))
 
-		ethHeaderCidNode := EthHeaderCid{
+		ethHeaderCIDNode := EthHeaderCID{
 			cid:         headerCID.CID,
 			blockNumber: blockNumber,
 			blockHash:   headerCID.BlockHash,
@@ -1326,8 +1326,8 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 			},
 		}
 
-		for _, txCID := range headerCID.TransactionCids {
-			ethHeaderCidNode.transactions = append(ethHeaderCidNode.transactions, &EthTransactionCid{
+		for _, txCID := range headerCID.TransactionCIDs {
+			ethHeaderCIDNode.transactions = append(ethHeaderCIDNode.transactions, &EthTransactionCID{
 				cid:    txCID.CID,
 				txHash: txCID.TxHash,
 				index:  int32(txCID.Index),
@@ -1336,24 +1336,24 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 			})
 		}
 
-		resultNodes = append(resultNodes, &ethHeaderCidNode)
+		resultNodes = append(resultNodes, &ethHeaderCIDNode)
 	}
 
-	return &EthHeaderCidsConnection{
+	return &EthHeaderCIDsConnection{
 		nodes: resultNodes,
 	}, nil
 }
 
 func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
 	TxHash string
-}) (*EthTransactionCid, error) {
+}) (*EthTransactionCID, error) {
 	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &EthTransactionCid{
+	return &EthTransactionCID{
 		cid:    txCID.CID,
 		txHash: txCID.TxHash,
 		index:  int32(txCID.Index),
