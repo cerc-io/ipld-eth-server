@@ -26,6 +26,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 
 	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
@@ -39,13 +41,74 @@ type Retriever interface {
 
 // CIDRetriever satisfies the CIDRetriever interface for ethereum
 type CIDRetriever struct {
-	db *sqlx.DB
+	db     *sqlx.DB
+	gormDB *gorm.DB
+}
+
+type IPLDModelRecord struct {
+	models.IPLDModel
+}
+
+// TableName overrides the table name used by IPLD
+func (IPLDModelRecord) TableName() string {
+	return "public.blocks"
+}
+
+type HeaderCIDRecord struct {
+	CID             string `gorm:"column:cid"`
+	BlockHash       string `gorm:"primaryKey"`
+	BlockNumber     string
+	ParentHash      string
+	Timestamp       uint64
+	StateRoot       string
+	TotalDifficulty string `gorm:"column:td"`
+	TxRoot          string
+	RctRoot         string `gorm:"column:receipt_root"`
+	UncleRoot       string
+	Bloom           []byte
+	MhKey           string
+
+	// gorm doesn't check if foreign key exists in database.
+	// It is required to eager load relations using preload.
+	TransactionCIDs []TransactionCIDRecord `gorm:"foreignKey:HeaderID;references:BlockHash"`
+	IPLD            IPLDModelRecord        `gorm:"foreignKey:MhKey;references:Key"`
+}
+
+// TableName overrides the table name used by HeaderCIDRecord
+func (HeaderCIDRecord) TableName() string {
+	return "eth.header_cids"
+}
+
+type TransactionCIDRecord struct {
+	CID      string `gorm:"column:cid"`
+	TxHash   string `gorm:"primaryKey"`
+	HeaderID string `gorm:"column:header_id"`
+	Index    int64
+	Src      string
+	Dst      string
+	MhKey    string
+	IPLD     IPLDModelRecord `gorm:"foreignKey:MhKey;references:Key"`
+}
+
+// TableName overrides the table name used by TransactionCIDRecord
+func (TransactionCIDRecord) TableName() string {
+	return "eth.transaction_cids"
 }
 
 // NewCIDRetriever returns a pointer to a new CIDRetriever which supports the CIDRetriever interface
 func NewCIDRetriever(db *sqlx.DB) *CIDRetriever {
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{
+		Conn: db,
+	}), &gorm.Config{})
+
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+
 	return &CIDRetriever{
-		db: db,
+		db:     db,
+		gormDB: gormDB,
 	}
 }
 
@@ -168,7 +231,7 @@ func (ecr *CIDRetriever) RetrieveHeaderCIDs(tx *sqlx.Tx, blockNumber int64) ([]m
 	log.Debug("retrieving header cids for block ", blockNumber)
 	headers := make([]models.HeaderModel, 0)
 	pgStr := `SELECT CAST(block_number as Text), block_hash,parent_hash,cid,mh_key,CAST(td as Text),node_id,
-				CAST(reward as Text), state_root,uncle_root,tx_root,receipt_root,bloom,timestamp,times_validated,
+				CAST(reward as Text), state_root, uncle_root, tx_root, receipt_root, bloom, timestamp, times_validated,
 				coinbase FROM eth.header_cids
 				WHERE block_number = $1`
 	return headers, tx.Select(&headers, pgStr, blockNumber)
@@ -304,8 +367,8 @@ func (ecr *CIDRetriever) RetrieveRctCIDsByHeaderID(tx *sqlx.Tx, rctFilter Receip
 	pgStr, args = receiptFilterConditions(&id, pgStr, args, rctFilter, trxHashes)
 
 	pgStr += ` ORDER BY transaction_cids.index`
-	receiptCids := make([]models.ReceiptModel, 0)
-	return receiptCids, tx.Select(&receiptCids, pgStr, args...)
+	receiptCIDs := make([]models.ReceiptModel, 0)
+	return receiptCIDs, tx.Select(&receiptCIDs, pgStr, args...)
 }
 
 // RetrieveFilteredGQLLogs retrieves and returns all the log cIDs provided blockHash that conform to the provided
@@ -399,8 +462,8 @@ func (ecr *CIDRetriever) RetrieveRctCIDs(tx *sqlx.Tx, rctFilter ReceiptFilter, b
 	pgStr, args = receiptFilterConditions(&id, pgStr, args, rctFilter, txHashes)
 
 	pgStr += ` ORDER BY transaction_cids.index`
-	receiptCids := make([]models.ReceiptModel, 0)
-	return receiptCids, tx.Select(&receiptCids, pgStr, args...)
+	receiptCIDs := make([]models.ReceiptModel, 0)
+	return receiptCIDs, tx.Select(&receiptCIDs, pgStr, args...)
 }
 
 func hasTopics(topics [][]string) bool {
@@ -576,7 +639,8 @@ func (ecr *CIDRetriever) RetrieveBlockByNumber(blockNumber int64) (models.Header
 // RetrieveHeaderCIDByHash returns the header for the given block hash
 func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.Hash) (models.HeaderModel, error) {
 	log.Debug("retrieving header cids for block hash ", blockHash.String())
-	pgStr := `SELECT block_hash,cid,mh_key FROM eth.header_cids
+	pgStr := `SELECT block_hash, CAST(block_number as Text), parent_hash, cid, mh_key, CAST(td as Text),
+			state_root, uncle_root, tx_root, receipt_root, bloom, timestamp FROM eth.header_cids
 			WHERE block_hash = $1`
 	var headerCID models.HeaderModel
 	return headerCID, tx.Get(&headerCID, pgStr, blockHash.String())
@@ -603,4 +667,59 @@ func (ecr *CIDRetriever) RetrieveReceiptCIDsByTxIDs(tx *sqlx.Tx, txHashes []stri
 			ORDER BY transaction_cids.index`
 	var rctCIDs []models.ReceiptModel
 	return rctCIDs, tx.Select(&rctCIDs, pgStr, pq.Array(txHashes))
+}
+
+// RetrieveHeaderAndTxCIDsByBlockNumber retrieves header CIDs and their associated tx CIDs by block number
+func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64) ([]HeaderCIDRecord, error) {
+	log.Debug("retrieving header cids and tx cids for block number ", blockNumber)
+
+	var headerCIDs []HeaderCIDRecord
+
+	// https://github.com/go-gorm/gorm/issues/4083#issuecomment-778883283
+	// Will use join for TransactionCIDs once preload for 1:N is supported.
+	err := ecr.gormDB.Preload("TransactionCIDs", func(tx *gorm.DB) *gorm.DB {
+		return tx.Select("cid", "tx_hash", "index", "src", "dst", "header_id")
+	}).Joins("IPLD").Find(&headerCIDs, "block_number = ?", blockNumber).Error
+
+	if err != nil {
+		log.Error("header cid retrieval error")
+		return nil, err
+	}
+
+	return headerCIDs, nil
+}
+
+// RetrieveHeaderAndTxCIDsByBlockHash retrieves header CID and their associated tx CIDs by block hash
+func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Hash) (HeaderCIDRecord, error) {
+	log.Debug("retrieving header cid and tx cids for block hash ", blockHash.String())
+
+	var headerCID HeaderCIDRecord
+
+	// https://github.com/go-gorm/gorm/issues/4083#issuecomment-778883283
+	// Will use join for TransactionCIDs once preload for 1:N is supported.
+	err := ecr.gormDB.Preload("TransactionCIDs", func(tx *gorm.DB) *gorm.DB {
+		return tx.Select("cid", "tx_hash", "index", "src", "dst", "header_id")
+	}).Joins("IPLD").First(&headerCID, "block_hash = ?", blockHash.String()).Error
+
+	if err != nil {
+		log.Error("header cid retrieval error")
+		return headerCID, err
+	}
+
+	return headerCID, nil
+}
+
+// RetrieveTxCIDByHash returns the tx for the given tx hash
+func (ecr *CIDRetriever) RetrieveTxCIDByHash(txHash string) (TransactionCIDRecord, error) {
+	log.Debug("retrieving tx cid for tx hash ", txHash)
+
+	var txCID TransactionCIDRecord
+
+	err := ecr.gormDB.Joins("IPLD").First(&txCID, "tx_hash = ?", txHash).Error
+	if err != nil {
+		log.Error("header cid retrieval error")
+		return txCID, err
+	}
+
+	return txCID, nil
 }

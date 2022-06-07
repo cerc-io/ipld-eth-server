@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -180,7 +181,7 @@ var _ = Describe("GraphQL", func() {
 				{
 					Topics:      test_helpers.MockLog1.Topics,
 					Data:        hexutil.Bytes(test_helpers.MockLog1.Data),
-					Transaction: graphql.TransactionResp{Hash: test_helpers.MockTransactions[0].Hash()},
+					Transaction: graphql.TransactionResponse{Hash: test_helpers.MockTransactions[0].Hash()},
 					ReceiptCID:  test_helpers.Rct1CID.String(),
 					Status:      int32(test_helpers.MockReceipts[0].Status),
 				},
@@ -197,7 +198,7 @@ var _ = Describe("GraphQL", func() {
 				{
 					Topics:      test_helpers.MockLog6.Topics,
 					Data:        hexutil.Bytes(test_helpers.MockLog6.Data),
-					Transaction: graphql.TransactionResp{Hash: test_helpers.MockTransactions[3].Hash()},
+					Transaction: graphql.TransactionResponse{Hash: test_helpers.MockTransactions[3].Hash()},
 					ReceiptCID:  test_helpers.Rct4CID.String(),
 					Status:      int32(test_helpers.MockReceipts[3].Status),
 				},
@@ -250,4 +251,84 @@ var _ = Describe("GraphQL", func() {
 			Expect(storageRes.Value).To(Equal(common.Hash{}))
 		})
 	})
+
+	Describe("allEthHeaderCids", func() {
+		It("Retrieves header_cids that matches the provided blockNumber", func() {
+			allEthHeaderCIDsResp, err := client.AllEthHeaderCIDs(ctx, graphql.EthHeaderCIDCondition{BlockNumber: new(graphql.BigInt).SetUint64(2)})
+			Expect(err).ToNot(HaveOccurred())
+
+			headerCIDs, err := backend.Retriever.RetrieveHeaderAndTxCIDsByBlockNumber(2)
+			Expect(err).ToNot(HaveOccurred())
+
+			for idx, headerCID := range headerCIDs {
+				ethHeaderCID := allEthHeaderCIDsResp.Nodes[idx]
+
+				compareEthHeaderCID(ethHeaderCID, headerCID)
+			}
+		})
+
+		It("Retrieves header_cids that matches the provided blockHash", func() {
+			blockHash := blocks[1].Hash().String()
+			allEthHeaderCIDsResp, err := client.AllEthHeaderCIDs(ctx, graphql.EthHeaderCIDCondition{BlockHash: &blockHash})
+			Expect(err).ToNot(HaveOccurred())
+
+			headerCID, err := backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(blocks[1].Hash())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(allEthHeaderCIDsResp.Nodes)).To(Equal(1))
+			ethHeaderCID := allEthHeaderCIDsResp.Nodes[0]
+			compareEthHeaderCID(ethHeaderCID, headerCID)
+		})
+	})
+
+	Describe("ethTransactionCidByTxHash", func() {
+		It("Retrieves tx_cid that matches the provided txHash", func() {
+			txHash := blocks[2].Transactions()[0].Hash().String()
+			ethTransactionCIDResp, err := client.EthTransactionCIDByTxHash(ctx, txHash)
+			Expect(err).ToNot(HaveOccurred())
+
+			txCID, err := backend.Retriever.RetrieveTxCIDByHash(txHash)
+			Expect(err).ToNot(HaveOccurred())
+
+			compareEthTxCID(*ethTransactionCIDResp, txCID)
+
+			Expect(ethTransactionCIDResp.BlockByMhKey.Data).To(Equal(graphql.Bytes(txCID.IPLD.Data).String()))
+		})
+	})
 })
+
+func compareEthHeaderCID(ethHeaderCID graphql.EthHeaderCIDResponse, headerCID eth.HeaderCIDRecord) {
+	blockNumber, err := strconv.ParseInt(headerCID.BlockNumber, 10, 64)
+	Expect(err).ToNot(HaveOccurred())
+
+	td, err := strconv.ParseInt(headerCID.TotalDifficulty, 10, 64)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(ethHeaderCID.CID).To(Equal(headerCID.CID))
+	Expect(ethHeaderCID.BlockNumber).To(Equal(*new(graphql.BigInt).SetUint64(uint64(blockNumber))))
+	Expect(ethHeaderCID.BlockHash).To(Equal(headerCID.BlockHash))
+	Expect(ethHeaderCID.ParentHash).To(Equal(headerCID.ParentHash))
+	Expect(ethHeaderCID.Timestamp).To(Equal(*new(graphql.BigInt).SetUint64(headerCID.Timestamp)))
+	Expect(ethHeaderCID.StateRoot).To(Equal(headerCID.StateRoot))
+	Expect(ethHeaderCID.Td).To(Equal(*new(graphql.BigInt).SetUint64(uint64(td))))
+	Expect(ethHeaderCID.TxRoot).To(Equal(headerCID.TxRoot))
+	Expect(ethHeaderCID.ReceiptRoot).To(Equal(headerCID.RctRoot))
+	Expect(ethHeaderCID.UncleRoot).To(Equal(headerCID.UncleRoot))
+	Expect(ethHeaderCID.Bloom).To(Equal(graphql.Bytes(headerCID.Bloom).String()))
+
+	for tIdx, txCID := range headerCID.TransactionCIDs {
+		ethTxCID := ethHeaderCID.EthTransactionCIDsByHeaderId.Nodes[tIdx]
+		compareEthTxCID(ethTxCID, txCID)
+	}
+
+	Expect(ethHeaderCID.BlockByMhKey.Data).To(Equal(graphql.Bytes(headerCID.IPLD.Data).String()))
+	Expect(ethHeaderCID.BlockByMhKey.Key).To(Equal(headerCID.IPLD.Key))
+}
+
+func compareEthTxCID(ethTxCID graphql.EthTransactionCIDResponse, txCID eth.TransactionCIDRecord) {
+	Expect(ethTxCID.CID).To(Equal(txCID.CID))
+	Expect(ethTxCID.TxHash).To(Equal(txCID.TxHash))
+	Expect(ethTxCID.Index).To(Equal(int32(txCID.Index)))
+	Expect(ethTxCID.Src).To(Equal(txCID.Src))
+	Expect(ethTxCID.Dst).To(Equal(txCID.Dst))
+}
