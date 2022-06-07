@@ -25,8 +25,7 @@ const schema string = `
     # An empty byte string is represented as '0x'. Byte strings must have an even number of hexadecimal nybbles.
     scalar Bytes
     # BigInt is a large integer. Input is accepted as either a JSON number or as a string.
-    # Strings may be either decimal or 0x-prefixed hexadecimal. Output values are all
-    # 0x-prefixed hexadecimal.
+    # Input and output strings may be either decimal or 0x-prefixed hexadecimal depending upon the resolver implementation.
     scalar BigInt
     # Long is a 64 bit unsigned integer.
     scalar Long
@@ -138,16 +137,16 @@ const schema string = `
         # empty, results will not be filtered by address.
         addresses: [Address!]
         # Topics list restricts matches to particular event topics. Each event has a list
-      # of topics. Topics matches a prefix of that list. An empty element array matches any
-      # topic. Non-empty elements represent an alternative that matches any of the
-      # contained topics.
-      #
-      # Examples:
-      #  - [] or nil          matches any topic list
-      #  - [[A]]              matches topic A in first position
-      #  - [[], [B]]          matches any topic in first position, B in second position
-      #  - [[A], [B]]         matches topic A in first position, B in second position
-      #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
+        # of topics. Topics matches a prefix of that list. An empty element array matches any
+        # topic. Non-empty elements represent an alternative that matches any of the
+        # contained topics.
+        #
+        # Examples:
+        #  - [] or nil          matches any topic list
+        #  - [[A]]              matches topic A in first position
+        #  - [[], [B]]          matches any topic in first position, B in second position
+        #  - [[A], [B]]         matches topic A in first position, B in second position
+        #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
         topics: [[Bytes32!]!]
     }
 
@@ -258,16 +257,16 @@ const schema string = `
         # empty, results will not be filtered by address.
         addresses: [Address!]
         # Topics list restricts matches to particular event topics. Each event has a list
-      # of topics. Topics matches a prefix of that list. An empty element array matches any
-      # topic. Non-empty elements represent an alternative that matches any of the
-      # contained topics.
-      #
-      # Examples:
-      #  - [] or nil          matches any topic list
-      #  - [[A]]              matches topic A in first position
-      #  - [[], [B]]          matches any topic in first position, B in second position
-      #  - [[A], [B]]         matches topic A in first position, B in second position
-      #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
+        # of topics. Topics matches a prefix of that list. An empty element array matches any
+        # topic. Non-empty elements represent an alternative that matches any of the
+        # contained topics.
+        #
+        # Examples:
+        #  - [] or nil          matches any topic list
+        #  - [[A]]              matches topic A in first position
+        #  - [[], [B]]          matches any topic in first position, B in second position
+        #  - [[A], [B]]         matches topic A in first position, B in second position
+        #  - [[A, B]], [C, D]]  matches topic (A OR B) in first position, (C OR D) in second position
         topics: [[Bytes32!]!]
     }
 
@@ -280,6 +279,49 @@ const schema string = `
 
         # Storage trie IPLD block.
         ipldBlock: Bytes!
+    }
+
+    input EthHeaderCidCondition {
+        blockNumber: BigInt
+        blockHash: String
+    }
+
+    type EthTransactionCid {
+        cid: String!
+        txHash: String!
+        index: Int!
+        src: String!
+        dst: String!
+        blockByMhKey: IPFSBlock!
+    }
+
+    type EthTransactionCidsConnection {
+        nodes: [EthTransactionCid]!
+    }
+
+    type IPFSBlock {
+        key: String!
+        data: String!
+    }
+
+    type EthHeaderCid {
+        cid: String!
+        blockNumber: BigInt!
+        blockHash: String!
+        parentHash: String!
+        timestamp: BigInt!
+        stateRoot: String!
+        td: BigInt!
+        txRoot: String!
+        receiptRoot: String!
+        uncleRoot: String!
+        bloom: String!
+        ethTransactionCidsByHeaderId: EthTransactionCidsConnection!
+        blockByMhKey: IPFSBlock!
+    }
+
+    type EthHeaderCidsConnection {
+        nodes: [EthHeaderCid]!
     }
 
     type Query {
@@ -302,5 +344,11 @@ const schema string = `
 
         # Get contract logs by block hash and contract address.
         getLogs(blockHash: Bytes32!, contract: Address): [Log!]
+
+        # PostGraphile alternative to get headers with transactions using block number or block hash.
+        allEthHeaderCids(condition: EthHeaderCidCondition): EthHeaderCidsConnection
+
+        # PostGraphile alternative to get transactions using transaction hash.
+        ethTransactionCidByTxHash(txHash: String!): EthTransactionCid
     }
 `
