@@ -11,7 +11,7 @@ import (
 )
 
 type StorageResponse struct {
-	Cid       string        `json:"cid"`
+	CID       string        `json:"cid"`
 	Value     common.Hash   `json:"value"`
 	IpldBlock hexutil.Bytes `json:"ipldBlock"`
 }
@@ -21,19 +21,65 @@ type GetStorageAt struct {
 }
 
 type LogResponse struct {
-	Topics      []common.Hash   `json:"topics"`
-	Data        hexutil.Bytes   `json:"data"`
-	Transaction TransactionResp `json:"transaction"`
-	ReceiptCID  string          `json:"receiptCID"`
-	Status      int32           `json:"status"`
+	Topics      []common.Hash       `json:"topics"`
+	Data        hexutil.Bytes       `json:"data"`
+	Transaction TransactionResponse `json:"transaction"`
+	ReceiptCID  string              `json:"receiptCID"`
+	Status      int32               `json:"status"`
 }
 
-type TransactionResp struct {
+type TransactionResponse struct {
 	Hash common.Hash `json:"hash"`
 }
 
 type GetLogs struct {
 	Responses []LogResponse `json:"getLogs"`
+}
+
+type IPFSBlockResponse struct {
+	Key  string `json:"key"`
+	Data string `json:"data"`
+}
+
+type EthTransactionCIDResponse struct {
+	CID          string            `json:"cid"`
+	TxHash       string            `json:"txHash"`
+	Index        int32             `json:"index"`
+	Src          string            `json:"src"`
+	Dst          string            `json:"dst"`
+	BlockByMhKey IPFSBlockResponse `json:"blockByMhKey"`
+}
+
+type EthTransactionCIDByTxHash struct {
+	Response EthTransactionCIDResponse `json:"ethTransactionCidByTxHash"`
+}
+
+type EthTransactionCIDsByHeaderIdResponse struct {
+	Nodes []EthTransactionCIDResponse `json:"nodes"`
+}
+
+type EthHeaderCIDResponse struct {
+	CID                          string                               `json:"cid"`
+	BlockNumber                  BigInt                               `json:"blockNumber"`
+	BlockHash                    string                               `json:"blockHash"`
+	ParentHash                   string                               `json:"parentHash"`
+	Timestamp                    BigInt                               `json:"timestamp"`
+	StateRoot                    string                               `json:"stateRoot"`
+	Td                           BigInt                               `json:"td"`
+	TxRoot                       string                               `json:"txRoot"`
+	ReceiptRoot                  string                               `json:"receiptRoot"`
+	UncleRoot                    string                               `json:"uncleRoot"`
+	Bloom                        string                               `json:"bloom"`
+	EthTransactionCIDsByHeaderId EthTransactionCIDsByHeaderIdResponse `json:"ethTransactionCidsByHeaderId"`
+	BlockByMhKey                 IPFSBlockResponse                    `json:"blockByMhKey"`
+}
+
+type AllEthHeaderCIDsResponse struct {
+	Nodes []EthHeaderCIDResponse `json:"nodes"`
+}
+
+type AllEthHeaderCIDs struct {
+	Response AllEthHeaderCIDsResponse `json:"allEthHeaderCids"`
 }
 
 type Client struct {
@@ -116,4 +162,106 @@ func (c *Client) GetStorageAt(ctx context.Context, hash common.Hash, address com
 		return nil, err
 	}
 	return &storageAt.Response, nil
+}
+
+func (c *Client) AllEthHeaderCIDs(ctx context.Context, condition EthHeaderCIDCondition) (*AllEthHeaderCIDsResponse, error) {
+	var params string
+	if condition.BlockHash != nil {
+		params = fmt.Sprintf(`blockHash: "%s"`, *condition.BlockHash)
+	}
+	if condition.BlockNumber != nil {
+		params += fmt.Sprintf(`blockNumber: "%s"`, condition.BlockNumber.String())
+	}
+
+	getHeadersQuery := fmt.Sprintf(`
+		query{
+			allEthHeaderCids(condition: { %s }) {
+				nodes {
+					cid
+					blockNumber
+					blockHash
+					parentHash
+					timestamp
+					stateRoot
+					td
+					txRoot
+					receiptRoot
+					uncleRoot
+					bloom
+					blockByMhKey {
+						key
+						data
+					}
+					ethTransactionCidsByHeaderId {
+						nodes {
+							cid
+							txHash
+							index
+							src
+							dst
+						}
+					}
+				}
+			}
+		}
+	`, params)
+
+	req := gqlclient.NewRequest(getHeadersQuery)
+	req.Header.Set("Cache-Control", "no-cache")
+
+	var respData map[string]interface{}
+	err := c.client.Run(ctx, req, &respData)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonStr, err := json.Marshal(respData)
+	if err != nil {
+		return nil, err
+	}
+
+	var allEthHeaderCIDs AllEthHeaderCIDs
+	err = json.Unmarshal(jsonStr, &allEthHeaderCIDs)
+	if err != nil {
+		return nil, err
+	}
+	return &allEthHeaderCIDs.Response, nil
+}
+
+func (c *Client) EthTransactionCIDByTxHash(ctx context.Context, txHash string) (*EthTransactionCIDResponse, error) {
+	getTxQuery := fmt.Sprintf(`
+		query{
+			ethTransactionCidByTxHash(txHash: "%s") {
+				cid
+				txHash
+				index
+				src
+				dst
+				blockByMhKey {
+					data
+				}
+			}
+		}
+	`, txHash)
+
+	req := gqlclient.NewRequest(getTxQuery)
+	req.Header.Set("Cache-Control", "no-cache")
+
+	var respData map[string]interface{}
+	err := c.client.Run(ctx, req, &respData)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonStr, err := json.Marshal(respData)
+	if err != nil {
+		return nil, err
+	}
+
+	var ethTxCID EthTransactionCIDByTxHash
+	err = json.Unmarshal(jsonStr, &ethTxCID)
+	if err != nil {
+		return nil, err
+	}
+	return &ethTxCID.Response, nil
 }
