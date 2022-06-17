@@ -226,6 +226,10 @@ func (b *Backend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Bl
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
+func (b *Backend) PendingBlockAndReceipts() (*types.Block, types.Receipts) {
+	return nil, nil
+}
+
 // GetTd gets the total difficulty at the given block hash
 func (b *Backend) GetTd(blockHash common.Hash) (*big.Int, error) {
 	var tdStr string
