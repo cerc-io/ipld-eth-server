@@ -10,7 +10,7 @@ git clone -b $(cat /tmp/git_head_ref) "https://github.com/$(cat /tmp/git_reposit
 cd ipld-eth-server
 
 ## Remove the branch and github related info. This way future runs wont be confused.
-#rm -f /tmp/git_head_ref /tmp/git_repository
+rm -f /tmp/git_head_ref /tmp/git_repository
 
 # Setup the DB
 cd $temp_dir
