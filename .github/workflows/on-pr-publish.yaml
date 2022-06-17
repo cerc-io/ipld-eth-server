@@ -27,6 +27,10 @@ jobs:
       BUILD_HOSTNAME: ${{ secrets.BUILD_HOSTNAME }}
       BUILD_USERNAME: ${{ secrets.BUILD_USERNAME }}
       BUILD_KEY: ${{ secrets.BUILD_KEY }}
+    with:
+      STACK_ORCHESTRATOR_REF: "382aca8e42bc5e33f301f77cdd2e09cc80602fc3"
+      GO_ETHEREUM_REF: "d629c99d84cb8d20b89e46c1d9f852c7409829f2"
+      IPLD_ETH_DB_REF: "48eb594ea95763bda8e51590f105f7a2657ac6d4"
   build:
     name: Run docker build
     runs-on: ubuntu-latest

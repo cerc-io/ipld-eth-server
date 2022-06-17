@@ -8,6 +8,16 @@ on:
         required: true
       BUILD_KEY:
         required: true
+    inputs:
+      STACK_ORCHESTRATOR_REF:
+        required: true
+        type: string
+      GO_ETHEREUM_REF:
+        required: true
+        type: string
+      IPLD_ETH_DB_REF:
+        required: true
+        type: string
 
 jobs:
   build:
@@ -68,9 +78,6 @@ jobs:
   integrationtest:
     name: Run integration tests
     env:
-      STACK_ORCHESTRATOR_REF: 418957a1f745c921b21286c13bb033f922a91ae9
-      GO_ETHEREUM_REF: "v1.10.18-statediff-4.0.2-alpha"
-      IPLD_ETH_DB_REF: 91d30b9ea1acecd0a7f4307390a98bf3e289b8d7
       GOPATH: /tmp/go
       DB_WRITE: true
       ETH_FORWARD_ETH_CALLS: false
@@ -89,12 +96,12 @@ jobs:
           path: "./ipld-eth-server"
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.STACK_ORCHESTRATOR_REF }}
+          ref: ${{ inputs.STACK_ORCHESTRATOR_REF }}
           path: "./stack-orchestrator/"
           repository: vulcanize/stack-orchestrator
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.GO_ETHEREUM_REF }}
+          ref: ${{ inputs.GO_ETHEREUM_REF }}
           repository: vulcanize/go-ethereum
           path: "./go-ethereum/"
       - uses: actions/checkout@v2
@@ -112,9 +119,6 @@ jobs:
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
           echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
-          echo ipld_eth_server_db_dependency=access-node >> ./config.sh
-          echo go_ethereum_db_dependency=access-node >> ./config.sh
-          echo connecting_db_name=vulcanize_testing_v4 >> ./config.sh
           echo watched_address_gap_filler_enabled=false >> ./config.sh
           echo watched_address_gap_filler_interval=5 >> ./config.sh
           cat ./config.sh
@@ -127,11 +131,10 @@ jobs:
       - name: Run docker compose
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-migration.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-sharding.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-contract.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-timescale-db.yml" \
           --env-file "$GITHUB_WORKSPACE/config.sh" \
           up -d --build
       - name: Test
@@ -144,9 +147,6 @@ jobs:
   integrationtest_forwardethcalls:
     name: Run integration tests for direct proxy fall-through of eth_calls
     env:
-      STACK_ORCHESTRATOR_REF: 418957a1f745c921b21286c13bb033f922a91ae9
-      GO_ETHEREUM_REF: "v1.10.18-statediff-4.0.2-alpha"
-      IPLD_ETH_DB_REF: 91d30b9ea1acecd0a7f4307390a98bf3e289b8d7
       GOPATH: /tmp/go
       DB_WRITE: false
       ETH_FORWARD_ETH_CALLS: true
@@ -165,12 +165,12 @@ jobs:
           path: "./ipld-eth-server"
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.STACK_ORCHESTRATOR_REF }}
+          ref: ${{ inputs.STACK_ORCHESTRATOR_REF }}
           path: "./stack-orchestrator/"
           repository: vulcanize/stack-orchestrator
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.GO_ETHEREUM_REF }}
+          ref: ${{ inputs.GO_ETHEREUM_REF }}
           repository: vulcanize/go-ethereum
           path: "./go-ethereum/"
       - uses: actions/checkout@v2
@@ -188,9 +188,6 @@ jobs:
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
           echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
-          echo ipld_eth_server_db_dependency=access-node >> ./config.sh
-          echo go_ethereum_db_dependency=access-node >> ./config.sh
-          echo connecting_db_name=vulcanize_testing_v4 >> ./config.sh
           echo watched_address_gap_filler_enabled=false >> ./config.sh
           echo watched_address_gap_filler_interval=5 >> ./config.sh
           cat ./config.sh
@@ -203,11 +200,10 @@ jobs:
       - name: Run docker compose
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-migration.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-sharding.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-contract.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-timescale-db.yml" \
           --env-file "$GITHUB_WORKSPACE/config.sh" \
           up -d --build
       - name: Test

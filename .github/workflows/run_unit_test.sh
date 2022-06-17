@@ -17,7 +17,7 @@ rm -f /tmp/git_head_ref /tmp/git_repository
 rm -rf out/docker-tsdb/
 
 # Copy over files to setup TimescaleDB
-ID=$(docker create vulcanize/ipld-eth-db:v4.1.1-alpha)
+ID=$(docker create vulcanize/ipld-eth-db:v4.1.3-alpha)
 docker cp $ID:/app/docker-tsdb out/docker-tsdb/
 docker rm -v $ID
 
