@@ -46,6 +46,8 @@ jobs:
       - name: Output variables to files
         run: |
           echo $GITHUB_REPOSITORY > /tmp/git_repository
+          echo ${{ inputs.STACK_ORCHESTRATOR_REF }} > /tmp/ipld_eth_db_ref
+          echo ${{ inputs.IPLD_ETH_DB_REF }} > /tmp/stack_orchestrator_ref
           [ -z "$GITHUB_HEAD_REF" ] && echo $GITHUB_REF_NAME > /tmp/git_head_ref || echo $GITHUB_HEAD_REF > /tmp/git_head_ref
           echo "-----BEGIN OPENSSH PRIVATE KEY-----" >> /tmp/key
           echo ${{ env.BUILD_KEY }} >> /tmp/key
@@ -58,6 +60,8 @@ jobs:
         run: |
           scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key /tmp/git_repository ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
           scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key /tmp/git_head_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
+          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key /tmp/stack_orchestrator_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/stack_orchestrator_ref
+          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key /tmp/ipld_eth_db_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/ipld_eth_db_ref
           scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key .github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
 
       - name: Trigger Unit Test
@@ -106,7 +110,7 @@ jobs:
           path: "./go-ethereum/"
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.IPLD_ETH_DB_REF }}
+          ref: ${{ inputs.IPLD_ETH_DB_REF }}
           repository: vulcanize/ipld-eth-db
           path: "./ipld-eth-db/"
       - name: Create config file
@@ -175,7 +179,7 @@ jobs:
           path: "./go-ethereum/"
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.IPLD_ETH_DB_REF }}
+          ref: ${{ inputs.IPLD_ETH_DB_REF }}
           repository: vulcanize/ipld-eth-db
           path: "./ipld-eth-db/"
       - name: Create config file
