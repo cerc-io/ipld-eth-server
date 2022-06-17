@@ -3,7 +3,7 @@ module github.com/vulcanize/ipld-eth-server/v4
 go 1.18
 
 require (
-	github.com/ethereum/go-ethereum v1.10.18
+	github.com/ethereum/go-ethereum v1.10.19
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/ipfs/go-block-format v0.0.3
 	github.com/ipfs/go-cid v0.0.7
@@ -21,16 +21,15 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
-	github.com/vulcanize/eth-ipfs-state-validator/v4 v4.0.1-alpha
-	github.com/vulcanize/gap-filler v0.3.1
-	github.com/vulcanize/ipfs-ethdb/v4 v4.0.1-alpha
+	github.com/vulcanize/eth-ipfs-state-validator/v4 v4.0.3-alpha
+	github.com/vulcanize/gap-filler v0.4.0
+	github.com/vulcanize/ipfs-ethdb/v4 v4.0.2-alpha
 	gorm.io/driver/postgres v1.3.7
 	gorm.io/gorm v1.23.5
 )
 
 require (
 	bazil.org/fuse v0.0.0-20200117225306-7b5117fecadc // indirect
-	github.com/ClickHouse/clickhouse-go v1.5.4 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/Stebalien/go-bitfield v0.0.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect
@@ -43,7 +42,6 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
-	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
 	github.com/crackcomm/go-gitignore v0.0.0-20170627025303-887ab5e44cc3 // indirect
 	github.com/cskr/pubsub v1.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -51,7 +49,6 @@ require (
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/deepmap/oapi-codegen v1.8.2 // indirect
-	github.com/denisenkom/go-mssqldb v0.12.2 // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5 // indirect
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
@@ -62,13 +59,10 @@ require (
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff // indirect
 	github.com/georgysavva/scany v0.2.9 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
-	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.3.0 // indirect
-	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
-	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
@@ -235,7 +229,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/polydawn/refmt v0.0.0-20201211092308-30ac6d18308e // indirect
-	github.com/pressly/goose v2.7.0+incompatible // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.30.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
@@ -267,7 +260,6 @@ require (
 	github.com/whyrusleeping/mdns v0.0.0-20190826153040-b9b60ed33aa9 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
-	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.opentelemetry.io/otel v0.20.0 // indirect
 	go.opentelemetry.io/otel/metric v0.20.0 // indirect
@@ -297,4 +289,4 @@ require (
 	lukechampine.com/blake3 v1.1.6 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.10.18 => github.com/vulcanize/go-ethereum v1.10.18-statediff-4.0.2-alpha
+replace github.com/ethereum/go-ethereum v1.10.19 => github.com/vulcanize/go-ethereum v1.10.19-statediff-4.0.2-alpha
