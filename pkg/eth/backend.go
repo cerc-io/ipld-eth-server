@@ -342,6 +342,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	var headerIPLD models.IPLDModel
 	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
 	if err != nil {
+		log.Error("error fetching header ipld", err)
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -352,10 +353,12 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	if err != nil {
 		return nil, err
 	}
+
 	// Fetch and decode the uncle IPLDs
 	var uncleIPLDs []models.IPLDModel
 	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
 	if err != nil {
+		log.Error("error fetching uncle iplds", err)
 		return nil, err
 	}
 	var uncles []*types.Header
@@ -367,10 +370,12 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		}
 		uncles = append(uncles, &uncle)
 	}
+
 	// Fetch and decode the transaction IPLDs
 	var txIPLDs []models.IPLDModel
 	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
 	if err != nil {
+		log.Error("error fetching tx iplds", err)
 		return nil, err
 	}
 	var transactions []*types.Transaction
@@ -386,6 +391,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	var rctIPLDs []models.IPLDModel
 	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
 	if err != nil {
+		log.Error("error fetching rct iplds", err)
 		return nil, err
 	}
 	var receipts []*types.Receipt
@@ -438,6 +444,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var headerIPLD models.IPLDModel
 	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
 	if err != nil {
+		log.Error("error fetching header ipld", err)
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -452,6 +459,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var uncleIPLDs []models.IPLDModel
 	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
 	if err != nil {
+		log.Error("error fetching uncle iplds", err)
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -470,6 +478,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var txIPLDs []models.IPLDModel
 	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
 	if err != nil {
+		log.Error("error fetching tx iplds", err)
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -488,6 +497,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	var rctIPLDs []models.IPLDModel
 	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
 	if err != nil {
+		log.Error("error fetching rct iplds", err)
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
