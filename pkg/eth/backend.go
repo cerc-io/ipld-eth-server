@@ -62,13 +62,8 @@ var (
 )
 
 const (
-	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
-									INNER JOIN public.blocks ON (
-										header_cids.mh_key = blocks.key
-										AND header_cids.block_number = blocks.block_number
-									)
-									WHERE block_hash = (SELECT canonical_header_hash($1))`
-	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
+	RetrieveCanonicalBlockHashByNumber = `SELECT canonical_header_hash($1)`
+	RetrieveCanonicalHeaderByNumber    = `SELECT cid, data FROM eth.header_cids
 									INNER JOIN public.blocks ON (
 										header_cids.mh_key = blocks.key
 										AND header_cids.block_number = blocks.block_number
