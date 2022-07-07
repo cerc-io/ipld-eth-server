@@ -1,26 +1,16 @@
 #!/bin/bash
 
-set -e
+# Remove any existing containers / volumes
+docker-compose down --remove-orphans --volumes
 
-mkdir -p out
-
-# Remove existing docker-tsdb directory
-rm -rf out/docker-tsdb/
-
-# Copy over files to setup TimescaleDB
-ID=$(docker create vulcanize/ipld-eth-db:v4.1.1-alpha)
-docker cp $ID:/app/docker-tsdb out/docker-tsdb/
-docker rm -v $ID
-
-# Spin up TimescaleDB
-docker-compose -f out/docker-tsdb/docker-compose.test.yml -f docker-compose.yml up ipld-eth-db
-trap "docker-compose -f out/docker-tsdb/docker-compose.test.yml -f docker-compose.yml down --remove-orphans --volumes; rm -rf out/" SIGINT SIGTERM ERR
-sleep 45
+# Spin up DB and run migrations
+docker-compose up -d migrations ipld-eth-db
+sleep 30
 
 # Run unit tests
 go clean -testcache
-PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8066 DATABASE_PASSWORD=password DATABASE_HOSTNAME=127.0.0.1 DATABASE_NAME=vulcanize_testing_v4 make test
+PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=password DATABASE_HOSTNAME=127.0.0.1 DATABASE_NAME=vulcanize_testing make test
 
 # Clean up
-docker-compose -f out/docker-tsdb/docker-compose.test.yml -f docker-compose.yml down --remove-orphans --volumes
+docker-compose down --remove-orphans --volumes
 rm -rf out/
