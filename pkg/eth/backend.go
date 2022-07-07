@@ -56,6 +56,7 @@ var (
 	errNegativeBlockNumber    = errors.New("negative block number not supported")
 	errHeaderHashNotFound     = errors.New("header for hash not found")
 	errHeaderNotFound         = errors.New("header not found")
+	errTxHashNotFound         = errors.New("transaction for hash not found")
 	errTxHashInMultipleBlocks = errors.New("transaction for hash found in more than one canonical block")
 
 	// errMissingSignature is returned if a block's extra-data section doesn't seem
@@ -63,8 +64,10 @@ var (
 )
 
 const (
-	RetrieveCanonicalBlockHashByNumber = `SELECT canonical_header_hash($1)`
-	RetrieveCanonicalHeaderByNumber    = `SELECT cid, data FROM eth.header_cids
+	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash
+									FROM canonical_header_hash($1) AS block_hash
+									WHERE block_hash IS NOT NULL`
+	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
 									INNER JOIN public.blocks ON (
 										header_cids.mh_key = blocks.key
 										AND header_cids.block_number = blocks.block_number
@@ -526,12 +529,14 @@ func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*type
 		Index       uint64 `db:"index"`
 	}
 	var res = make([]txRes, 0)
-	if err := b.DB.Get(&res, RetrieveRPCTransaction, txHash.String()); err != nil {
+	if err := b.DB.Select(&res, RetrieveRPCTransaction, txHash.String()); err != nil {
 		return nil, common.Hash{}, 0, 0, err
 	}
 
-	// a transaction can be part of a only one canonical block
-	if len(res) > 1 {
+	if len(res) == 0 {
+		return nil, common.Hash{}, 0, 0, errTxHashNotFound
+	} else if len(res) > 1 {
+		// a transaction can be part of a only one canonical block
 		return nil, common.Hash{}, 0, 0, errTxHashInMultipleBlocks
 	}
 

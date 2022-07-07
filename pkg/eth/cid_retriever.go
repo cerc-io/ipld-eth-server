@@ -737,7 +737,7 @@ func (ecr *CIDRetriever) RetrieveTxCIDByHash(txHash string) (TransactionCIDRecor
 
 	var txCID TransactionCIDRecord
 
-	err := ecr.gormDB.Joins("IPLD").First(&txCID, "tx_hash = ?", txHash).Error
+	err := ecr.gormDB.Joins("IPLD").Find(&txCID, "tx_hash = ? AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))", txHash).Error
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return txCID, err

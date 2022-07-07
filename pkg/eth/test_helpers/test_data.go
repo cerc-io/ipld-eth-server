@@ -301,6 +301,7 @@ var (
 	MockRctMetaPostPublish = []models.ReceiptModel{
 		{
 			BlockNumber:  "1",
+			HeaderID:     MockBlock.Hash().String(),
 			LeafCID:      Rct1CID.String(),
 			LeafMhKey:    Rct1MhKey,
 			Contract:     "",
@@ -308,6 +309,7 @@ var (
 		},
 		{
 			BlockNumber:  "1",
+			HeaderID:     MockBlock.Hash().String(),
 			LeafCID:      Rct2CID.String(),
 			LeafMhKey:    Rct2MhKey,
 			Contract:     "",
@@ -315,6 +317,7 @@ var (
 		},
 		{
 			BlockNumber:  "1",
+			HeaderID:     MockBlock.Hash().String(),
 			LeafCID:      Rct3CID.String(),
 			LeafMhKey:    Rct3MhKey,
 			Contract:     ContractAddress.String(),
@@ -322,6 +325,7 @@ var (
 		},
 		{
 			BlockNumber:  "1",
+			HeaderID:     MockBlock.Hash().String(),
 			LeafCID:      Rct4CID.String(),
 			LeafMhKey:    Rct4MhKey,
 			Contract:     "",
