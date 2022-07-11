@@ -56,6 +56,7 @@ var (
 	errNegativeBlockNumber    = errors.New("negative block number not supported")
 	errHeaderHashNotFound     = errors.New("header for hash not found")
 	errHeaderNotFound         = errors.New("header not found")
+	errMultipleHeadersForHash = errors.New("more than one headers for the given hash")
 	errTxHashNotFound         = errors.New("transaction for hash not found")
 	errTxHashInMultipleBlocks = errors.New("transaction for hash found in more than one canonical block")
 

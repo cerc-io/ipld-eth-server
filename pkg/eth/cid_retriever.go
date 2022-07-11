@@ -715,33 +715,46 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64)
 func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Hash) (HeaderCIDRecord, error) {
 	log.Debug("retrieving header cid and tx cids for block hash ", blockHash.String())
 
-	var headerCID HeaderCIDRecord
+	var headerCIDs []HeaderCIDRecord
 
 	// https://github.com/go-gorm/gorm/issues/4083#issuecomment-778883283
 	// Will use join for TransactionCIDs once preload for 1:N is supported.
 	err := ecr.gormDB.Preload("TransactionCIDs", func(tx *gorm.DB) *gorm.DB {
 		return tx.Select("cid", "tx_hash", "index", "src", "dst", "header_id", "block_number")
-	}).Joins("IPLD").First(&headerCID, "block_hash = ?", blockHash.String()).Error
-
+	}).Joins("IPLD").Find(&headerCIDs, "block_hash = ?", blockHash.String()).Error
 	if err != nil {
 		log.Error("header cid retrieval error")
-		return headerCID, err
+		return HeaderCIDRecord{}, err
 	}
 
-	return headerCID, nil
+	if len(headerCIDs) == 0 {
+		return HeaderCIDRecord{}, errHeaderHashNotFound
+	} else if len(headerCIDs) > 1 {
+		// a transaction can be part of a only one canonical block
+		return HeaderCIDRecord{}, errMultipleHeadersForHash
+	}
+
+	return headerCIDs[0], nil
 }
 
 // RetrieveTxCIDByHash returns the tx for the given tx hash
 func (ecr *CIDRetriever) RetrieveTxCIDByHash(txHash string) (TransactionCIDRecord, error) {
 	log.Debug("retrieving tx cid for tx hash ", txHash)
 
-	var txCID TransactionCIDRecord
+	var txCIDs []TransactionCIDRecord
 
-	err := ecr.gormDB.Joins("IPLD").Find(&txCID, "tx_hash = ? AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))", txHash).Error
+	err := ecr.gormDB.Joins("IPLD").Find(&txCIDs, "tx_hash = ? AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))", txHash).Error
 	if err != nil {
 		log.Error("header cid retrieval error")
-		return txCID, err
+		return TransactionCIDRecord{}, err
 	}
 
-	return txCID, nil
+	if len(txCIDs) == 0 {
+		return TransactionCIDRecord{}, errTxHashNotFound
+	} else if len(txCIDs) > 1 {
+		// a transaction can be part of a only one canonical block
+		return TransactionCIDRecord{}, errTxHashInMultipleBlocks
+	}
+
+	return txCIDs[0], nil
 }
