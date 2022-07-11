@@ -18,10 +18,12 @@ package eth
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/statediff/trie_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
+	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -191,15 +193,11 @@ const (
 										)
 									WHERE tx_hash = $1
 									AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
-	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, data, state_cids.node_type
+	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, state_cids.mh_key, state_cids.block_number, state_cids.node_type
 												FROM eth.state_cids
 													INNER JOIN eth.header_cids ON (
 														state_cids.header_id = header_cids.block_hash
 														AND state_cids.block_number = header_cids.block_number
-													)
-													INNER JOIN public.blocks ON (
-														state_cids.mh_key = blocks.key
-														AND state_cids.block_number = blocks.block_number
 													)
 												WHERE state_leaf_key = $1
 												AND header_cids.block_number <= (SELECT block_number
@@ -208,21 +206,17 @@ const (
 												AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 												ORDER BY header_cids.block_number DESC
 												LIMIT 1`
-	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, data, state_cids.node_type
+	RetrieveAccountByLeafKeyAndBlockNumberPgStr = `SELECT state_cids.cid, state_cids.mh_key, state_cids.node_type
 													FROM eth.state_cids
 														INNER JOIN eth.header_cids ON (
 															state_cids.header_id = header_cids.block_hash
 															AND state_cids.block_number = header_cids.block_number
 														)
-														INNER JOIN public.blocks ON (
-															state_cids.mh_key = blocks.key
-															AND state_cids.block_number = blocks.block_number
-														)
 													WHERE state_leaf_key = $1
 													AND header_cids.block_number <= $2
 													ORDER BY header_cids.block_number DESC
 													LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, storage_cids.mh_key, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (
 																			storage_cids.header_id = state_cids.header_id
@@ -232,17 +226,13 @@ const (
 																		INNER JOIN eth.header_cids ON (
 																			state_cids.header_id = header_cids.block_hash
 																			AND state_cids.block_number = header_cids.block_number
-																		)
-																		INNER JOIN public.blocks ON (
-																			storage_cids.mh_key = blocks.key
-																			AND storage_cids.block_number = blocks.block_number
 																		)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
 																	AND header_cids.block_number <= $3
 																	ORDER BY header_cids.block_number DESC
 																	LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, storage_cids.mh_key, storage_cids.block_number, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
 																	FROM eth.storage_cids
 																		INNER JOIN eth.state_cids ON (
 																			storage_cids.header_id = state_cids.header_id
@@ -252,10 +242,6 @@ const (
 																		INNER JOIN eth.header_cids ON (
 																			state_cids.header_id = header_cids.block_hash
 																			AND state_cids.block_number = header_cids.block_number
-																		)
-																		INNER JOIN public.blocks ON (
-																			storage_cids.mh_key = blocks.key
-																			AND storage_cids.block_number = blocks.block_number
 																		)
 																	WHERE state_leaf_key = $1
 																	AND storage_leaf_key = $2
@@ -543,6 +529,8 @@ func (r *IPLDRetriever) RetrieveReceiptByHash(hash common.Hash) (string, []byte,
 
 type nodeInfo struct {
 	CID              string `db:"cid"`
+	MhKey            string `db:"mh_key"`
+	BlockNumber      string `db:"block_number"`
 	Data             []byte `db:"data"`
 	NodeType         int    `db:"node_type"`
 	StateLeafRemoved bool   `db:"state_leaf_removed"`
@@ -559,6 +547,15 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 
 	if accountResult.NodeType == removedNode {
 		return "", EmptyNodeValue, nil
+	}
+
+	blockNumber, err := strconv.ParseUint(accountResult.BlockNumber, 10, 64)
+	if err != nil {
+		return "", nil, err
+	}
+	accountResult.Data, err = shared.FetchIPLD(r.db, accountResult.MhKey, blockNumber)
+	if err != nil {
+		return "", nil, err
 	}
 
 	var i []interface{}
@@ -584,6 +581,12 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 		return "", EmptyNodeValue, nil
 	}
 
+	var err error
+	accountResult.Data, err = shared.FetchIPLD(r.db, accountResult.MhKey, number)
+	if err != nil {
+		return "", nil, err
+	}
+
 	var i []interface{}
 	if err := rlp.DecodeBytes(accountResult.Data, &i); err != nil {
 		return "", nil, fmt.Errorf("error decoding state leaf node rlp: %s", err.Error())
@@ -605,6 +608,16 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
 		return "", EmptyNodeValue, EmptyNodeValue, nil
 	}
+
+	blockNumber, err := strconv.ParseUint(storageResult.BlockNumber, 10, 64)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	storageResult.Data, err = shared.FetchIPLD(r.db, storageResult.MhKey, blockNumber)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
 	var i []interface{}
 	if err := rlp.DecodeBytes(storageResult.Data, &i); err != nil {
 		err = fmt.Errorf("error decoding storage leaf node rlp: %s", err.Error())
@@ -628,6 +641,13 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
 		return "", EmptyNodeValue, nil
 	}
+
+	var err error
+	storageResult.Data, err = shared.FetchIPLD(r.db, storageResult.MhKey, number)
+	if err != nil {
+		return "", nil, err
+	}
+
 	var i []interface{}
 	if err := rlp.DecodeBytes(storageResult.Data, &i); err != nil {
 		return "", nil, fmt.Errorf("error decoding storage leaf node rlp: %s", err.Error())
