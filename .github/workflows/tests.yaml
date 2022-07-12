@@ -115,12 +115,11 @@ jobs:
           echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
           echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
           echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-server/test/contract >> ./config.sh
+          echo genesis_file_path=start-up-files/go-ethereum/genesis.json >> ./config.sh
           echo db_write=$DB_WRITE >> ./config.sh
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
           echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
-          echo watched_address_gap_filler_enabled=false >> ./config.sh
-          echo watched_address_gap_filler_interval=5 >> ./config.sh
           cat ./config.sh
       - name: Build geth
         run: |
@@ -184,12 +183,11 @@ jobs:
           echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
           echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
           echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-server/test/contract >>./config.sh
+          echo genesis_file_path=start-up-files/go-ethereum/genesis.json >> ./config.sh
           echo db_write=$DB_WRITE >> ./config.sh
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
           echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
-          echo watched_address_gap_filler_enabled=false >> ./config.sh
-          echo watched_address_gap_filler_interval=5 >> ./config.sh
           cat ./config.sh
       - name: Build geth
         run: |

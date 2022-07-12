@@ -60,6 +60,7 @@
     # Path to test contract.
     vulcanize_test_contract=~/ipld-eth-server/test/contract
 
+    genesis_file_path='start-up-files/go-ethereum/genesis.json'
     db_write=true
     eth_forward_eth_calls=false
     eth_proxy_on_error=false
@@ -103,6 +104,7 @@
     # Path to test contract.
     vulcanize_test_contract=~/ipld-eth-server/test/contract
 
+    genesis_file_path='start-up-files/go-ethereum/genesis.json'
     db_write=false
     eth_forward_eth_calls=true
     eth_proxy_on_error=false
