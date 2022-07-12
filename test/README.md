@@ -4,22 +4,22 @@
 
 - Clone [stack-orchestrator](https://github.com/vulcanize/stack-orchestrator), [ipld-eth-db](https://github.com/vulcanize/ipld-eth-db) [go-ethereum](https://github.com/vulcanize/go-ethereum) repositories.
 
-- Checkout [v4 release](https://github.com/vulcanize/ipld-eth-db/releases/tag/v4.1.1-alpha) in ipld-eth-db repo.
+- Checkout [v4 release](https://github.com/vulcanize/ipld-eth-db/releases/tag/v4.2.0-alpha) in ipld-eth-db repo.
   ```bash
   # In ipld-eth-db repo.
-  git checkout v4.1.1-alpha
+  git checkout v4.2.0-alpha
   ```
 
-- Checkout [v4 release](https://github.com/vulcanize/go-ethereum/releases/tag/v1.10.18-statediff-4.0.2-alpha) in go-ethereum repo.
+- Checkout [v4 release](https://github.com/vulcanize/go-ethereum/releases/tag/v1.10.19-statediff-4.1.0-alpha) in go-ethereum repo.
   ```bash
   # In go-ethereum repo.
-  git checkout v1.10.18-statediff-4.0.2-alpha
+  git checkout v1.10.19-statediff-4.1.0-alpha
   ```
 
 - Checkout working commit in stack-orchestrator repo.
   ```bash
   # In stack-orchestrator repo.
-  git checkout 418957a1f745c921b21286c13bb033f922a91ae9
+  git checkout f2fd766f5400fcb9eb47b50675d2e3b1f2753702
   ```
 
 ## Run
@@ -60,13 +60,11 @@
     # Path to test contract.
     vulcanize_test_contract=~/ipld-eth-server/test/contract
 
+    genesis_file_path='start-up-files/go-ethereum/genesis.json'
     db_write=true
     eth_forward_eth_calls=false
     eth_proxy_on_error=false
     eth_http_path="go-ethereum:8545"
-    ipld_eth_server_db_dependency=access-node
-    go_ethereum_db_dependency=access-node
-    connecting_db_name=vulcanize_testing_v4
     ```
 
   - Run stack-orchestrator:
@@ -77,8 +75,7 @@
 
     ./wrapper.sh \
     -e docker \
-    -d ../docker/latest/docker-compose-timescale-db.yml \
-    -d ../docker/local/docker-compose-db-migration.yml \
+    -d ../docker/local/docker-compose-db-sharding.yml \
     -d ../docker/local/docker-compose-go-ethereum.yml \
     -d ../docker/local/docker-compose-ipld-eth-server.yml \
     -d ../docker/local/docker-compose-contract.yml \
@@ -107,13 +104,11 @@
     # Path to test contract.
     vulcanize_test_contract=~/ipld-eth-server/test/contract
 
+    genesis_file_path='start-up-files/go-ethereum/genesis.json'
     db_write=false
     eth_forward_eth_calls=true
     eth_proxy_on_error=false
     eth_http_path="go-ethereum:8545"
-    ipld_eth_server_db_dependency=access-node
-    go_ethereum_db_dependency=access-node
-    connecting_db_name=vulcanize_testing_v4
     ```
 
   - Stop the stack-orchestrator and start again using the same command

@@ -52,22 +52,22 @@ import (
 )
 
 var (
-	errPendingBlockNumber  = errors.New("pending block number not supported")
-	errNegativeBlockNumber = errors.New("negative block number not supported")
-	errHeaderHashNotFound  = errors.New("header for hash not found")
-	errHeaderNotFound      = errors.New("header not found")
+	errPendingBlockNumber     = errors.New("pending block number not supported")
+	errNegativeBlockNumber    = errors.New("negative block number not supported")
+	errHeaderHashNotFound     = errors.New("header for hash not found")
+	errHeaderNotFound         = errors.New("header not found")
+	errMultipleHeadersForHash = errors.New("more than one headers for the given hash")
+	errTxHashNotFound         = errors.New("transaction for hash not found")
+	errTxHashInMultipleBlocks = errors.New("transaction for hash found in more than one canonical block")
 
 	// errMissingSignature is returned if a block's extra-data section doesn't seem
 	// to contain a 65 byte secp256k1 signature.
 )
 
 const (
-	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
-									INNER JOIN public.blocks ON (
-										header_cids.mh_key = blocks.key
-										AND header_cids.block_number = blocks.block_number
-									)
-									WHERE block_hash = (SELECT canonical_header_hash($1))`
+	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash
+									FROM canonical_header_hash($1) AS block_hash
+									WHERE block_hash IS NOT NULL`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
 									INNER JOIN public.blocks ON (
 										header_cids.mh_key = blocks.key
@@ -76,13 +76,12 @@ const (
 									WHERE block_hash = (SELECT canonical_header_hash($1))`
 	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
-	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, transaction_cids.block_number, index
-			FROM public.blocks, eth.transaction_cids, eth.header_cids
+	RetrieveRPCTransaction = `SELECT blocks.data, header_id, transaction_cids.block_number, index
+			FROM public.blocks, eth.transaction_cids
 			WHERE blocks.key = transaction_cids.mh_key
 			AND blocks.block_number = transaction_cids.block_number
-			AND transaction_cids.header_id = header_cids.block_hash
-			AND transaction_cids.block_number = header_cids.block_number
-			AND transaction_cids.tx_hash = $1`
+			AND transaction_cids.tx_hash = $1
+			AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
 	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
 											WHERE state_accounts.header_id = state_cids.header_id
 											AND state_accounts.state_path = state_cids.state_path
@@ -524,20 +523,30 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 // GetTransaction retrieves a tx by hash
 // It also returns the blockhash, blocknumber, and tx index associated with the transaction
 func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
-	var tempTxStruct struct {
+	type txRes struct {
 		Data        []byte `db:"data"`
-		BlockHash   string `db:"block_hash"`
+		HeaderID    string `db:"header_id"`
 		BlockNumber uint64 `db:"block_number"`
 		Index       uint64 `db:"index"`
 	}
-	if err := b.DB.Get(&tempTxStruct, RetrieveRPCTransaction, txHash.String()); err != nil {
+	var res = make([]txRes, 0)
+	if err := b.DB.Select(&res, RetrieveRPCTransaction, txHash.String()); err != nil {
 		return nil, common.Hash{}, 0, 0, err
 	}
+
+	if len(res) == 0 {
+		return nil, common.Hash{}, 0, 0, errTxHashNotFound
+	} else if len(res) > 1 {
+		// a transaction can be part of a only one canonical block
+		return nil, common.Hash{}, 0, 0, errTxHashInMultipleBlocks
+	}
+
 	var transaction types.Transaction
-	if err := transaction.UnmarshalBinary(tempTxStruct.Data); err != nil {
+	if err := transaction.UnmarshalBinary(res[0].Data); err != nil {
 		return nil, common.Hash{}, 0, 0, err
 	}
-	return &transaction, common.HexToHash(tempTxStruct.BlockHash), tempTxStruct.BlockNumber, tempTxStruct.Index, nil
+
+	return &transaction, common.HexToHash(res[0].HeaderID), res[0].BlockNumber, res[0].Index, nil
 }
 
 // GetReceipts retrieves receipts for provided block hash
