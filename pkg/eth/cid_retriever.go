@@ -730,7 +730,6 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Has
 	if len(headerCIDs) == 0 {
 		return HeaderCIDRecord{}, errHeaderHashNotFound
 	} else if len(headerCIDs) > 1 {
-		// a transaction can be part of a only one canonical block
 		return HeaderCIDRecord{}, errMultipleHeadersForHash
 	}
 

@@ -289,4 +289,4 @@ require (
 	lukechampine.com/blake3 v1.1.6 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.10.19 => github.com/vulcanize/go-ethereum v1.10.19-statediff-4.0.2-alpha
+replace github.com/ethereum/go-ethereum v1.10.19 => github.com/vulcanize/go-ethereum v1.10.19-statediff-4.1.0-alpha
