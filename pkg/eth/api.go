@@ -157,6 +157,7 @@ func (pea *PublicEthAPI) BlockNumber() hexutil.Uint64 {
 // * When fullTx is true all transactions in the block are returned, otherwise
 //   only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
+	log.Debug("Received getBlockByNumber request for number", number.Int64())
 	block, err := pea.B.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)
@@ -1103,7 +1104,7 @@ func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx boo
 	if inclTx {
 		td, err := pea.B.GetTd(b.Hash())
 		if err != nil {
-			log.Error("error getting td for block with hash", b.Hash().String(), err)
+			log.Error("error getting td for block with hash and number", b.Hash().String(), b.Number().String(), err)
 			return nil, err
 		}
 		fields["totalDifficulty"] = (*hexutil.Big)(td)
