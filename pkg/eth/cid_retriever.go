@@ -361,7 +361,7 @@ func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilte
 // RetrieveFilteredGQLLogs retrieves and returns all the log CIDs provided blockHash that conform to the provided
 // filter parameters.
 func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]LogResult, error) {
-	log.Debug("retrieving log cids for receipt ids")
+	log.Debug("retrieving log cids for receipt ids with block hash", blockHash.String())
 	args := make([]interface{}, 0, 4)
 	id := 1
 	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
