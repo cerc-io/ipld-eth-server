@@ -23,6 +23,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -1268,10 +1269,12 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 	if args.Condition.BlockHash != nil {
 		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash))
 		if err != nil {
-			return nil, err
+			if !strings.Contains(err.Error(), "not found") {
+				return nil, err
+			}
+		} else {
+			headerCIDs = append(headerCIDs, headerCID)
 		}
-
-		headerCIDs = append(headerCIDs, headerCID)
 	} else if args.Condition.BlockNumber != nil {
 		headerCIDs, err = r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockNumber(args.Condition.BlockNumber.ToInt().Int64())
 		if err != nil {

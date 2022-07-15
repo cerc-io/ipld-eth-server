@@ -37,7 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
@@ -157,6 +156,7 @@ func (pea *PublicEthAPI) BlockNumber() hexutil.Uint64 {
 // * When fullTx is true all transactions in the block are returned, otherwise
 //   only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
+	logrus.Debug("Received getBlockByNumber request for number ", number.Int64())
 	block, err := pea.B.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)
@@ -1097,13 +1097,13 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
 	if err != nil {
-		log.Error("error RPC marshalling block with hash", b.Hash().String(), err)
+		logrus.Error("error RPC marshalling block with hash", b.Hash().String(), err)
 		return nil, err
 	}
 	if inclTx {
 		td, err := pea.B.GetTd(b.Hash())
 		if err != nil {
-			log.Error("error getting td for block with hash", b.Hash().String(), err)
+			logrus.Error("error getting td for block with hash and number", b.Hash().String(), b.Number().String(), err)
 			return nil, err
 		}
 		fields["totalDifficulty"] = (*hexutil.Big)(td)
