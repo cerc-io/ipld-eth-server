@@ -722,6 +722,7 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Has
 	err := ecr.gormDB.Preload("TransactionCIDs", func(tx *gorm.DB) *gorm.DB {
 		return tx.Select("cid", "tx_hash", "index", "src", "dst", "header_id", "block_number")
 	}).Joins("IPLD").Find(&headerCIDs, "block_hash = ?", blockHash.String()).Error
+
 	if err != nil {
 		log.Error("header cid retrieval error")
 		return HeaderCIDRecord{}, err
