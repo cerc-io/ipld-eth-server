@@ -37,7 +37,7 @@ func StartWSEndpoint(endpoint string, apis []rpc.API, modules []string, wsOrigin
 
 	// Register all the APIs exposed by the services
 	handler := rpc.NewServer()
-	err = node.RegisterApis(apis, modules, handler, exposeAll)
+	err = node.RegisterApis(apis, modules, handler)
 	if err != nil {
 		utils.Fatalf("Could not register WS API: %w", err)
 	}
