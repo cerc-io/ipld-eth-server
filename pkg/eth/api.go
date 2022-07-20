@@ -120,11 +120,10 @@ func (pea *PublicEthAPI) GetHeaderByHash(ctx context.Context, hash common.Hash) 
 	}
 
 	if pea.proxyOnError {
-		if header, err := pea.ethClient.HeaderByHash(ctx, hash); header != nil && err == nil {
+		var result map[string]interface{}
+		if err := pea.rpc.CallContext(ctx, &result, "eth_getHeaderByHash", hash); result != nil && err == nil {
 			go pea.writeStateDiffFor(hash)
-			if res, err := pea.rpcMarshalHeader(header); err != nil {
-				return res
-			}
+			return result
 		}
 	}
 
