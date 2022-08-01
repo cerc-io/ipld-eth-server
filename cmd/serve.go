@@ -123,7 +123,7 @@ func startServers(server s.Server, settings *s.Config) error {
 
 	if settings.WSEnabled {
 		logWithCommand.Info("starting up WS server")
-		_, _, err := srpc.StartWSEndpoint(settings.WSEndpoint, server.APIs(), []string{"vdb", "net"}, nil, true)
+		_, _, err := srpc.StartWSEndpoint(settings.WSEndpoint, server.APIs(), []string{"vdb", "net"}, nil)
 		if err != nil {
 			return err
 		}

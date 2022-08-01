@@ -190,21 +190,21 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
-func (pea *PublicEthAPI) ChainId() (*hexutil.Big, error) {
+func (pea *PublicEthAPI) ChainId() *hexutil.Big {
 	block, err := pea.B.CurrentBlock()
 	if err != nil {
 		if pea.proxyOnError {
 			if id, err := pea.ethClient.ChainID(context.Background()); err == nil {
-				return (*hexutil.Big)(id), nil
+				return (*hexutil.Big)(id)
 			}
 		}
-		return nil, err
+		return nil
 	}
 
 	if config := pea.B.Config.ChainConfig; config.IsEIP155(block.Number()) {
-		return (*hexutil.Big)(config.ChainID), nil
+		return (*hexutil.Big)(config.ChainID)
 	}
-	return nil, fmt.Errorf("chain not synced beyond EIP-155 replay-protection fork block")
+	return nil
 }
 
 /*
