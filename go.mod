@@ -58,6 +58,8 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff // indirect
 	github.com/georgysavva/scany v0.2.9 // indirect
+	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
@@ -83,8 +85,8 @@ require (
 	github.com/influxdata/influxdb-client-go/v2 v2.4.0 // indirect
 	github.com/influxdata/line-protocol v0.0.0-20210311194329-9aa0e372d097 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
-	github.com/ipfs/go-bitswap v0.4.0 // indirect
-	github.com/ipfs/go-blockservice v0.1.7 // indirect
+	github.com/ipfs/go-bitswap v0.8.0 // indirect
+	github.com/ipfs/go-blockservice v0.4.0 // indirect
 	github.com/ipfs/go-cidutil v0.0.2 // indirect
 	github.com/ipfs/go-datastore v0.5.0 // indirect
 	github.com/ipfs/go-ds-measure v0.1.0 // indirect
@@ -96,15 +98,15 @@ require (
 	github.com/ipfs/go-ipfs-chunker v0.0.5 // indirect
 	github.com/ipfs/go-ipfs-config v0.16.0 // indirect
 	github.com/ipfs/go-ipfs-delay v0.0.1 // indirect
-	github.com/ipfs/go-ipfs-exchange-interface v0.0.1 // indirect
-	github.com/ipfs/go-ipfs-exchange-offline v0.0.1 // indirect
+	github.com/ipfs/go-ipfs-exchange-interface v0.2.0 // indirect
+	github.com/ipfs/go-ipfs-exchange-offline v0.3.0 // indirect
 	github.com/ipfs/go-ipfs-files v0.0.8 // indirect
 	github.com/ipfs/go-ipfs-keystore v0.0.2 // indirect
 	github.com/ipfs/go-ipfs-pinner v0.1.2 // indirect
 	github.com/ipfs/go-ipfs-posinfo v0.0.1 // indirect
 	github.com/ipfs/go-ipfs-pq v0.0.2 // indirect
 	github.com/ipfs/go-ipfs-provider v0.6.1 // indirect
-	github.com/ipfs/go-ipfs-routing v0.1.0 // indirect
+	github.com/ipfs/go-ipfs-routing v0.2.1 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
 	github.com/ipfs/go-ipld-cbor v0.0.5 // indirect
 	github.com/ipfs/go-ipld-format v0.4.0 // indirect
@@ -117,7 +119,7 @@ require (
 	github.com/ipfs/go-mfs v0.1.2 // indirect
 	github.com/ipfs/go-namesys v0.3.1 // indirect
 	github.com/ipfs/go-path v0.1.2 // indirect
-	github.com/ipfs/go-peertaskqueue v0.4.0 // indirect
+	github.com/ipfs/go-peertaskqueue v0.7.0 // indirect
 	github.com/ipfs/go-unixfs v0.2.5 // indirect
 	github.com/ipfs/go-unixfsnode v1.1.3 // indirect
 	github.com/ipfs/go-verifcid v0.0.1 // indirect
@@ -265,9 +267,8 @@ require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	go.opentelemetry.io/otel v0.20.0 // indirect
-	go.opentelemetry.io/otel/metric v0.20.0 // indirect
-	go.opentelemetry.io/otel/trace v0.20.0 // indirect
+	go.opentelemetry.io/otel v1.7.0 // indirect
+	go.opentelemetry.io/otel/trace v1.7.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/dig v1.10.0 // indirect
 	go.uber.org/fx v1.13.1 // indirect
