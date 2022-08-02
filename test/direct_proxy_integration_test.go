@@ -431,7 +431,7 @@ var _ = Describe("Integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = ipldClient.ChainID(ctx)
-			Expect(err).To(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
