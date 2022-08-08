@@ -66,6 +66,9 @@ type PublicEthAPI struct {
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
 func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls, proxyOnError bool) (*PublicEthAPI, error) {
+	if b == nil {
+		return nil, errors.New("ipld-eth-server must be configured with an ethereum backend")
+	}
 	if forwardEthCalls && client == nil {
 		return nil, errors.New("ipld-eth-server is configured to forward eth_calls to proxy node but no proxy node is configured")
 	}
@@ -191,8 +194,7 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
 func (pea *PublicEthAPI) ChainId() *hexutil.Big {
-	block, err := pea.B.CurrentBlock()
-	if err != nil {
+	if pea.B.Config.ChainConfig.ChainID == nil || pea.B.Config.ChainConfig.ChainID.Cmp(big.NewInt(0)) <= 0 {
 		if pea.proxyOnError {
 			if id, err := pea.ethClient.ChainID(context.Background()); err == nil {
 				return (*hexutil.Big)(id)
@@ -201,10 +203,7 @@ func (pea *PublicEthAPI) ChainId() *hexutil.Big {
 		return nil
 	}
 
-	if config := pea.B.Config.ChainConfig; config.IsEIP155(block.Number()) {
-		return (*hexutil.Big)(config.ChainID)
-	}
-	return nil
+	return (*hexutil.Big)(pea.B.Config.ChainConfig.ChainID)
 }
 
 /*
