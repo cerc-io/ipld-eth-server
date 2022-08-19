@@ -191,7 +191,23 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumbe
 
 // HeaderByHash gets the header for the provided block hash
 func (b *Backend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(hash)
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -302,6 +318,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	if number < 0 {
 		return nil, errNegativeBlockNumber
 	}
+
 	// Get the canonical hash
 	canonicalHash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
@@ -311,47 +328,31 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		return nil, err
 	}
 
-	// Fetch header
-	header, err := b.HeaderByHash(ctx, canonicalHash)
-	if err != nil {
-		log.Error("error fetching header", err)
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	// Fetch uncles
-	uncles, err := b.GetUnclesByBlockHash(ctx, canonicalHash)
-	if err != nil && err != sql.ErrNoRows {
-		log.Error("error fetching uncles", err)
-		return nil, err
-	}
-
-	// Fetch transactions
-	transactions, err := b.GetTransactionsByBlockHash(ctx, canonicalHash)
-	if err != nil && err != sql.ErrNoRows {
-		log.Error("error fetching transactions", err)
-		return nil, err
-	}
-
-	// Fetch receipts
-	receipts, err := b.GetReceipts(ctx, canonicalHash)
-	if err != nil && err != sql.ErrNoRows {
-		log.Error("error fetching receipts", err)
-		return nil, err
-	}
-
-	// Compose everything together into a complete block
-	return types.NewBlock(header, transactions, uncles, receipts, new(trie.Trie)), err
+	return b.BlockByHash(ctx, canonicalHash)
 }
 
 // BlockByHash returns the requested block
 func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	// Fetch header
-	header, err := b.HeaderByHash(ctx, hash)
+	// Begin tx
+	tx, err := b.DB.Beginx()
 	if err != nil {
-		log.Error("error fetching header", err)
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	// Fetch header
+	header, err := b.GetHeaderByBlockHash(tx, hash)
+	if err != nil {
+		log.Error("error fetching header: ", err)
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -359,23 +360,23 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	}
 
 	// Fetch uncles
-	uncles, err := b.GetUnclesByBlockHash(ctx, hash)
+	uncles, err := b.GetUnclesByBlockHash(tx, hash)
 	if err != nil && err != sql.ErrNoRows {
-		log.Error("error fetching uncles", err)
+		log.Error("error fetching uncles: ", err)
 		return nil, err
 	}
 
 	// Fetch transactions
-	transactions, err := b.GetTransactionsByBlockHash(ctx, hash)
+	transactions, err := b.GetTransactionsByBlockHash(tx, hash)
 	if err != nil && err != sql.ErrNoRows {
-		log.Error("error fetching transactions", err)
+		log.Error("error fetching transactions: ", err)
 		return nil, err
 	}
 
 	// Fetch receipts
-	receipts, err := b.GetReceipts(ctx, hash)
+	receipts, err := b.GetReceiptsByBlockHash(tx, hash)
 	if err != nil && err != sql.ErrNoRows {
-		log.Error("error fetching receipts", err)
+		log.Error("error fetching receipts: ", err)
 		return nil, err
 	}
 
@@ -383,9 +384,20 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	return types.NewBlock(header, transactions, uncles, receipts, new(trie.Trie)), err
 }
 
+// GetHeaderByBlockHash retrieves header for a provided block hash
+func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.Header, error) {
+	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	header := new(types.Header)
+	return header, rlp.DecodeBytes(headerRLP, header)
+}
+
 // GetUnclesByBlockHash retrieves uncles for a provided block hash
-func (b *Backend) GetUnclesByBlockHash(ctx context.Context, hash common.Hash) ([]*types.Header, error) {
-	_, uncleBytes, err := b.IPLDRetriever.RetrieveUnclesByBlockHash(hash)
+func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.Header, error) {
+	_, uncleBytes, err := b.IPLDRetriever.RetrieveUnclesByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -405,8 +417,8 @@ func (b *Backend) GetUnclesByBlockHash(ctx context.Context, hash common.Hash) ([
 }
 
 // GetTransactionsByBlockHash retrieves transactions for a provided block hash
-func (b *Backend) GetTransactionsByBlockHash(ctx context.Context, hash common.Hash) (types.Transactions, error) {
-	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactionsByBlockHash(hash)
+func (b *Backend) GetTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Transactions, error) {
+	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactionsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -422,6 +434,24 @@ func (b *Backend) GetTransactionsByBlockHash(ctx context.Context, hash common.Ha
 	}
 
 	return txs, nil
+}
+
+// GetReceiptsByBlockHash retrieves receipts for a provided block hash
+func (b *Backend) GetReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Receipts, error) {
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+	rcts := make(types.Receipts, len(receiptBytes))
+	for i, rctBytes := range receiptBytes {
+		rct := new(types.Receipt)
+		if err := rct.UnmarshalBinary(rctBytes); err != nil {
+			return nil, err
+		}
+		rct.TxHash = txs[i]
+		rcts[i] = rct
+	}
+	return rcts, nil
 }
 
 // GetTransaction retrieves a tx by hash
@@ -455,7 +485,23 @@ func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*type
 
 // GetReceipts retrieves receipts for provided block hash
 func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -473,7 +519,23 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 
 // GetLogs returns all the logs for the given block hash
 func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}

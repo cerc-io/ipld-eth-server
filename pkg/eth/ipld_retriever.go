@@ -313,9 +313,9 @@ func (r *IPLDRetriever) RetrieveHeadersByBlockNumber(number uint64) ([]string, [
 }
 
 // RetrieveHeaderByHash returns the cid and rlp bytes for the header corresponding to the provided block hash
-func (r *IPLDRetriever) RetrieveHeaderByHash(hash common.Hash) (string, []byte, error) {
+func (r *IPLDRetriever) RetrieveHeaderByHash(tx *sqlx.Tx, hash common.Hash) (string, []byte, error) {
 	headerResult := new(ipldResult)
-	return headerResult.CID, headerResult.Data, r.db.Get(headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
+	return headerResult.CID, headerResult.Data, tx.Get(headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
 }
 
 // RetrieveUnclesByHashes returns the cids and rlp bytes for the uncles corresponding to the provided uncle hashes
@@ -338,9 +338,9 @@ func (r *IPLDRetriever) RetrieveUnclesByHashes(hashes []common.Hash) ([]string, 
 }
 
 // RetrieveUnclesByBlockHash returns the cids and rlp bytes for the uncles corresponding to the provided block hash (of non-omner root block)
-func (r *IPLDRetriever) RetrieveUnclesByBlockHash(hash common.Hash) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, error) {
 	uncleResults := make([]ipldResult, 0)
-	if err := r.db.Select(&uncleResults, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := tx.Select(&uncleResults, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(uncleResults))
@@ -393,9 +393,9 @@ func (r *IPLDRetriever) RetrieveTransactionsByHashes(hashes []common.Hash) ([]st
 }
 
 // RetrieveTransactionsByBlockHash returns the cids and rlp bytes for the transactions corresponding to the provided block hash
-func (r *IPLDRetriever) RetrieveTransactionsByBlockHash(hash common.Hash) ([]string, [][]byte, error) {
+func (r *IPLDRetriever) RetrieveTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, error) {
 	txResults := make([]ipldResult, 0)
-	if err := r.db.Select(&txResults, RetrieveTransactionsByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := tx.Select(&txResults, RetrieveTransactionsByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(txResults))
@@ -470,9 +470,9 @@ func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]stri
 
 // RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
 // cid returned corresponds to the leaf node data which contains the receipt.
-func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
+func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
 	rctResults := make([]rctIpldResult, 0)
-	if err := r.db.Select(&rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := tx.Select(&rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, nil, err
 	}
 	cids := make([]string, len(rctResults))
