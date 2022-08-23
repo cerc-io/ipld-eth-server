@@ -23,7 +23,7 @@ require (
 	github.com/spf13/viper v1.11.0
 	github.com/vulcanize/eth-ipfs-state-validator/v4 v4.0.6-alpha
 	github.com/vulcanize/gap-filler v0.4.0
-	github.com/vulcanize/ipfs-ethdb/v4 v4.0.5-alpha
+	github.com/vulcanize/ipfs-ethdb/v4 v4.0.6-alpha
 	gorm.io/driver/postgres v1.3.7
 	gorm.io/gorm v1.23.5
 )
@@ -274,7 +274,7 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
+	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect

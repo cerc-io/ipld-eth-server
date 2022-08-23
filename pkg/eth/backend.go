@@ -39,7 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
@@ -192,7 +191,23 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumbe
 
 // HeaderByHash gets the header for the provided block hash
 func (b *Backend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(hash)
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +296,7 @@ func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Blo
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-// BlockByNumber returns the requested canonical block.
+// BlockByNumber returns the requested canonical block
 func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Block, error) {
 	var err error
 	number := blockNumber.Int64()
@@ -303,6 +318,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	if number < 0 {
 		return nil, errNegativeBlockNumber
 	}
+
 	// Get the canonical hash
 	canonicalHash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
@@ -311,118 +327,12 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		}
 		return nil, err
 	}
-	// Retrieve all the CIDs for the block
-	// TODO: optimize this by retrieving iplds directly rather than the cids first (this is remanent from when we fetched iplds through ipfs blockservice interface)
-	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(canonicalHash)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
 
-	// Begin tx
-	tx, err := b.DB.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
-
-	// Fetch and decode the header IPLD
-	var headerIPLD models.IPLDModel
-	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
-	if err != nil {
-		log.Error("error fetching header ipld", err)
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var header types.Header
-	err = rlp.DecodeBytes(headerIPLD.Data, &header)
-	if err != nil {
-		return nil, err
-	}
-
-	// Fetch and decode the uncle IPLDs
-	var uncleIPLDs []models.IPLDModel
-	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
-	if err != nil {
-		log.Error("error fetching uncle iplds", err)
-		return nil, err
-	}
-	var uncles []*types.Header
-	for _, uncleIPLD := range uncleIPLDs {
-		var uncle types.Header
-		err = rlp.DecodeBytes(uncleIPLD.Data, &uncle)
-		if err != nil {
-			return nil, err
-		}
-		uncles = append(uncles, &uncle)
-	}
-
-	// Fetch and decode the transaction IPLDs
-	var txIPLDs []models.IPLDModel
-	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
-	if err != nil {
-		log.Error("error fetching tx iplds", err)
-		return nil, err
-	}
-	var transactions []*types.Transaction
-	for _, txIPLD := range txIPLDs {
-		var transaction types.Transaction
-		err = transaction.UnmarshalBinary(txIPLD.Data)
-		if err != nil {
-			return nil, err
-		}
-		transactions = append(transactions, &transaction)
-	}
-	// Fetch and decode the receipt IPLDs
-	var rctIPLDs []models.IPLDModel
-	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
-	if err != nil {
-		log.Error("error fetching rct iplds", err)
-		return nil, err
-	}
-	var receipts []*types.Receipt
-	for _, rctIPLD := range rctIPLDs {
-		var receipt types.Receipt
-		nodeVal, err := DecodeLeafNode(rctIPLD.Data)
-		if err != nil {
-			return nil, err
-		}
-
-		err = receipt.UnmarshalBinary(nodeVal)
-		if err != nil {
-			return nil, err
-		}
-		receipts = append(receipts, &receipt)
-	}
-	// Compose everything together into a complete block
-	return types.NewBlock(&header, transactions, uncles, receipts, new(trie.Trie)), err
+	return b.BlockByHash(ctx, canonicalHash)
 }
 
-// BlockByHash returns the requested block. When fullTx is true all transactions in the block are returned in full
-// detail, otherwise only the transaction hash is returned.
+// BlockByHash returns the requested block
 func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	// Retrieve all the CIDs for the block
-	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(hash)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
 	// Begin tx
 	tx, err := b.DB.Beginx()
 	if err != nil {
@@ -439,85 +349,109 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		}
 	}()
 
-	// Fetch and decode the header IPLD
-	var headerIPLD models.IPLDModel
-	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
+	// Fetch header
+	header, err := b.GetHeaderByBlockHash(tx, hash)
 	if err != nil {
-		log.Error("error fetching header ipld", err)
+		log.Error("error fetching header: ", err)
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-	var header types.Header
-	err = rlp.DecodeBytes(headerIPLD.Data, &header)
+
+	// Fetch uncles
+	uncles, err := b.GetUnclesByBlockHash(tx, hash)
+	if err != nil && err != sql.ErrNoRows {
+		log.Error("error fetching uncles: ", err)
+		return nil, err
+	}
+
+	// Fetch transactions
+	transactions, err := b.GetTransactionsByBlockHash(tx, hash)
+	if err != nil && err != sql.ErrNoRows {
+		log.Error("error fetching transactions: ", err)
+		return nil, err
+	}
+
+	// Fetch receipts
+	receipts, err := b.GetReceiptsByBlockHash(tx, hash)
+	if err != nil && err != sql.ErrNoRows {
+		log.Error("error fetching receipts: ", err)
+		return nil, err
+	}
+
+	// Compose everything together into a complete block
+	return types.NewBlock(header, transactions, uncles, receipts, new(trie.Trie)), err
+}
+
+// GetHeaderByBlockHash retrieves header for a provided block hash
+func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.Header, error) {
+	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
-	// Fetch and decode the uncle IPLDs
-	var uncleIPLDs []models.IPLDModel
-	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
+
+	header := new(types.Header)
+	return header, rlp.DecodeBytes(headerRLP, header)
+}
+
+// GetUnclesByBlockHash retrieves uncles for a provided block hash
+func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.Header, error) {
+	_, uncleBytes, err := b.IPLDRetriever.RetrieveUnclesByBlockHash(tx, hash)
 	if err != nil {
-		log.Error("error fetching uncle iplds", err)
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
-	var uncles []*types.Header
-	for _, uncleIPLD := range uncleIPLDs {
+
+	uncles := make([]*types.Header, len(uncleBytes))
+	for i, bytes := range uncleBytes {
 		var uncle types.Header
-		err = rlp.DecodeBytes(uncleIPLD.Data, &uncle)
-		if err != nil {
-			return nil, err
-		}
-		uncles = append(uncles, &uncle)
-	}
-	// Fetch and decode the transaction IPLDs
-	var txIPLDs []models.IPLDModel
-	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
-	if err != nil {
-		log.Error("error fetching tx iplds", err)
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var transactions []*types.Transaction
-	for _, txIPLD := range txIPLDs {
-		var transaction types.Transaction
-		err = transaction.UnmarshalBinary(txIPLD.Data)
-		if err != nil {
-			return nil, err
-		}
-		transactions = append(transactions, &transaction)
-	}
-	// Fetch and decode the receipt IPLDs
-	var rctIPLDs []models.IPLDModel
-	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
-	if err != nil {
-		log.Error("error fetching rct iplds", err)
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var receipts []*types.Receipt
-	for _, rctIPLD := range rctIPLDs {
-		var receipt types.Receipt
-		nodeVal, err := DecodeLeafNode(rctIPLD.Data)
+		err = rlp.DecodeBytes(bytes, &uncle)
 		if err != nil {
 			return nil, err
 		}
 
-		err = receipt.UnmarshalBinary(nodeVal)
-		if err != nil {
+		uncles[i] = &uncle
+	}
+
+	return uncles, nil
+}
+
+// GetTransactionsByBlockHash retrieves transactions for a provided block hash
+func (b *Backend) GetTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Transactions, error) {
+	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactionsByBlockHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	txs := make(types.Transactions, len(transactionBytes))
+	for i, txBytes := range transactionBytes {
+		var tx types.Transaction
+		if err := tx.UnmarshalBinary(txBytes); err != nil {
 			return nil, err
 		}
-		receipts = append(receipts, &receipt)
+
+		txs[i] = &tx
 	}
-	// Compose everything together into a complete block
-	return types.NewBlock(&header, transactions, uncles, receipts, new(trie.Trie)), err
+
+	return txs, nil
+}
+
+// GetReceiptsByBlockHash retrieves receipts for a provided block hash
+func (b *Backend) GetReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Receipts, error) {
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+	rcts := make(types.Receipts, len(receiptBytes))
+	for i, rctBytes := range receiptBytes {
+		rct := new(types.Receipt)
+		if err := rct.UnmarshalBinary(rctBytes); err != nil {
+			return nil, err
+		}
+		rct.TxHash = txs[i]
+		rcts[i] = rct
+	}
+	return rcts, nil
 }
 
 // GetTransaction retrieves a tx by hash
@@ -551,7 +485,23 @@ func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*type
 
 // GetReceipts retrieves receipts for provided block hash
 func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -569,7 +519,23 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 
 // GetLogs returns all the logs for the given block hash
 func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}

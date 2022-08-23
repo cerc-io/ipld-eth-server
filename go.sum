@@ -1781,8 +1781,8 @@ github.com/vulcanize/gap-filler v0.4.0 h1:5VD9PG7UrjEub4rLxZmstWoHnBnVtXz9silIVd
 github.com/vulcanize/gap-filler v0.4.0/go.mod h1:5awUyotIoJi6AuG0JPEm7SIwFZBD7Ecg0I8x7CdxcHI=
 github.com/vulcanize/go-ethereum v1.10.21-statediff-4.1.2-alpha h1:ct+8FGuQnHA6SOGOQoAMINWdeexuSF40+IjF48J094A=
 github.com/vulcanize/go-ethereum v1.10.21-statediff-4.1.2-alpha/go.mod h1:dNJkmCSbaasX0zfQM6pm1g3rWlW3EGhLOEZMScyrRAs=
-github.com/vulcanize/ipfs-ethdb/v4 v4.0.5-alpha h1:NFRwWeMB3Q+QqLM9qdcHvfvWBxOk0lPwhOqXJpkIg30=
-github.com/vulcanize/ipfs-ethdb/v4 v4.0.5-alpha/go.mod h1:WvYj0m0cLPAtoytTbcbE2nZ3Hg9iuuF+lY14dBVRWZQ=
+github.com/vulcanize/ipfs-ethdb/v4 v4.0.6-alpha h1:iKpv+Bvc0HScak+NiGK4NeYGLWMZ1pyLmrZecHoUGYA=
+github.com/vulcanize/ipfs-ethdb/v4 v4.0.6-alpha/go.mod h1:WvYj0m0cLPAtoytTbcbE2nZ3Hg9iuuF+lY14dBVRWZQ=
 github.com/wI2L/jsondiff v0.2.0 h1:dE00WemBa1uCjrzQUUTE/17I6m5qAaN0EMFOg2Ynr/k=
 github.com/wI2L/jsondiff v0.2.0/go.mod h1:axTcwtBkY4TsKuV+RgoMhHyHKKFRI6nnjRLi8LLYQnA=
 github.com/wangjia184/sortedset v0.0.0-20160527075905-f5d03557ba30/go.mod h1:YkocrP2K2tcw938x9gCOmT5G5eCD6jsTz0SZuyAqwIE=
@@ -1953,8 +1953,8 @@ golang.org/x/crypto v0.0.0-20210813211128-0a44fdfbc16e/go.mod h1:GvvjBRRGRdwPK5y
 golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
 golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
 golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
-golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e h1:T8NU3HyQ8ClP4SEE+KbFlg6n0NhuTsN4MyznaarGsZM=
-golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
+golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8 h1:GIAS/yBem/gq2MUqgNIzUHW7cJMmx3TGZOrnyYaNQ6c=
+golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
 golang.org/x/exp v0.0.0-20180321215751-8460e604b9de/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20180807140117-3d87b88a115f/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
