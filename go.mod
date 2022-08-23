@@ -23,7 +23,7 @@ require (
 	github.com/spf13/viper v1.11.0
 	github.com/vulcanize/eth-ipfs-state-validator/v4 v4.0.6-alpha
 	github.com/vulcanize/gap-filler v0.4.0
-	github.com/vulcanize/ipfs-ethdb/v4 v4.0.5-alpha
+	github.com/vulcanize/ipfs-ethdb/v4 v4.0.6-alpha
 	gorm.io/driver/postgres v1.3.7
 	gorm.io/gorm v1.23.5
 )
