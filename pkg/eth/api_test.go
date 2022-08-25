@@ -334,6 +334,18 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
 		})
+		It("Retrieves a block by number with uncles in correct order", func() {
+			block, err := api.GetBlockByNumber(ctx, londonBlockNum, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedUncles := []common.Hash{
+				test_helpers.MockLondonUncles[0].Hash(),
+				test_helpers.MockLondonUncles[1].Hash(),
+			}
+			Expect(block["uncles"]).To(Equal(expectedUncles))
+			Expect(block["sha3Uncles"]).To(Equal(test_helpers.MockLondonBlock.UncleHash()))
+			Expect(block["hash"]).To(Equal(test_helpers.MockLondonBlock.Hash()))
+		})
 	})
 
 	Describe("eth_getBlockByHash", func() {
@@ -374,6 +386,18 @@ var _ = Describe("API", func() {
 			block, err = api.GetBlockByHash(ctx, test_helpers.MockLondonBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
+		})
+		It("Retrieves a block by hash with uncles in correct order", func() {
+			block, err := api.GetBlockByHash(ctx, test_helpers.MockLondonBlock.Hash(), false)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedUncles := []common.Hash{
+				test_helpers.MockLondonUncles[0].Hash(),
+				test_helpers.MockLondonUncles[1].Hash(),
+			}
+			Expect(block["uncles"]).To(Equal(expectedUncles))
+			Expect(block["sha3Uncles"]).To(Equal(test_helpers.MockLondonBlock.UncleHash()))
+			Expect(block["hash"]).To(Equal(test_helpers.MockLondonBlock.Hash()))
 		})
 	})
 
