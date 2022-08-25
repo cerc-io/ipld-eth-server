@@ -74,7 +74,8 @@ const (
 												uncle_cids.mh_key = blocks.key
 												AND uncle_cids.block_number = blocks.block_number
 											)
-										WHERE header_cids.block_hash = $1`
+										WHERE header_cids.block_hash = $1
+										ORDER BY uncle_cids.parent_hash`
 	RetrieveUnclesByBlockNumberPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
 											INNER JOIN eth.header_cids ON (

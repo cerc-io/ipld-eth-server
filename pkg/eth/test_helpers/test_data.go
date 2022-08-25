@@ -594,7 +594,29 @@ var (
 	}
 
 	MockLondonTransactions, MockLondonReceipts, _ = createDynamicTransactionsAndReceipts(LondonBlockNum)
-	MockLondonBlock                               = createNewBlock(&MockLondonHeader, MockLondonTransactions, nil, MockLondonReceipts, new(trie.Trie))
+	MockLondonUncles                              = []*types.Header{
+		{
+			Time:        1,
+			Number:      new(big.Int).Add(BlockNumber, big.NewInt(1)),
+			ParentHash:  common.HexToHash("0x2"),
+			Root:        common.HexToHash("0x1"),
+			TxHash:      common.HexToHash("0x1"),
+			ReceiptHash: common.HexToHash("0x1"),
+			Difficulty:  big.NewInt(500001),
+			Extra:       []byte{},
+		},
+		{
+			Time:        2,
+			Number:      new(big.Int).Add(BlockNumber, big.NewInt(1)),
+			ParentHash:  common.HexToHash("0x1"),
+			Root:        common.HexToHash("0x2"),
+			TxHash:      common.HexToHash("0x2"),
+			ReceiptHash: common.HexToHash("0x2"),
+			Difficulty:  big.NewInt(500002),
+			Extra:       []byte{},
+		},
+	}
+	MockLondonBlock = createNewBlock(&MockLondonHeader, MockLondonTransactions, MockLondonUncles, MockLondonReceipts, new(trie.Trie))
 )
 
 func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, hasher types.TrieHasher) *types.Block {
