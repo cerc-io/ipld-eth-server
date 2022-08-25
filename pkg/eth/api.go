@@ -177,6 +177,7 @@ func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockN
 // GetBlockByHash returns the requested block. When fullTx is true all transactions in the block are returned in full
 // detail, otherwise only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, fullTx bool) (map[string]interface{}, error) {
+	logrus.Debug("Received getBlockByHash request for hash ", hash.Hex())
 	block, err := pea.B.BlockByHash(ctx, hash)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)
@@ -1095,13 +1096,13 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
 	if err != nil {
-		logrus.Error("error RPC marshalling block with hash", b.Hash().String(), err)
+		logrus.Errorf("error RPC marshalling block with hash %s: %s", b.Hash().String(), err)
 		return nil, err
 	}
 	if inclTx {
 		td, err := pea.B.GetTd(b.Hash())
 		if err != nil {
-			logrus.Error("error getting td for block with hash and number", b.Hash().String(), b.Number().String(), err)
+			logrus.Errorf("error getting td for block with hash and number %s, %s: %s", b.Hash().String(), b.Number().String(), err)
 			return nil, err
 		}
 		fields["totalDifficulty"] = (*hexutil.Big)(td)

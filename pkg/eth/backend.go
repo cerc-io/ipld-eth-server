@@ -366,6 +366,23 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		return nil, err
 	}
 
+	// When num. of uncles = 2,
+	// Check if calculated uncle hash matches the one in header
+	// If not, re-order the two uncles
+	// Assumption: Max num. of uncles in mainnet = 2
+	if len(uncles) == 2 {
+		uncleHash := types.CalcUncleHash(uncles)
+		if uncleHash != header.UncleHash {
+			uncles[0], uncles[1] = uncles[1], uncles[0]
+
+			uncleHash = types.CalcUncleHash(uncles)
+			// Check if uncle hash matches after re-ordering
+			if uncleHash != header.UncleHash {
+				log.Error("uncle hash mismatch for block hash: ", hash.Hex())
+			}
+		}
+	}
+
 	// Fetch transactions
 	transactions, err := b.GetTransactionsByBlockHash(tx, hash)
 	if err != nil && err != sql.ErrNoRows {
