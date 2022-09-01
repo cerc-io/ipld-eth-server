@@ -535,7 +535,7 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 }
 
 // GetLogs returns all the logs for the given block hash
-func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
+func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) ([][]*types.Log, error) {
 	// Begin tx
 	tx, err := b.DB.Beginx()
 	if err != nil {
