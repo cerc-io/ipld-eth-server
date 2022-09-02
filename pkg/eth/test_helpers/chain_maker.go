@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/statediff/test_helpers"
 )
 
 // Test variables
@@ -35,7 +36,7 @@ var (
 	TestBankKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	TestBankAddress = crypto.PubkeyToAddress(TestBankKey.PublicKey) //0x71562b71999873DB5b286dF957af199Ec94617F7
 	TestBankFunds   = big.NewInt(100000000)
-	Genesis         = core.GenesisBlockForTesting(Testdb, TestBankAddress, TestBankFunds)
+	Genesis         = test_helpers.GenesisBlockForTesting(Testdb, TestBankAddress, TestBankFunds)
 
 	Account1Key, _       = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 	Account2Key, _       = crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
