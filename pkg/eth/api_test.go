@@ -37,6 +37,8 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var (
