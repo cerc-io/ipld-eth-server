@@ -31,6 +31,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/debug"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/net"
 )
@@ -137,6 +138,11 @@ func (sap *Service) APIs() []rpc.API {
 			Version:   net.APIVersion,
 			Service:   net.NewPublicNetAPI(networkID, sap.client),
 			Public:    true,
+		},
+		{
+			Namespace: debug.APIName,
+			Version:   debug.APIVersion,
+			Service:   debug.NewDebugAPI(sap.backend),
 		},
 	}
 	ethAPI, err := eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing, sap.forwardEthCalls, sap.proxyOnError)

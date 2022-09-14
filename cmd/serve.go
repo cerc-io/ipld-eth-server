@@ -133,7 +133,7 @@ func startServers(server s.Server, settings *s.Config) error {
 
 	if settings.HTTPEnabled {
 		logWithCommand.Info("starting up HTTP server")
-		_, err := srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"vdb", "eth", "net"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
+		_, err := srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"vdb", "eth", "debug", "net"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
 		if err != nil {
 			return err
 		}
