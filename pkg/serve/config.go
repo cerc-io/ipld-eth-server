@@ -219,6 +219,8 @@ func NewConfig() (*Config, error) {
 		if rpcGasCap, ok := new(big.Int).SetString(rpcGasCapStr, 10); ok {
 			c.RPCGasCap = rpcGasCap
 		}
+	} else {
+		c.RPCGasCap = big.NewInt(0)
 	}
 	chainConfigPath := viper.GetString("ethereum.chainConfig")
 	if chainConfigPath != "" {
