@@ -42,7 +42,7 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
 // APIName is the namespace for the watcher's eth api

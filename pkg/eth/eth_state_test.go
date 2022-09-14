@@ -23,6 +23,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	ethServerShared "github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -34,13 +38,6 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth/test_helpers"
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
-	ethServerShared "github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
 )
 
 var (

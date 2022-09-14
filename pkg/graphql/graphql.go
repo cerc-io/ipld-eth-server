@@ -35,8 +35,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
 var (

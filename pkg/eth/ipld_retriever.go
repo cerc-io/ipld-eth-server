@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/statediff/trie_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
