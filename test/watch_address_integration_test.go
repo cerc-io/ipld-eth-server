@@ -13,6 +13,7 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	integration "github.com/cerc-io/ipld-eth-server/v4/test"
 )
 
