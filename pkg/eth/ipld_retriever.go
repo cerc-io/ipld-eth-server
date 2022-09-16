@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/statediff/trie_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -33,7 +33,7 @@ import (
 
 const (
 	// node type removed value.
-	// https://github.com/vulcanize/go-ethereum/blob/271f4d01e7e2767ffd8e0cd469bf545be96f2a84/statediff/indexer/helpers.go#L34
+	// https://github.com/cerc-io/go-ethereum/blob/271f4d01e7e2767ffd8e0cd469bf545be96f2a84/statediff/indexer/helpers.go#L34
 	removedNode = 3
 
 	RetrieveHeadersByHashesPgStr = `SELECT cid, data
