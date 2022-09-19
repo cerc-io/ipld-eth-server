@@ -47,11 +47,11 @@ jobs:
       - name: Run docker build
         run: make docker-build
       - name: Tag docker image
-        run: docker tag cerc-io/ipld-eth-server docker.pkg.github.com/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
+        run: docker tag cerc-io/ipld-eth-server git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
       - name: Docker Login
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login https://docker.pkg.github.com -u vulcanize --password-stdin
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
       - name: Docker Push
-        run: docker push docker.pkg.github.com/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
+        run: docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
 
   push_to_registries:
     name: Push Docker image to Docker Hub
@@ -68,12 +68,12 @@ jobs:
           echo ::set-output name=sha::$(echo ${GITHUB_SHA:0:7})
           echo ::set-output name=tag::$(echo ${GITHUB_REF#refs/tags/})
       - name: Docker Login to Github Registry
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login https://docker.pkg.github.com -u vulcanize --password-stdin
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
       - name: Docker Pull
-        run: docker pull docker.pkg.github.com/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
+        run: docker pull git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
       - name: Docker Login to Docker Registry
         run: echo ${{ secrets.VULCANIZEJENKINS_PAT }} | docker login -u vulcanizejenkins --password-stdin
       - name: Tag docker image
-        run: docker tag docker.pkg.github.com/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}} cerc-io/ipld-eth-server:${{steps.vars.outputs.tag}}
+        run: docker tag git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}} cerc-io/ipld-eth-server:${{steps.vars.outputs.tag}}
       - name: Docker Push to Docker Hub
         run: docker push cerc-io/ipld-eth-server:${{steps.vars.outputs.tag}}
