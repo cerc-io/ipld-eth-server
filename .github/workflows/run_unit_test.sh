@@ -13,6 +13,7 @@ cd ipld-eth-server
 rm -f /tmp/git_head_ref /tmp/git_repository
 
 # Spin up DB and run migrations
+echo 'docker-compose up -d migrations ipld-eth-db'
 docker-compose up -d migrations ipld-eth-db
 trap "docker-compose down -v --remove-orphans; cd $start_dir ; rm -r $temp_dir" SIGINT SIGTERM ERR
 sleep 30
