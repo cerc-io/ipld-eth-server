@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
-	integration "github.com/vulcanize/ipld-eth-server/v4/test"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	integration "github.com/cerc-io/ipld-eth-server/v4/test"
 )
 
 const nonExistingBlockHash = "0x111111111111111111111111111111111111111111111111111111111111111"

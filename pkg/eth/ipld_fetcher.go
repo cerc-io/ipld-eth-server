@@ -22,11 +22,11 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
 )
 
 // Fetcher interface for substituting mocks in tests

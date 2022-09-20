@@ -30,7 +30,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
 // Retriever interface for substituting mocks in tests

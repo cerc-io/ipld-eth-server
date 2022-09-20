@@ -31,8 +31,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v4/pkg/net"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/net"
 )
 
 const (

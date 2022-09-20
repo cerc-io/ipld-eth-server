@@ -18,14 +18,14 @@ package cmd
 import (
 	"time"
 
+	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
+	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	validator "github.com/vulcanize/eth-ipfs-state-validator/v4/pkg"
-	ipfsethdb "github.com/vulcanize/ipfs-ethdb/v4/postgres"
 
-	s "github.com/vulcanize/ipld-eth-server/v4/pkg/serve"
+	s "github.com/cerc-io/ipld-eth-server/v4/pkg/serve"
 )
 
 const GroupName = "statedb-validate"

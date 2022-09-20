@@ -28,14 +28,14 @@ Minimal build dependencies
 * This repository
 
 External dependency
-* Postgres database populated by [ipld-eth-db](https://github.com/vulcanize/ipld-eth-db)
+* Postgres database populated by [ipld-eth-db](https://github.com/cerc-io/ipld-eth-db)
 
 ## Install
 Start by downloading ipld-eth-server and moving into the repo:
 
-`GO111MODULE=off go get -d github.com/vulcanize/ipld-eth-server/v4`
+`GO111MODULE=off go get -d github.com/cerc-io/ipld-eth-server/v4`
 
-`cd $GOPATH/src/github.com/vulcanize/ipld-eth-server/v4@v4.x.x`
+`cd $GOPATH/src/github.com/cerc-io/ipld-eth-server/v4@v4.x.x`
 
 Then, build the binary:
 

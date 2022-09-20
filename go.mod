@@ -1,8 +1,10 @@
-module github.com/vulcanize/ipld-eth-server/v4
+module github.com/cerc-io/ipld-eth-server/v4
 
 go 1.18
 
 require (
+	github.com/cerc-io/eth-ipfs-state-validator/v4 v4.0.8-alpha
+	github.com/cerc-io/ipfs-ethdb/v4 v4.0.8-alpha
 	github.com/ethereum/go-ethereum v1.10.23
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/ipfs/go-block-format v0.0.3
@@ -18,12 +20,10 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	github.com/prometheus/client_golang v1.12.1
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
-	github.com/vulcanize/eth-ipfs-state-validator/v4 v4.0.7-alpha
 	github.com/vulcanize/gap-filler v0.4.0
-	github.com/vulcanize/ipfs-ethdb/v4 v4.0.7-alpha
 	gorm.io/driver/postgres v1.3.7
 	gorm.io/gorm v1.23.5
 )
@@ -41,6 +41,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
+	github.com/cerc-io/go-eth-state-node-iterator v1.1.7 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/containerd/cgroups v1.0.3 // indirect
@@ -256,7 +257,6 @@ require (
 	github.com/tyler-smith/go-bip39 v1.0.1-0.20181017060643-dbb3b84ba2ef // indirect
 	github.com/urfave/cli/v2 v2.10.2 // indirect
 	github.com/valyala/fastjson v1.6.3 // indirect
-	github.com/vulcanize/go-eth-state-node-iterator v1.1.4 // indirect
 	github.com/wI2L/jsondiff v0.2.0 // indirect
 	github.com/whyrusleeping/base32 v0.0.0-20170828182744-c30ac30633cc // indirect
 	github.com/whyrusleeping/cbor-gen v0.0.0-20210219115102-f37d292932f2 // indirect
@@ -279,7 +279,7 @@ require (
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	golang.org/x/tools v0.1.10 // indirect
@@ -293,4 +293,4 @@ require (
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.10.23 => github.com/vulcanize/go-ethereum v1.10.23-statediff-4.2.0-alpha
+replace github.com/ethereum/go-ethereum v1.10.23 => github.com/cerc-io/go-ethereum v1.10.23-statediff-4.2.0-alpha

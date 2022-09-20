@@ -135,4 +135,4 @@ import:
 ## Build docker image
 .PHONY: docker-build
 docker-build:
-	docker build -t vulcanize/ipld-eth-server .
+	docker build -t cerc-io/ipld-eth-server .

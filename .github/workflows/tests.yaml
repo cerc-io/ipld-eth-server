@@ -102,12 +102,12 @@ jobs:
       - uses: actions/checkout@v2
         with:
           ref: ${{ inputs.GO_ETHEREUM_REF }}
-          repository: vulcanize/go-ethereum
+          repository: cerc-io/go-ethereum
           path: "./go-ethereum/"
       - uses: actions/checkout@v2
         with:
           ref: ${{ inputs.IPLD_ETH_DB_REF }}
-          repository: vulcanize/ipld-eth-db
+          repository: cerc-io/ipld-eth-db
           path: "./ipld-eth-db/"
       - name: Create config file
         run: |
@@ -170,12 +170,12 @@ jobs:
       - uses: actions/checkout@v2
         with:
           ref: ${{ inputs.GO_ETHEREUM_REF }}
-          repository: vulcanize/go-ethereum
+          repository: cerc-io/go-ethereum
           path: "./go-ethereum/"
       - uses: actions/checkout@v2
         with:
           ref: ${{ inputs.IPLD_ETH_DB_REF }}
-          repository: vulcanize/ipld-eth-db
+          repository: cerc-io/ipld-eth-db
           path: "./ipld-eth-db/"
       - name: Create config file
         run: |
