@@ -45,6 +45,11 @@ import (
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
+const (
+	defaultEVMTimeout       = 30 * time.Second
+	defaultStateDiffTimeout = 240 * time.Second
+)
+
 // APIName is the namespace for the watcher's eth api
 const APIName = "eth"
 
@@ -927,7 +932,7 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 		return hex, err
 	}
 
-	result, err := DoCall(ctx, pea.B, args, blockNrOrHash, overrides, 5*time.Second, pea.B.Config.RPCGasCap.Uint64())
+	result, err := DoCall(ctx, pea.B, args, blockNrOrHash, overrides, defaultEVMTimeout, pea.B.Config.RPCGasCap.Uint64())
 
 	// If the result contains a revert reason, try to unpack and return it.
 	if err == nil {
@@ -945,7 +950,12 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 			return hex, nil
 		}
 	}
-	return result.Return(), err
+
+	if result != nil {
+		return result.Return(), err
+	} else {
+		return nil, err
+	}
 }
 
 func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
@@ -1054,7 +1064,7 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 		return
 	}
 	// we use a separate context than the one provided by the client
-	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultStateDiffTimeout)
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
@@ -1076,7 +1086,7 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 		return
 	}
 	// we use a separate context than the one provided by the client
-	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultStateDiffTimeout)
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
