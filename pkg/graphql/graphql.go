@@ -838,7 +838,7 @@ func (b *Block) Call(ctx context.Context, args struct {
 			return nil, err
 		}
 	}
-	result, err := eth.DoCall(ctx, b.backend, args.Data, *b.numberOrHash, nil, 5*time.Second, b.backend.RPCGasCap().Uint64())
+	result, err := eth.DoCall(ctx, b.backend, args.Data, *b.numberOrHash, nil, 5*time.Second, b.backend.RPCGasCap())
 	if err != nil {
 		return nil, err
 	}

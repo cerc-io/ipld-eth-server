@@ -258,6 +258,11 @@ func (b *Backend) GetTd(blockHash common.Hash) (*big.Int, error) {
 	return td, nil
 }
 
+// ChainConfig returns the active chain configuration.
+func (b *Backend) ChainConfig() *params.ChainConfig {
+	return b.Config.ChainConfig
+}
+
 // CurrentBlock returns the current block
 func (b *Backend) CurrentBlock() (*types.Block, error) {
 	block, err := b.BlockByNumber(context.Background(), rpc.LatestBlockNumber)
@@ -849,8 +854,8 @@ func (b *Backend) ValidateTrie(stateRoot common.Hash) error {
 }
 
 // RPCGasCap returns the configured gas cap for the rpc server
-func (b *Backend) RPCGasCap() *big.Int {
-	return b.Config.RPCGasCap
+func (b *Backend) RPCGasCap() uint64 {
+	return b.Config.RPCGasCap.Uint64()
 }
 
 func (b *Backend) SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription {
