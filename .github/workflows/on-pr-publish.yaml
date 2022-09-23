@@ -51,7 +51,7 @@ jobs:
       - name: Tag docker image SHA
         run: docker tag cerc-io/ipld-eth-server git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
       - name: Tag docker image TAG
-        run: docker tag git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}} git.vdb.to/cerc-io/ipld-eth-server:${{steps.vars.outputs.tag}}
+        run: docker tag git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}} git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
       - name: Docker Login
         run: echo ${{ secrets.GITEA_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
       - name: Docker Push SHA
