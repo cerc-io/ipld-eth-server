@@ -3,9 +3,9 @@ module github.com/cerc-io/ipld-eth-server/v4
 go 1.18
 
 require (
-	github.com/cerc-io/eth-ipfs-state-validator/v4 v4.0.8-alpha
-	github.com/cerc-io/ipfs-ethdb/v4 v4.0.8-alpha
-	github.com/ethereum/go-ethereum v1.10.23
+	github.com/cerc-io/eth-ipfs-state-validator/v4 v4.0.9-alpha
+	github.com/cerc-io/ipfs-ethdb/v4 v4.0.9-alpha
+	github.com/ethereum/go-ethereum v1.10.25
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/ipfs/go-block-format v0.0.3
 	github.com/ipfs/go-cid v0.2.0
@@ -23,7 +23,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
-	github.com/vulcanize/gap-filler v0.4.0
+	github.com/vulcanize/gap-filler v0.4.1
 	gorm.io/driver/postgres v1.3.7
 	gorm.io/gorm v1.23.5
 )
@@ -41,7 +41,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
-	github.com/cerc-io/go-eth-state-node-iterator v1.1.7 // indirect
+	github.com/cerc-io/go-eth-state-node-iterator v1.1.8 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/containerd/cgroups v1.0.3 // indirect
@@ -293,4 +293,4 @@ require (
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.10.23 => github.com/cerc-io/go-ethereum v1.10.23-statediff-4.2.0-alpha
+replace github.com/ethereum/go-ethereum v1.10.25 => github.com/cerc-io/go-ethereum v1.10.25-statediff-4.2.1-alpha
