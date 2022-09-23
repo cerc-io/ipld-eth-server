@@ -29,8 +29,8 @@ jobs:
       BUILD_KEY: ${{ secrets.BUILD_KEY }}
     with:
       STACK_ORCHESTRATOR_REF: "f2fd766f5400fcb9eb47b50675d2e3b1f2753702"
-      GO_ETHEREUM_REF: "0c1e451c9865d8d47797b35526c4875f0d224772"
-      IPLD_ETH_DB_REF: "be345e0733d2c025e4082c5154e441317ae94cf7"
+      GO_ETHEREUM_REF: "2ddad81c1a04ff494a706f2f757a0f75d2616fbd"
+      IPLD_ETH_DB_REF: "d4d704616ba0f87733853c78787bf54c9868d2ac"
   build:
     name: Run docker build
     runs-on: ubuntu-latest
@@ -43,37 +43,18 @@ jobs:
       - uses: actions/checkout@v2
       - name: Get the version
         id: vars
-        run: echo ::set-output name=sha::$(echo ${GITHUB_SHA:0:7})
-      - name: Run docker build
-        run: make docker-build
-      - name: Tag docker image
-        run: docker tag cerc-io/ipld-eth-server git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
-      - name: Docker Login
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
-      - name: Docker Push
-        run: docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
-
-  push_to_registries:
-    name: Push Docker image to Docker Hub
-    runs-on: ubuntu-latest
-    if: |
-      always() &&
-      (needs.build.result == 'success') &&
-      github.event_name == 'release'
-    needs: build
-    steps:
-      - name: Get the version
-        id: vars
         run: |
           echo ::set-output name=sha::$(echo ${GITHUB_SHA:0:7})
           echo ::set-output name=tag::$(echo ${GITHUB_REF#refs/tags/})
-      - name: Docker Login to Github Registry
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
-      - name: Docker Pull
-        run: docker pull git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
-      - name: Docker Login to Docker Registry
-        run: echo ${{ secrets.VULCANIZEJENKINS_PAT }} | docker login -u vulcanizejenkins --password-stdin
-      - name: Tag docker image
+      - name: Run docker build
+        run: make docker-build
+      - name: Tag docker image SHA
+        run: docker tag cerc-io/ipld-eth-server git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
+      - name: Tag docker image TAG
         run: docker tag git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}} cerc-io/ipld-eth-server:${{steps.vars.outputs.tag}}
-      - name: Docker Push to Docker Hub
-        run: docker push cerc-io/ipld-eth-server:${{steps.vars.outputs.tag}}
+      - name: Docker Login
+        run: echo ${{ secrets.GITEA_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
+      - name: Docker Push SHA
+        run: docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
+      - name: Docker Push TAG
+        run: docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
