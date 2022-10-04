@@ -1037,12 +1037,15 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 
 func (r *Resolver) GetLogs(ctx context.Context, args struct {
 	BlockHash common.Hash
-	Contract  *common.Address
+	Addresses *[]common.Address
 }) (*[]*Log, error) {
-
 	var filter eth.ReceiptFilter
-	if args.Contract != nil {
-		filter.LogAddresses = []string{args.Contract.String()}
+
+	if args.Addresses != nil {
+		filter.LogAddresses = make([]string, len(*args.Addresses))
+		for i, address := range *args.Addresses {
+			filter.LogAddresses[i] = address.String()
+		}
 	}
 
 	// Begin tx
