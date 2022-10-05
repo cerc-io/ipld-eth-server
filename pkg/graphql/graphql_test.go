@@ -174,7 +174,7 @@ var _ = Describe("GraphQL", func() {
 
 	Describe("eth_getLogs", func() {
 		It("Retrieves logs that matches the provided blockHash and contract address", func() {
-			logs, err := client.GetLogs(ctx, blockHash, &contractAddress)
+			logs, err := client.GetLogs(ctx, blockHash, []common.Address{contractAddress})
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedLogs := []graphql.LogResponse{
@@ -191,10 +191,34 @@ var _ = Describe("GraphQL", func() {
 		})
 
 		It("Retrieves logs for the failed receipt status that matches the provided blockHash and another contract address", func() {
-			logs, err := client.GetLogs(ctx, blockHash, &test_helpers.AnotherAddress2)
+			logs, err := client.GetLogs(ctx, blockHash, []common.Address{test_helpers.AnotherAddress2})
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedLogs := []graphql.LogResponse{
+				{
+					Topics:      test_helpers.MockLog6.Topics,
+					Data:        hexutil.Bytes(test_helpers.MockLog6.Data),
+					Transaction: graphql.TransactionResponse{Hash: test_helpers.MockTransactions[3].Hash()},
+					ReceiptCID:  test_helpers.Rct4CID.String(),
+					Status:      int32(test_helpers.MockReceipts[3].Status),
+				},
+			}
+
+			Expect(logs).To(Equal(expectedLogs))
+		})
+
+		It("Retrieves logs that matches the provided blockHash and multiple contract addresses", func() {
+			logs, err := client.GetLogs(ctx, blockHash, []common.Address{contractAddress, test_helpers.AnotherAddress2})
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedLogs := []graphql.LogResponse{
+				{
+					Topics:      test_helpers.MockLog1.Topics,
+					Data:        hexutil.Bytes(test_helpers.MockLog1.Data),
+					Transaction: graphql.TransactionResponse{Hash: test_helpers.MockTransactions[0].Hash()},
+					ReceiptCID:  test_helpers.Rct1CID.String(),
+					Status:      int32(test_helpers.MockReceipts[0].Status),
+				},
 				{
 					Topics:      test_helpers.MockLog6.Topics,
 					Data:        hexutil.Bytes(test_helpers.MockLog6.Data),
@@ -214,7 +238,7 @@ var _ = Describe("GraphQL", func() {
 		})
 
 		It("Retrieves logs with random hash", func() {
-			logs, err := client.GetLogs(ctx, randomHash, &contractAddress)
+			logs, err := client.GetLogs(ctx, randomHash, []common.Address{contractAddress})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(logs)).To(Equal(0))
 		})
