@@ -364,22 +364,17 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	log.Debug("retrieving log cids for receipt ids with block hash", blockHash.String())
 	args := make([]interface{}, 0, 4)
 	id := 1
-	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
-			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
-			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index, data,
-			eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status, header_cids.block_hash
-				FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids, public.blocks
+	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.header_id as block_hash,
+			eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id, eth.log_cids.address,
+			eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, eth.log_cids.log_data,
+			data, eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status, eth.receipt_cids.tx_id AS tx_hash
+				FROM eth.log_cids, eth.receipt_cids, public.blocks
 				WHERE eth.log_cids.rct_id = receipt_cids.tx_id
-				AND eth.log_cids.header_id = eth.receipt_cids.header_id
-				AND eth.log_cids.block_number = eth.receipt_cids.block_number
-				AND receipt_cids.tx_id = transaction_cids.tx_hash
-				AND receipt_cids.header_id = transaction_cids.header_id
-				AND receipt_cids.block_number = transaction_cids.block_number
-				AND transaction_cids.header_id = header_cids.block_hash
-				AND transaction_cids.block_number = header_cids.block_number
- 				AND log_cids.leaf_mh_key = blocks.key
+				AND eth.log_cids.header_id = receipt_cids.header_id
+				AND eth.log_cids.block_number = receipt_cids.block_number
+				AND log_cids.leaf_mh_key = blocks.key
 				AND log_cids.block_number = blocks.block_number
-				AND header_cids.block_hash = $1`
+				AND receipt_cids.header_id = $1`
 
 	args = append(args, blockHash.String())
 	id++
