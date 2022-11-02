@@ -64,7 +64,7 @@ const (
 										AND uncle_cids.block_number = blocks.block_number
 									)
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveUnclesByBlockHashPgStr = `SELECT uncle_cids.cid, data
+	RetrieveUnclesPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
 											INNER JOIN eth.header_cids ON (
 												uncle_cids.header_id = header_cids.block_hash
@@ -75,6 +75,7 @@ const (
 												AND uncle_cids.block_number = blocks.block_number
 											)
 										WHERE header_cids.block_hash = $1
+										AND header_cids.block_number = $2
 										ORDER BY uncle_cids.parent_hash`
 	RetrieveUnclesByBlockNumberPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
@@ -101,7 +102,7 @@ const (
 											AND transaction_cids.block_number = blocks.block_number
 										)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
-	RetrieveTransactionsByBlockHashPgStr = `SELECT transaction_cids.cid, data
+	RetrieveTransactionsPgStr = `SELECT transaction_cids.cid, data
 											FROM eth.transaction_cids
 												INNER JOIN eth.header_cids ON (
 													transaction_cids.header_id = header_cids.block_hash
@@ -112,6 +113,7 @@ const (
 													AND transaction_cids.block_number = blocks.block_number
 												)
 											WHERE block_hash = $1
+											AND header_cids.block_number = $2
 											ORDER BY eth.transaction_cids.index ASC`
 	RetrieveTransactionsByBlockNumberPgStr = `SELECT transaction_cids.cid, data
 											FROM eth.transaction_cids
@@ -146,7 +148,7 @@ const (
 										)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])
 									AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
-	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
+	RetrieveReceiptsPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (
 												receipt_cids.tx_id = transaction_cids.tx_hash
@@ -162,6 +164,7 @@ const (
 												AND receipt_cids.block_number = blocks.block_number
 											)
 										WHERE block_hash = $1
+										AND header_cids.block_number = $2
 										ORDER BY eth.transaction_cids.index ASC`
 	RetrieveReceiptsByBlockNumberPgStr = `SELECT receipt_cids.leaf_cid, data
 										FROM eth.receipt_cids
@@ -338,10 +341,10 @@ func (r *IPLDRetriever) RetrieveUnclesByHashes(hashes []common.Hash) ([]string, 
 	return cids, uncles, nil
 }
 
-// RetrieveUnclesByBlockHash returns the cids and rlp bytes for the uncles corresponding to the provided block hash (of non-omner root block)
-func (r *IPLDRetriever) RetrieveUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, error) {
+// RetrieveUncles returns the cids and rlp bytes for the uncles corresponding to the provided block hash, number (of non-omner root block)
+func (r *IPLDRetriever) RetrieveUncles(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, error) {
 	uncleResults := make([]ipldResult, 0)
-	if err := tx.Select(&uncleResults, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := tx.Select(&uncleResults, RetrieveUnclesPgStr, hash.Hex(), number); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(uncleResults))
@@ -393,10 +396,10 @@ func (r *IPLDRetriever) RetrieveTransactionsByHashes(hashes []common.Hash) ([]st
 	return cids, txs, nil
 }
 
-// RetrieveTransactionsByBlockHash returns the cids and rlp bytes for the transactions corresponding to the provided block hash
-func (r *IPLDRetriever) RetrieveTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, error) {
+// RetrieveTransactions returns the cids and rlp bytes for the transactions corresponding to the provided block hash, number
+func (r *IPLDRetriever) RetrieveTransactions(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, error) {
 	txResults := make([]ipldResult, 0)
-	if err := tx.Select(&txResults, RetrieveTransactionsByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := tx.Select(&txResults, RetrieveTransactionsPgStr, hash.Hex(), number); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(txResults))
@@ -469,11 +472,11 @@ func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]stri
 	return cids, rcts, nil
 }
 
-// RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
+// RetrieveReceipts returns the cids and rlp bytes for the receipts corresponding to the provided block hash, number.
 // cid returned corresponds to the leaf node data which contains the receipt.
-func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
+func (r *IPLDRetriever) RetrieveReceipts(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, []common.Hash, error) {
 	rctResults := make([]rctIpldResult, 0)
-	if err := tx.Select(&rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := tx.Select(&rctResults, RetrieveReceiptsPgStr, hash.Hex(), number); err != nil {
 		return nil, nil, nil, err
 	}
 	cids := make([]string, len(rctResults))
