@@ -1036,8 +1036,9 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 }
 
 func (r *Resolver) GetLogs(ctx context.Context, args struct {
-	BlockHash common.Hash
-	Addresses *[]common.Address
+	BlockHash   common.Hash
+	BlockNumber *BigInt
+	Addresses   *[]common.Address
 }) (*[]*Log, error) {
 	var filter eth.ReceiptFilter
 
@@ -1054,7 +1055,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash)
+	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash, args.BlockNumber.ToInt())
 	if err != nil {
 		return nil, err
 	}
