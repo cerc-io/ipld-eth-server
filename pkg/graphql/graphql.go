@@ -1272,7 +1272,7 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 	var headerCIDs []eth.HeaderCIDRecord
 	var err error
 	if args.Condition.BlockHash != nil {
-		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash))
+		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash), args.Condition.BlockNumber.ToInt())
 		if err != nil {
 			if !strings.Contains(err.Error(), "not found") {
 				return nil, err
