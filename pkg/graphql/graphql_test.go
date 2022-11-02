@@ -296,7 +296,7 @@ var _ = Describe("GraphQL", func() {
 			allEthHeaderCIDsResp, err := client.AllEthHeaderCIDs(ctx, graphql.EthHeaderCIDCondition{BlockHash: &blockHash})
 			Expect(err).ToNot(HaveOccurred())
 
-			headerCID, err := backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(blocks[1].Hash())
+			headerCID, err := backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(blocks[1].Hash(), nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(allEthHeaderCIDsResp.Nodes)).To(Equal(1))
