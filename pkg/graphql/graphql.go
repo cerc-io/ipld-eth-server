@@ -1356,6 +1356,8 @@ func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
 	TxHash      string
 	BlockNumber *BigInt
 }) (*EthTransactionCID, error) {
+	// Need not check args.BlockNumber for nil as .ToInt() uses a pointer receiver and returns nil if BlockNumber is nil
+	// https://stackoverflow.com/questions/42238624/calling-a-method-on-a-nil-struct-pointer-doesnt-panic-why-not
 	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash, args.BlockNumber.ToInt())
 
 	if err != nil {

@@ -421,6 +421,27 @@ func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.He
 }
 
 // GetUnclesByBlockHash retrieves uncles for a provided block hash
+func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.Header, error) {
+	_, uncleBytes, err := b.IPLDRetriever.RetrieveUnclesByBlockHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	uncles := make([]*types.Header, len(uncleBytes))
+	for i, bytes := range uncleBytes {
+		var uncle types.Header
+		err = rlp.DecodeBytes(bytes, &uncle)
+		if err != nil {
+			return nil, err
+		}
+
+		uncles[i] = &uncle
+	}
+
+	return uncles, nil
+}
+
+// GetUnclesByBlockHashAndNumber retrieves uncles for a provided block hash and number
 func (b *Backend) GetUnclesByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) ([]*types.Header, error) {
 	_, uncleBytes, err := b.IPLDRetriever.RetrieveUncles(tx, hash, number)
 	if err != nil {
@@ -442,6 +463,26 @@ func (b *Backend) GetUnclesByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, n
 }
 
 // GetTransactionsByBlockHash retrieves transactions for a provided block hash
+func (b *Backend) GetTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Transactions, error) {
+	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactionsByBlockHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	txs := make(types.Transactions, len(transactionBytes))
+	for i, txBytes := range transactionBytes {
+		var tx types.Transaction
+		if err := tx.UnmarshalBinary(txBytes); err != nil {
+			return nil, err
+		}
+
+		txs[i] = &tx
+	}
+
+	return txs, nil
+}
+
+// GetTransactionsByBlockHashAndNumber retrieves transactions for a provided block hash and number
 func (b *Backend) GetTransactionsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Transactions, error) {
 	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactions(tx, hash, number)
 	if err != nil {
@@ -462,6 +503,24 @@ func (b *Backend) GetTransactionsByBlockHashAndNumber(tx *sqlx.Tx, hash common.H
 }
 
 // GetReceiptsByBlockHash retrieves receipts for a provided block hash
+func (b *Backend) GetReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Receipts, error) {
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+	rcts := make(types.Receipts, len(receiptBytes))
+	for i, rctBytes := range receiptBytes {
+		rct := new(types.Receipt)
+		if err := rct.UnmarshalBinary(rctBytes); err != nil {
+			return nil, err
+		}
+		rct.TxHash = txs[i]
+		rcts[i] = rct
+	}
+	return rcts, nil
+}
+
+// GetReceiptsByBlockHashAndNumber retrieves receipts for a provided block hash and number
 func (b *Backend) GetReceiptsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Receipts, error) {
 	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceipts(tx, hash, number)
 	if err != nil {
