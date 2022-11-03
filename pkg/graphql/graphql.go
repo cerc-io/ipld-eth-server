@@ -1353,9 +1353,10 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 }
 
 func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
-	TxHash string
+	TxHash      string
+	BlockNumber *BigInt
 }) (*EthTransactionCID, error) {
-	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash)
+	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash, args.BlockNumber.ToInt())
 
 	if err != nil {
 		return nil, err

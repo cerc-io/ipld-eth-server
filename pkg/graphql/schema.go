@@ -349,6 +349,6 @@ const schema string = `
         allEthHeaderCids(condition: EthHeaderCidCondition): EthHeaderCidsConnection
 
         # PostGraphile alternative to get transactions using transaction hash.
-        ethTransactionCidByTxHash(txHash: String!): EthTransactionCid
+        ethTransactionCidByTxHash(txHash: String!, blockNumber: BigInt): EthTransactionCid
     }
 `

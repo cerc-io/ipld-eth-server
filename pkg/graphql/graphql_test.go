@@ -311,7 +311,7 @@ var _ = Describe("GraphQL", func() {
 			ethTransactionCIDResp, err := client.EthTransactionCIDByTxHash(ctx, txHash)
 			Expect(err).ToNot(HaveOccurred())
 
-			txCID, err := backend.Retriever.RetrieveTxCIDByHash(txHash)
+			txCID, err := backend.Retriever.RetrieveTxCIDByHash(txHash, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			compareEthTxCID(*ethTransactionCIDResp, txCID)
