@@ -6,7 +6,7 @@ set -e
 start_dir=$(pwd)
 temp_dir=$(mktemp -d)
 cd $temp_dir
-echo "git clone -b $(cat /tmp/git_head_ref) https://github.com/$(cat /tmp/git_repository).git"
+
 git clone -b $(cat /tmp/git_head_ref) "https://github.com/$(cat /tmp/git_repository).git"
 cd ipld-eth-server
 
