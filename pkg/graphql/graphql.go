@@ -1036,8 +1036,9 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 }
 
 func (r *Resolver) GetLogs(ctx context.Context, args struct {
-	BlockHash common.Hash
-	Addresses *[]common.Address
+	BlockHash   common.Hash
+	BlockNumber *BigInt
+	Addresses   *[]common.Address
 }) (*[]*Log, error) {
 	var filter eth.ReceiptFilter
 
@@ -1054,7 +1055,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash)
+	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash, args.BlockNumber.ToInt())
 	if err != nil {
 		return nil, err
 	}
@@ -1271,7 +1272,7 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 	var headerCIDs []eth.HeaderCIDRecord
 	var err error
 	if args.Condition.BlockHash != nil {
-		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash))
+		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash), args.Condition.BlockNumber.ToInt())
 		if err != nil {
 			if !strings.Contains(err.Error(), "not found") {
 				return nil, err
@@ -1352,9 +1353,12 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 }
 
 func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
-	TxHash string
+	TxHash      string
+	BlockNumber *BigInt
 }) (*EthTransactionCID, error) {
-	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash)
+	// Need not check args.BlockNumber for nil as .ToInt() uses a pointer receiver and returns nil if BlockNumber is nil
+	// https://stackoverflow.com/questions/42238624/calling-a-method-on-a-nil-struct-pointer-doesnt-panic-why-not
+	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash, args.BlockNumber.ToInt())
 
 	if err != nil {
 		return nil, err

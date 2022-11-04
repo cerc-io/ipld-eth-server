@@ -6,7 +6,7 @@ set -e
 start_dir=$(pwd)
 temp_dir=$(mktemp -d)
 cd $temp_dir
-echo "git clone -b $(cat /tmp/git_head_ref) https://github.com/$(cat /tmp/git_repository).git"
+
 git clone -b $(cat /tmp/git_head_ref) "https://github.com/$(cat /tmp/git_repository).git"
 cd ipld-eth-server
 
@@ -17,7 +17,7 @@ rm -f /tmp/git_head_ref /tmp/git_repository
 echo 'docker-compose up -d migrations ipld-eth-db'
 docker-compose up -d migrations ipld-eth-db
 trap "docker-compose down -v --remove-orphans; cd $start_dir ; rm -r $temp_dir" SIGINT SIGTERM ERR
-sleep 30
+sleep 60
 
 # Remove old logs so there's no confusion, then run test
 rm -f /tmp/test.log /tmp/return_test.txt

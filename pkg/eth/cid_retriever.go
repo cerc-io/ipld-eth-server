@@ -360,7 +360,7 @@ func receiptFilterConditions(id *int, pgStr string, args []interface{}, rctFilte
 
 // RetrieveFilteredGQLLogs retrieves and returns all the log CIDs provided blockHash that conform to the provided
 // filter parameters.
-func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash) ([]LogResult, error) {
+func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockHash *common.Hash, blockNumber *big.Int) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids with block hash", blockHash.String())
 	args := make([]interface{}, 0, 4)
 	id := 1
@@ -378,6 +378,12 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 
 	args = append(args, blockHash.String())
 	id++
+
+	if blockNumber != nil {
+		pgStr += ` AND receipt_cids.block_number = $2`
+		id++
+		args = append(args, blockNumber.Int64())
+	}
 
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY log_cids.index`
@@ -706,17 +712,22 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockNumber(blockNumber int64)
 	return headerCIDs, nil
 }
 
-// RetrieveHeaderAndTxCIDsByBlockHash retrieves header CID and their associated tx CIDs by block hash
-func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Hash) (HeaderCIDRecord, error) {
+// RetrieveHeaderAndTxCIDsByBlockHash retrieves header CID and their associated tx CIDs by block hash (and optionally block number)
+func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Hash, blockNumber *big.Int) (HeaderCIDRecord, error) {
 	log.Debug("retrieving header cid and tx cids for block hash ", blockHash.String())
 
 	var headerCIDs []HeaderCIDRecord
+
+	conditions := map[string]interface{}{"block_hash": blockHash.String()}
+	if blockNumber != nil {
+		conditions["header_cids.block_number"] = blockNumber.Int64()
+	}
 
 	// https://github.com/go-gorm/gorm/issues/4083#issuecomment-778883283
 	// Will use join for TransactionCIDs once preload for 1:N is supported.
 	err := ecr.gormDB.Preload("TransactionCIDs", func(tx *gorm.DB) *gorm.DB {
 		return tx.Select("cid", "tx_hash", "index", "src", "dst", "header_id", "block_number")
-	}).Joins("IPLD").Find(&headerCIDs, "block_hash = ?", blockHash.String()).Error
+	}).Joins("IPLD").Find(&headerCIDs, conditions).Error
 
 	if err != nil {
 		log.Error("header cid retrieval error")
@@ -732,15 +743,20 @@ func (ecr *CIDRetriever) RetrieveHeaderAndTxCIDsByBlockHash(blockHash common.Has
 	return headerCIDs[0], nil
 }
 
-// RetrieveTxCIDByHash returns the tx for the given tx hash
-func (ecr *CIDRetriever) RetrieveTxCIDByHash(txHash string) (TransactionCIDRecord, error) {
+// RetrieveTxCIDByHash returns the tx for the given tx hash (and optionally block number)
+func (ecr *CIDRetriever) RetrieveTxCIDByHash(txHash string, blockNumber *big.Int) (TransactionCIDRecord, error) {
 	log.Debug("retrieving tx cid for tx hash ", txHash)
 
 	var txCIDs []TransactionCIDRecord
 
-	err := ecr.gormDB.Joins("IPLD").Find(&txCIDs, "tx_hash = ? AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))", txHash).Error
+	var err error
+	if blockNumber != nil {
+		err = ecr.gormDB.Joins("IPLD").Find(&txCIDs, "tx_hash = ? AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number)) AND transaction_cids.block_number = ?", txHash, blockNumber.Int64()).Error
+	} else {
+		err = ecr.gormDB.Joins("IPLD").Find(&txCIDs, "tx_hash = ? AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))", txHash).Error
+	}
 	if err != nil {
-		log.Error("header cid retrieval error")
+		log.Error("tx retrieval error")
 		return TransactionCIDRecord{}, err
 	}
 

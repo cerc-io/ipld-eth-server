@@ -64,6 +64,19 @@ const (
 										AND uncle_cids.block_number = blocks.block_number
 									)
 								WHERE block_hash = ANY($1::VARCHAR(66)[])`
+	RetrieveUnclesPgStr = `SELECT uncle_cids.cid, data
+										FROM eth.uncle_cids
+											INNER JOIN eth.header_cids ON (
+												uncle_cids.header_id = header_cids.block_hash
+												AND uncle_cids.block_number = header_cids.block_number
+											)
+											INNER JOIN public.blocks ON (
+												uncle_cids.mh_key = blocks.key
+												AND uncle_cids.block_number = blocks.block_number
+											)
+										WHERE header_cids.block_hash = $1
+										AND header_cids.block_number = $2
+										ORDER BY uncle_cids.parent_hash`
 	RetrieveUnclesByBlockHashPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
 											INNER JOIN eth.header_cids ON (
@@ -101,6 +114,19 @@ const (
 											AND transaction_cids.block_number = blocks.block_number
 										)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])`
+	RetrieveTransactionsPgStr = `SELECT transaction_cids.cid, data
+											FROM eth.transaction_cids
+												INNER JOIN eth.header_cids ON (
+													transaction_cids.header_id = header_cids.block_hash
+													AND transaction_cids.block_number = header_cids.block_number
+												)
+												INNER JOIN public.blocks ON (
+													transaction_cids.mh_key = blocks.key
+													AND transaction_cids.block_number = blocks.block_number
+												)
+											WHERE block_hash = $1
+											AND header_cids.block_number = $2
+											ORDER BY eth.transaction_cids.index ASC`
 	RetrieveTransactionsByBlockHashPgStr = `SELECT transaction_cids.cid, data
 											FROM eth.transaction_cids
 												INNER JOIN eth.header_cids ON (
@@ -146,6 +172,24 @@ const (
 										)
 									WHERE tx_hash = ANY($1::VARCHAR(66)[])
 									AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
+	RetrieveReceiptsPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
+										FROM eth.receipt_cids
+											INNER JOIN eth.transaction_cids ON (
+												receipt_cids.tx_id = transaction_cids.tx_hash
+												AND receipt_cids.header_id = transaction_cids.header_id
+												AND receipt_cids.block_number = transaction_cids.block_number
+											)
+											INNER JOIN eth.header_cids ON (
+												transaction_cids.header_id = header_cids.block_hash
+												AND transaction_cids.block_number = header_cids.block_number
+											)
+											INNER JOIN public.blocks ON (
+												receipt_cids.leaf_mh_key = blocks.key
+												AND receipt_cids.block_number = blocks.block_number
+											)
+										WHERE block_hash = $1
+										AND header_cids.block_number = $2
+										ORDER BY eth.transaction_cids.index ASC`
 	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (
@@ -338,6 +382,21 @@ func (r *IPLDRetriever) RetrieveUnclesByHashes(hashes []common.Hash) ([]string, 
 	return cids, uncles, nil
 }
 
+// RetrieveUncles returns the cids and rlp bytes for the uncles corresponding to the provided block hash, number (of non-omner root block)
+func (r *IPLDRetriever) RetrieveUncles(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, error) {
+	uncleResults := make([]ipldResult, 0)
+	if err := tx.Select(&uncleResults, RetrieveUnclesPgStr, hash.Hex(), number); err != nil {
+		return nil, nil, err
+	}
+	cids := make([]string, len(uncleResults))
+	uncles := make([][]byte, len(uncleResults))
+	for i, res := range uncleResults {
+		cids[i] = res.CID
+		uncles[i] = res.Data
+	}
+	return cids, uncles, nil
+}
+
 // RetrieveUnclesByBlockHash returns the cids and rlp bytes for the uncles corresponding to the provided block hash (of non-omner root block)
 func (r *IPLDRetriever) RetrieveUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, error) {
 	uncleResults := make([]ipldResult, 0)
@@ -382,6 +441,21 @@ func (r *IPLDRetriever) RetrieveTransactionsByHashes(hashes []common.Hash) ([]st
 		hashStrs[i] = hash.Hex()
 	}
 	if err := r.db.Select(&txResults, RetrieveTransactionsByHashesPgStr, pq.Array(hashStrs)); err != nil {
+		return nil, nil, err
+	}
+	cids := make([]string, len(txResults))
+	txs := make([][]byte, len(txResults))
+	for i, res := range txResults {
+		cids[i] = res.CID
+		txs[i] = res.Data
+	}
+	return cids, txs, nil
+}
+
+// RetrieveTransactions returns the cids and rlp bytes for the transactions corresponding to the provided block hash, number
+func (r *IPLDRetriever) RetrieveTransactions(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, error) {
+	txResults := make([]ipldResult, 0)
+	if err := tx.Select(&txResults, RetrieveTransactionsPgStr, hash.Hex(), number); err != nil {
 		return nil, nil, err
 	}
 	cids := make([]string, len(txResults))
@@ -467,6 +541,30 @@ func (r *IPLDRetriever) RetrieveReceiptsByTxHashes(hashes []common.Hash) ([]stri
 		rcts[i] = nodeVal
 	}
 	return cids, rcts, nil
+}
+
+// RetrieveReceipts returns the cids and rlp bytes for the receipts corresponding to the provided block hash, number.
+// cid returned corresponds to the leaf node data which contains the receipt.
+func (r *IPLDRetriever) RetrieveReceipts(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, []common.Hash, error) {
+	rctResults := make([]rctIpldResult, 0)
+	if err := tx.Select(&rctResults, RetrieveReceiptsPgStr, hash.Hex(), number); err != nil {
+		return nil, nil, nil, err
+	}
+	cids := make([]string, len(rctResults))
+	rcts := make([][]byte, len(rctResults))
+	txs := make([]common.Hash, len(rctResults))
+
+	for i, res := range rctResults {
+		cids[i] = res.LeafCID
+		nodeVal, err := DecodeLeafNode(res.Data)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rcts[i] = nodeVal
+		txs[i] = common.HexToHash(res.TxHash)
+	}
+
+	return cids, rcts, txs, nil
 }
 
 // RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
