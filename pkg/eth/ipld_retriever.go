@@ -261,41 +261,8 @@ const (
 													AND header_cids.block_number <= $2
 													ORDER BY header_cids.block_number DESC
 													LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT storage_cids.cid, storage_cids.mh_key, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
-																	FROM eth.storage_cids
-																		INNER JOIN eth.state_cids ON (
-																			storage_cids.header_id = state_cids.header_id
-																			AND storage_cids.state_path = state_cids.state_path
-																			AND storage_cids.block_number = state_cids.block_number
-																		)
-																		INNER JOIN eth.header_cids ON (
-																			state_cids.header_id = header_cids.block_hash
-																			AND state_cids.block_number = header_cids.block_number
-																		)
-																	WHERE state_leaf_key = $1
-																	AND storage_leaf_key = $2
-																	AND header_cids.block_number <= $3
-																	ORDER BY header_cids.block_number DESC
-																	LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT storage_cids.cid, storage_cids.mh_key, storage_cids.block_number, storage_cids.node_type, was_state_leaf_removed($1, $3) AS state_leaf_removed
-																	FROM eth.storage_cids
-																		INNER JOIN eth.state_cids ON (
-																			storage_cids.header_id = state_cids.header_id
-																			AND storage_cids.state_path = state_cids.state_path
-																			AND storage_cids.block_number = state_cids.block_number
-																		)
-																		INNER JOIN eth.header_cids ON (
-																			state_cids.header_id = header_cids.block_hash
-																			AND state_cids.block_number = header_cids.block_number
-																		)
-																	WHERE state_leaf_key = $1
-																	AND storage_leaf_key = $2
-																	AND header_cids.block_number <= (SELECT block_number
-																						FROM eth.header_cids
-																						WHERE block_hash = $3)
-																	AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
-																	ORDER BY header_cids.block_number DESC
-																	LIMIT 1`
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT cid, mh_key, block_number, node_type, state_leaf_removed FROM eth.get_storage_at_by_number($1, $2, $3)`
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr   = `SELECT cid, mh_key, block_number, node_type, state_leaf_removed FROM eth.get_storage_at_by_hash($1, $2, $3)`
 )
 
 var EmptyNodeValue = make([]byte, common.HashLength)
