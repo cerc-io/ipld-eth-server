@@ -261,8 +261,8 @@ const (
 													AND header_cids.block_number <= $2
 													ORDER BY header_cids.block_number DESC
 													LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT cid, mh_key, block_number, node_type, state_leaf_removed FROM eth.get_storage_at_by_number($1, $2, $3)`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr   = `SELECT cid, mh_key, block_number, node_type, state_leaf_removed FROM eth.get_storage_at_by_hash($1, $2, $3)`
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockNumberPgStr = `SELECT cid, mh_key, block_number, node_type, state_leaf_removed FROM get_storage_at_by_number($1, $2, $3)`
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr   = `SELECT cid, mh_key, block_number, node_type, state_leaf_removed FROM get_storage_at_by_hash($1, $2, $3)`
 )
 
 var EmptyNodeValue = make([]byte, common.HashLength)
@@ -667,8 +667,10 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address common.Address, key, hash common.Hash) (string, []byte, []byte, error) {
 	storageResult := new(nodeInfo)
 	stateLeafKey := crypto.Keccak256Hash(address.Bytes())
-	storageHash := crypto.Keccak256Hash(key.Bytes())
-	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
+	//storageHash := crypto.Keccak256Hash(key.Bytes())
+	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr,
+		stateLeafKey.Hex(),
+		"0xc72d34190eb49919ab169f38b9ed5dd83409e7b11afaa2ef0ef3137f6e700b39", hash.Hex()); err != nil {
 		return "", nil, nil, err
 	}
 	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
