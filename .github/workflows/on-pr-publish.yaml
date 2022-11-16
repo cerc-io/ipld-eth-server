@@ -30,7 +30,7 @@ jobs:
     with:
       STACK_ORCHESTRATOR_REF: "f2fd766f5400fcb9eb47b50675d2e3b1f2753702"
       GO_ETHEREUM_REF: "2ddad81c1a04ff494a706f2f757a0f75d2616fbd"
-      IPLD_ETH_DB_REF: "d4d704616ba0f87733853c78787bf54c9868d2ac"
+      IPLD_ETH_DB_REF: "6c00c38cc4e1db6f7c4cecbb62fdfd540fba50d6"
   build:
     name: Run docker build
     runs-on: ubuntu-latest

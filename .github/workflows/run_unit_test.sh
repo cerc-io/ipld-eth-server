@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -o pipefail
 
 # Set up repo
 start_dir=$(pwd)
@@ -21,7 +22,7 @@ sleep 60
 
 # Remove old logs so there's no confusion, then run test
 rm -f /tmp/test.log /tmp/return_test.txt
-PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=password DATABASE_HOSTNAME=localhost DATABASE_NAME=vulcanize_testing make test >  /tmp/test.log
+PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=password DATABASE_HOSTNAME=localhost DATABASE_NAME=vulcanize_testing make test | tee /tmp/test.log
 echo $? > /tmp/return_test.txt
 
 # Clean up
