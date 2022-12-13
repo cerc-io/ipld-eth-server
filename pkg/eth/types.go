@@ -290,7 +290,7 @@ func (sr *GetSliceResponse) init(path string, depth int, root common.Hash) {
 
 type GetSliceResponseMetadata struct {
 	TimeStats map[string]string `json:"timeStats"` // stem, state, storage (one by one)
-	NodeStats map[string]string `json:"trieNodes"` // total, leaves, smart contracts
+	NodeStats map[string]string `json:"nodeStats"` // total, leaves, smart contracts
 }
 
 type GetSliceResponseTrieNodes struct {
