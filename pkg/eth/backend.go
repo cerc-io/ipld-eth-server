@@ -105,10 +105,10 @@ const (
 	RetrieveBlockNumberAndStateLeafKeyForStorageRoot = `SELECT block_number, state_leaf_key
 			FROM eth.state_cids, eth.state_accounts
 			WHERE state_accounts.storage_root = $1
-			AND state_cids.state_id = state_accounts.state_path
-			AND state_cids.storage_root = state_accounts.header_id
-			AND state_cids.storage_root = state_accounts.block_number
-			ORDER BY block_number DESC
+			AND state_cids.state_path = state_accounts.state_path
+			AND state_cids.header_id = state_accounts.header_id
+			AND state_cids.block_number = state_accounts.block_number
+			ORDER BY state_accounts.block_number DESC
 			LIMIT 1`
 )
 
