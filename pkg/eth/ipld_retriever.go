@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 
@@ -239,7 +240,7 @@ const (
 										)
 									WHERE tx_hash = $1
 									AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
-	RetrieveStateByPathAndBlockNumberPgStr = `SELECT state_cids.cid, data
+	RetrieveStateByPathAndBlockNumberPgStr = `SELECT cid, data, node_type
 									FROM eth.state_cids
 									INNER JOIN public.blocks ON (
 										state_cids.mh_key = blocks.key
@@ -250,7 +251,7 @@ const (
 									AND node_type != 3
 									ORDER BY state_cids.block_number DESC
 									LIMIT 1`
-	RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr = `SELECT storage_cids.cid, data
+	RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
 									FROM eth.storage_cids
 									INNER JOIN eth.state_cids ON (
 										storage_cids.state_path = state_cids.state_path
@@ -765,9 +766,14 @@ func (r *IPLDRetriever) RetrieveStatesByPathsAndBlockNumber(tx *sqlx.Tx, paths [
 
 	// TODO: fetch all nodes in a single query
 	for _, path := range paths {
-		// Create a result object, select: cid, data
+		// Create a result object, select: cid, data, node_type
 		res := new(nodeInfo)
 		if err := tx.Get(res, RetrieveStateByPathAndBlockNumberPgStr, path, number); err != nil {
+			// we will not find a node for each path
+			if err == sql.ErrNoRows {
+				continue
+			}
+
 			return nil, nil, nil, nil, 0, err
 		}
 
@@ -805,9 +811,14 @@ func (r *IPLDRetriever) RetrieveStorageByStateLeafKeyAndPathsAndBlockNumber(tx *
 
 	// TODO: fetch all nodes in a single query
 	for _, path := range paths {
-		// Create a result object, select: cid, data
+		// Create a result object, select: cid, data, node_type
 		res := new(nodeInfo)
 		if err := tx.Get(res, RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr, stateLeafKey, path, number); err != nil {
+			// we will not find a node for each path
+			if err == sql.ErrNoRows {
+				continue
+			}
+
 			return nil, nil, nil, nil, 0, err
 		}
 

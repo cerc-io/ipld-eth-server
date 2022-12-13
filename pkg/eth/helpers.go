@@ -74,26 +74,37 @@ func getPaths(path string, depth int) ([]byte, [][]byte, [][]byte, error) {
 	return headPath, stemPaths, slicePaths, nil
 }
 
-// iterative function to generate the set of slice paths
+// An iterative function to generate the set of slice paths
 func makeSlicePaths(path []byte, depth int, slicePaths *[][]byte) {
-	depth--                          // decrement the depth
-	nextPaths := make([][]byte, 16)  // slice to hold the next 16 paths
-	for i, step := range pathSteps { // iterate through steps
-		nextPath := append(path, step) // create next paths by adding steps to current path
-		nextPaths[i] = nextPath
-		newSlicePaths := append(*slicePaths, nextPath) // add next paths to the collection of all slice paths
-		slicePaths = &newSlicePaths
-	}
-
-	if depth == 0 { // if depth has reach 0, return
+	// return if depth has reached 0
+	if depth <= 0 {
 		return
 	}
-	for _, nextPath := range nextPaths { // if not, then we iterate over the next paths
-		makeSlicePaths(nextPath, depth, slicePaths) // and repeat the process for each one
+	depth--
+
+	// slice to hold the next 16 paths
+	nextPaths := make([][]byte, 0, 16)
+	for _, step := range pathSteps {
+		// create next paths by adding steps to current path
+		nextPath := make([]byte, len(path))
+		copy(nextPath, path)
+		nextPath = append(nextPath, step)
+
+		nextPaths = append(nextPaths, nextPath)
+
+		// also add the next path to the collection of all slice paths
+		dst := make([]byte, len(nextPath))
+		copy(dst, nextPath)
+		*slicePaths = append(*slicePaths, dst)
+	}
+
+	// iterate over the next paths to repeat the process if not
+	for _, nextPath := range nextPaths {
+		makeSlicePaths(nextPath, depth, slicePaths)
 	}
 }
 
-// use to return timestamp in milliseconds
+// Timestamp in milliseconds
 func makeTimestamp() int64 {
 	return time.Now().UnixNano() / int64(time.Millisecond)
 }
