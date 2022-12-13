@@ -100,6 +100,7 @@ const (
 	RetrieveBlockNumberForStateRoot = `SELECT block_number
 			FROM eth.header_cids
 			WHERE state_root = $1
+			AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 			ORDER BY block_number DESC
 			LIMIT 1`
 	RetrieveBlockNumberAndStateLeafKeyForStorageRoot = `SELECT block_number, state_leaf_key
@@ -108,6 +109,7 @@ const (
 			AND state_cids.state_path = state_accounts.state_path
 			AND state_cids.header_id = state_accounts.header_id
 			AND state_cids.block_number = state_accounts.block_number
+			AND state_accounts.header_id = (SELECT canonical_header_hash(state_accounts.block_number))
 			ORDER BY state_accounts.block_number DESC
 			LIMIT 1`
 )
@@ -977,10 +979,10 @@ func (b *Backend) GetStateSlice(path string, depth int, root common.Hash) (*GetS
 	}
 	response.MetaData.NodeStats["01-max-depth"] = strconv.Itoa(maxDepth)
 
-	response.MetaData.NodeStats["02-total-trie-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Slice) + 1)
+	response.MetaData.NodeStats["02-total-trie-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Head) + len(response.TrieNodes.Slice))
 	response.MetaData.NodeStats["03-leaves"] = strconv.Itoa(len(leafNodes))
 	response.MetaData.NodeStats["04-smart-contracts"] = "" // TODO: count # of contracts
-	response.MetaData.NodeStats["00-stem-and-head-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + 1)
+	response.MetaData.NodeStats["00-stem-and-head-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Head))
 
 	return response, nil
 }

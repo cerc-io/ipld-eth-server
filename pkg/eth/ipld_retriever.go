@@ -240,7 +240,7 @@ const (
 										)
 									WHERE tx_hash = $1
 									AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
-	RetrieveStateByPathAndBlockNumberPgStr = `SELECT cid, data, node_type
+	RetrieveStateByPathAndBlockNumberPgStr = `SELECT cid, data, node_type, state_cids.block_number
 									FROM eth.state_cids
 									INNER JOIN public.blocks ON (
 										state_cids.mh_key = blocks.key
@@ -249,6 +249,7 @@ const (
 									WHERE state_path = $1
 									AND state_cids.block_number <= $2
 									AND node_type != 3
+									AND state_cids.header_id = (SELECT canonical_header_hash(state_cids.block_number))
 									ORDER BY state_cids.block_number DESC
 									LIMIT 1`
 	RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
@@ -266,6 +267,7 @@ const (
 									AND storage_path = $2
 									AND storage_cids.block_number <= $3
 									AND node_type != 3
+									AND storage_cids.header_id = (SELECT canonical_header_hash(storage_cids.block_number))
 									ORDER BY storage_cids.block_number DESC
 									LIMIT 1`
 	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, state_cids.mh_key, state_cids.block_number, state_cids.node_type
