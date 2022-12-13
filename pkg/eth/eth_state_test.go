@@ -46,9 +46,13 @@ import (
 var (
 	parsedABI abi.ABI
 
-	stateRoot    = common.HexToHash("0x572ef3b6b3d5164ed9d83341073f13af4d60a3aab38989b6c03917544f186a43")
-	rootDataHash = "572ef3b6b3d5164ed9d83341073f13af4d60a3aab38989b6c03917544f186a43"
-	rootData     = "f8b1a0408dd81f6cd5c614f91ecd9faa01d5feba936e0314ba04f99c74069ba819e0f280808080a0b356351d60bc9894cf1f1d6cb68c815f0131d50f1da83c4023a09ec855cfff91a0180d554b171f6acf8295e376266df2311f68975d74c02753b85707d308f703e48080808080a0422c7cc4fa407603f0879a0ecaa809682ce98dbef30551a34bcce09fa3ac995180a02d264f591aa3fa9df3cbeea190a4fd8d5483ddfb1b85603b2a006d179f79ba358080"
+	block1StateRoot    = common.HexToHash("0xa1f614839ebdd58677df2c9d66a3e0acc9462acc49fad6006d0b6e5d2b98ed21")
+	rootDataHashBlock1 = "a1f614839ebdd58677df2c9d66a3e0acc9462acc49fad6006d0b6e5d2b98ed21"
+	rootDataBlock1     = "f871a0577652b625b77bdb5bf77bc43f3125cad7464d679d1575565277d3611b8053e780808080a0fe889f10e5db8f2c2bf355928152a17f6e3bb99a9241ac6d84c77e6264509c798080808080808080a011db0cda34a896dabeb6839bb06a38f49514cfa486435984eb013b7df9ee85c58080"
+
+	block5StateRoot    = common.HexToHash("0x572ef3b6b3d5164ed9d83341073f13af4d60a3aab38989b6c03917544f186a43")
+	rootDataHashBlock5 = "572ef3b6b3d5164ed9d83341073f13af4d60a3aab38989b6c03917544f186a43"
+	rootDataBlock5     = "f8b1a0408dd81f6cd5c614f91ecd9faa01d5feba936e0314ba04f99c74069ba819e0f280808080a0b356351d60bc9894cf1f1d6cb68c815f0131d50f1da83c4023a09ec855cfff91a0180d554b171f6acf8295e376266df2311f68975d74c02753b85707d308f703e48080808080a0422c7cc4fa407603f0879a0ecaa809682ce98dbef30551a34bcce09fa3ac995180a02d264f591aa3fa9df3cbeea190a4fd8d5483ddfb1b85603b2a006d179f79ba358080"
 
 	account1DataHash = "180d554b171f6acf8295e376266df2311f68975d74c02753b85707d308f703e4"
 	account1Data     = "f869a03114658a74d9cc9f7acf2c5cd696c3494d7c344d78bfec3add0d91ec4e8d1c45b846f8440180a04bd45c41d863f1bcf5da53364387fcdd64f77924d388a4df47e64132273fb4c0a0ba79854f3dbf6505fdbb085888e25fae8fa97288c5ce8fcd39aa589290d9a659"
@@ -547,14 +551,14 @@ var _ = Describe("eth state reading tests", func() {
 	})
 
 	Describe("eth_getSlice", func() {
-		It("Retrieves the state nodes for root path", func() {
+		It("Retrieves the state slice for root path", func() {
 			path := "0x"
 			depth := 3
-			sliceResponse, err := api.GetSlice(ctx, "0x", 3, stateRoot, false)
+			sliceResponse, err := api.GetSlice(ctx, path, depth, block5StateRoot, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedResponse := eth.GetSliceResponse{
-				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, stateRoot.String()),
+				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, block5StateRoot.String()),
 				MetaData: eth.GetSliceResponseMetadata{
 					NodeStats: map[string]string{
 						"00-stem-and-head-nodes": "1",
@@ -567,7 +571,7 @@ var _ = Describe("eth state reading tests", func() {
 				TrieNodes: eth.GetSliceResponseTrieNodes{
 					Stem: map[string]string{},
 					Head: map[string]string{
-						rootDataHash: rootData,
+						rootDataHashBlock5: rootDataBlock5,
 					},
 					Slice: map[string]string{
 						account1DataHash: account1Data,
@@ -580,10 +584,96 @@ var _ = Describe("eth state reading tests", func() {
 				Leaves: map[string]eth.GetSliceResponseAccount{},
 			}
 
-			Expect(sliceResponse.SliceID).To(Equal(expectedResponse.SliceID))
-			Expect(sliceResponse.MetaData.NodeStats).To(Equal(expectedResponse.MetaData.NodeStats))
-			Expect(sliceResponse.TrieNodes).To(Equal(expectedResponse.TrieNodes))
-			Expect(sliceResponse.Leaves).To(Equal(expectedResponse.Leaves))
+			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+		})
+		It("Retrieves the state slice for root path with 0 depth", func() {
+			path := "0x"
+			depth := 0
+			sliceResponse, err := api.GetSlice(ctx, path, depth, block5StateRoot, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedResponse := eth.GetSliceResponse{
+				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, block5StateRoot.String()),
+				MetaData: eth.GetSliceResponseMetadata{
+					NodeStats: map[string]string{
+						"00-stem-and-head-nodes": "1",
+						"01-max-depth":           "0",
+						"02-total-trie-nodes":    "1",
+						"03-leaves":              "0",
+						"04-smart-contracts":     "",
+					},
+				},
+				TrieNodes: eth.GetSliceResponseTrieNodes{
+					Stem: map[string]string{},
+					Head: map[string]string{
+						rootDataHashBlock5: rootDataBlock5,
+					},
+					Slice: map[string]string{},
+				},
+				Leaves: map[string]eth.GetSliceResponseAccount{},
+			}
+
+			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+		})
+		It("Retrieves the state slice for a path to an account", func() {
+			path := "0x06"
+			depth := 2
+			sliceResponse, err := api.GetSlice(ctx, path, depth, block5StateRoot, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedResponse := eth.GetSliceResponse{
+				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, block5StateRoot.String()),
+				MetaData: eth.GetSliceResponseMetadata{
+					NodeStats: map[string]string{
+						"00-stem-and-head-nodes": "2",
+						"01-max-depth":           "0",
+						"02-total-trie-nodes":    "2",
+						"03-leaves":              "1",
+						"04-smart-contracts":     "",
+					},
+				},
+				TrieNodes: eth.GetSliceResponseTrieNodes{
+					Stem: map[string]string{
+						rootDataHashBlock5: rootDataBlock5,
+					},
+					Head: map[string]string{
+						account1DataHash: account1Data,
+					},
+					Slice: map[string]string{},
+				},
+				Leaves: map[string]eth.GetSliceResponseAccount{},
+			}
+
+			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+		})
+		It("Retrieves the state slice for a path to a non-existing account", func() {
+			path := "0x06"
+			depth := 2
+			sliceResponse, err := api.GetSlice(ctx, path, depth, block1StateRoot, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedResponse := eth.GetSliceResponse{
+				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, block1StateRoot.String()),
+				MetaData: eth.GetSliceResponseMetadata{
+					NodeStats: map[string]string{
+						"00-stem-and-head-nodes": "1",
+						"01-max-depth":           "0",
+						"02-total-trie-nodes":    "1",
+						"03-leaves":              "0",
+						"04-smart-contracts":     "",
+					},
+				},
+				TrieNodes: eth.GetSliceResponseTrieNodes{
+					Stem: map[string]string{
+						rootDataHashBlock1: rootDataBlock1,
+					},
+					Head:  map[string]string{},
+					Slice: map[string]string{},
+				},
+				Leaves: map[string]eth.GetSliceResponseAccount{},
+			}
+
+			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 	})
 })

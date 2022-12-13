@@ -18,6 +18,7 @@ package eth
 
 import (
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	. "github.com/onsi/gomega"
 )
 
 // TxModelsContainsCID used to check if a list of TxModels contains a specific cid string
@@ -38,4 +39,11 @@ func ReceiptModelsContainsCID(rcts []models.ReceiptModel, cid string) bool {
 		}
 	}
 	return false
+}
+
+func CheckGetSliceResponse(sliceResponse GetSliceResponse, expectedResponse GetSliceResponse) {
+	Expect(sliceResponse.SliceID).To(Equal(expectedResponse.SliceID))
+	Expect(sliceResponse.MetaData.NodeStats).To(Equal(expectedResponse.MetaData.NodeStats))
+	Expect(sliceResponse.TrieNodes).To(Equal(expectedResponse.TrieNodes))
+	Expect(sliceResponse.Leaves).To(Equal(expectedResponse.Leaves))
 }
