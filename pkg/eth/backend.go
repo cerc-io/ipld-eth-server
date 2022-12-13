@@ -917,6 +917,7 @@ func (b *Backend) GetStateSlice(path string, depth int, root common.Hash) (*GetS
 		return nil, fmt.Errorf("GetStateSlice blockheight lookup error: %s", err.Error())
 	}
 
+	// TODO: Use an iterator instead of doing an exhausitive database search for all possible paths at the given depth
 	// Get all the paths
 	headPath, stemPaths, slicePaths, err := getPaths(path, depth)
 	if err != nil {
