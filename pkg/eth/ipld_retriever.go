@@ -23,6 +23,7 @@ import (
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/statediff/trie_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+	"github.com/ipfs/go-cid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -238,6 +239,17 @@ const (
 										)
 									WHERE tx_hash = $1
 									AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
+	RetrieveStateByPathAndBlockNumberPgStr = `SELECT state_cids.cid, data, state_cids.mh_key, state_cids.node_type
+									FROM eth.state_cids
+									INNER JOIN public.blocks ON (
+										state_cids.mh_key = blocks.key
+										AND state_cids.block_number = blocks.block_number
+									)
+									WHERE state_path = $1
+									AND state_cids.block_number <= $2
+									AND node_type != 3
+									ORDER BY state_cids.block_number DESC
+									LIMIT 1`
 	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, state_cids.mh_key, state_cids.block_number, state_cids.node_type
 												FROM eth.state_cids
 													INNER JOIN eth.header_cids ON (
@@ -722,4 +734,43 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 		return "", nil, fmt.Errorf("eth IPLDRetriever expected storage leaf node rlp to decode into two elements")
 	}
 	return storageResult.CID, i[1].([]byte), nil
+}
+
+// RetrieveStatesByPathsAndBlockNumber returns the cid and rlp bytes for the state nodes corresponding to the provided state paths and block number
+func (r *IPLDRetriever) RetrieveStatesByPathsAndBlockNumber(tx *sqlx.Tx, paths [][]byte, number uint64) ([]cid.Cid, [][]byte, []cid.Cid, [][]byte, int, error) {
+	deepestPath := 0
+
+	leafNodeCIDs := make([]cid.Cid, 0)
+	intermediateNodeCIDs := make([]cid.Cid, 0)
+
+	leafNodeIPLDs := make([][]byte, 0)
+	intermediateNodeIPLDs := make([][]byte, 0)
+
+	for _, path := range paths {
+		// Create a result object, select: cid, blockNumber and nodeType
+		res := new(nodeInfo)
+		if err := r.db.Get(res, RetrieveStateByPathAndBlockNumberPgStr, path, number); err != nil {
+			return nil, nil, nil, nil, 0, err
+		}
+
+		pathLen := len(path)
+		if pathLen > deepestPath {
+			deepestPath = pathLen
+		}
+
+		cid, err := cid.Decode(res.CID)
+		if err != nil {
+			return nil, nil, nil, nil, 0, err
+		}
+
+		if res.NodeType == sdtypes.Leaf.Int() {
+			leafNodeCIDs = append(leafNodeCIDs, cid)
+			leafNodeIPLDs = append(leafNodeIPLDs, res.Data)
+		} else {
+			intermediateNodeCIDs = append(intermediateNodeCIDs, cid)
+			intermediateNodeIPLDs = append(intermediateNodeIPLDs, res.Data)
+		}
+	}
+
+	return leafNodeCIDs, leafNodeIPLDs, intermediateNodeCIDs, intermediateNodeIPLDs, deepestPath, nil
 }

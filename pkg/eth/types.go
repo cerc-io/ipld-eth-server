@@ -18,6 +18,7 @@ package eth
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -263,4 +264,42 @@ type LogResult struct {
 	BlockHash   string `db:"block_hash"`
 	TxnIndex    int64  `db:"txn_index"`
 	TxHash      string `db:"tx_hash"`
+}
+
+// GetSliceResponse holds response for the eth_getSlice method
+type GetSliceResponse struct {
+	SliceID   string                             `json:"sliceId"`
+	MetaData  GetSliceResponseMetadata           `json:"metadata"`
+	TrieNodes GetSliceResponseTrieNodes          `json:"trieNodes"`
+	Leaves    map[string]GetSliceResponseAccount `json:"leaves"` // we won't be using addresses, but keccak256(address) // TODO: address comment
+}
+
+func (sr *GetSliceResponse) init(path string, depth int, root common.Hash) {
+	sr.SliceID = fmt.Sprintf("%s-%d-%s", path, depth, root.String())
+	sr.MetaData = GetSliceResponseMetadata{
+		NodeStats: make(map[string]string, 0),
+		TimeStats: make(map[string]string, 0),
+	}
+	sr.Leaves = make(map[string]GetSliceResponseAccount)
+	sr.TrieNodes = GetSliceResponseTrieNodes{
+		Stem:  make(map[string]string),
+		Head:  make(map[string]string),
+		Slice: make(map[string]string),
+	}
+}
+
+type GetSliceResponseMetadata struct {
+	TimeStats map[string]string `json:"timeStats"` // stem, state, storage (one by one)
+	NodeStats map[string]string `json:"trieNodes"` // total, leaves, smart contracts
+}
+
+type GetSliceResponseTrieNodes struct {
+	Stem  map[string]string `json:"stem"`
+	Head  map[string]string `json:"head"`
+	Slice map[string]string `json:"sliceNodes"`
+}
+
+type GetSliceResponseAccount struct {
+	StorageRoot string `json:"storageRoot"`
+	EVMCode     string `json:"evmCode"`
 }
