@@ -108,7 +108,7 @@ func populateNodesMap(nodes map[string]string, cids []cid.Cid, iplds [][]byte) e
 		data := iplds[i]
 		hash := crypto.Keccak256Hash(data)
 		if !bytes.Equal(hash.Bytes(), decodedMh.Digest) {
-			panic("multihash digest should equal keccak of raw data")
+			return fmt.Errorf("multihash digest should equal keccak of raw data")
 		}
 
 		nodes[common.Bytes2Hex(decodedMh.Digest)] = common.Bytes2Hex(data)
