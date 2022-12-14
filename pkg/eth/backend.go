@@ -103,7 +103,7 @@ const (
 			AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 			ORDER BY block_number DESC
 			LIMIT 1`
-	RetrieveBlockNumberAndStateLeafKeyForStorageRoot = `SELECT block_number, state_leaf_key
+	RetrieveBlockNumberAndStateLeafKeyForStorageRoot = `SELECT state_accounts.block_number, state_leaf_key
 			FROM eth.state_cids, eth.state_accounts
 			WHERE state_accounts.storage_root = $1
 			AND state_cids.state_path = state_accounts.state_path

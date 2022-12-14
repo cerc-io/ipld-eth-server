@@ -34,10 +34,6 @@ import (
 )
 
 const (
-	// node type removed value.
-	// https://github.com/cerc-io/go-ethereum/blob/271f4d01e7e2767ffd8e0cd469bf545be96f2a84/statediff/indexer/helpers.go#L34
-	removedNode = 3
-
 	RetrieveHeadersByHashesPgStr = `SELECT cid, data
 								FROM eth.header_cids
 									INNER JOIN public.blocks ON (
@@ -248,11 +244,10 @@ const (
 									)
 									WHERE state_path = $1
 									AND state_cids.block_number <= $2
-									AND node_type != 3
 									AND state_cids.header_id = (SELECT canonical_header_hash(state_cids.block_number))
 									ORDER BY state_cids.block_number DESC
 									LIMIT 1`
-	RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
+	RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, storage_cids.block_number
 									FROM eth.storage_cids
 									INNER JOIN eth.state_cids ON (
 										storage_cids.state_path = state_cids.state_path
@@ -266,7 +261,6 @@ const (
 									WHERE state_leaf_key = $1
 									AND storage_path = $2
 									AND storage_cids.block_number <= $3
-									AND node_type != 3
 									AND storage_cids.header_id = (SELECT canonical_header_hash(storage_cids.block_number))
 									ORDER BY storage_cids.block_number DESC
 									LIMIT 1`
@@ -643,7 +637,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 		return "", nil, err
 	}
 
-	if accountResult.NodeType == removedNode {
+	if accountResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, nil
 	}
 
@@ -675,7 +669,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 		return "", nil, err
 	}
 
-	if accountResult.NodeType == removedNode {
+	if accountResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, nil
 	}
 
@@ -703,7 +697,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
 		return "", nil, nil, err
 	}
-	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
+	if storageResult.StateLeafRemoved || storageResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, EmptyNodeValue, nil
 	}
 
@@ -736,7 +730,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 		return "", nil, err
 	}
 
-	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
+	if storageResult.StateLeafRemoved || storageResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, nil
 	}
 
@@ -771,12 +765,17 @@ func (r *IPLDRetriever) RetrieveStatesByPathsAndBlockNumber(tx *sqlx.Tx, paths [
 		// Create a result object, select: cid, data, node_type
 		res := new(nodeInfo)
 		if err := tx.Get(res, RetrieveStateByPathAndBlockNumberPgStr, path, number); err != nil {
-			// we will not find a node for each path
+			// Skip if node not found for a path
 			if err == sql.ErrNoRows {
 				continue
 			}
 
 			return nil, nil, nil, nil, 0, err
+		}
+
+		// Skip if node is of removed type
+		if res.NodeType == sdtypes.Removed.Int() {
+			continue
 		}
 
 		pathLen := len(path)
@@ -790,9 +789,11 @@ func (r *IPLDRetriever) RetrieveStatesByPathsAndBlockNumber(tx *sqlx.Tx, paths [
 		}
 
 		if res.NodeType == sdtypes.Leaf.Int() {
+			fmt.Println("found leaf node for path", path, res.BlockNumber)
 			leafNodeCIDs = append(leafNodeCIDs, cid)
 			leafNodeIPLDs = append(leafNodeIPLDs, res.Data)
 		} else {
+			fmt.Println("found intermediate node for path", path, res.NodeType, res.BlockNumber)
 			intermediateNodeCIDs = append(intermediateNodeCIDs, cid)
 			intermediateNodeIPLDs = append(intermediateNodeIPLDs, res.Data)
 		}
@@ -816,12 +817,17 @@ func (r *IPLDRetriever) RetrieveStorageByStateLeafKeyAndPathsAndBlockNumber(tx *
 		// Create a result object, select: cid, data, node_type
 		res := new(nodeInfo)
 		if err := tx.Get(res, RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr, stateLeafKey, path, number); err != nil {
-			// we will not find a node for each path
+			// Skip if node not found for a path
 			if err == sql.ErrNoRows {
 				continue
 			}
 
 			return nil, nil, nil, nil, 0, err
+		}
+
+		// Skip if node is of removed type
+		if res.NodeType == sdtypes.Removed.Int() {
+			continue
 		}
 
 		pathLen := len(path)
@@ -835,9 +841,11 @@ func (r *IPLDRetriever) RetrieveStorageByStateLeafKeyAndPathsAndBlockNumber(tx *
 		}
 
 		if res.NodeType == sdtypes.Leaf.Int() {
+			fmt.Println("found leaf node for path", path, res.BlockNumber)
 			leafNodeCIDs = append(leafNodeCIDs, cid)
 			leafNodeIPLDs = append(leafNodeIPLDs, res.Data)
 		} else {
+			fmt.Println("found intermediate node for path", path, res.NodeType, res.BlockNumber)
 			intermediateNodeCIDs = append(intermediateNodeCIDs, cid)
 			intermediateNodeIPLDs = append(intermediateNodeIPLDs, res.Data)
 		}
