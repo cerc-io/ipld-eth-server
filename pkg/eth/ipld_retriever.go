@@ -236,7 +236,7 @@ const (
 										)
 									WHERE tx_hash = $1
 									AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
-	RetrieveStateByPathAndBlockNumberPgStr = `SELECT cid, data, node_type, state_cids.block_number
+	RetrieveStateByPathAndBlockNumberPgStr = `SELECT cid, data, node_type
 									FROM eth.state_cids
 									INNER JOIN public.blocks ON (
 										state_cids.mh_key = blocks.key
@@ -247,7 +247,7 @@ const (
 									AND state_cids.header_id = (SELECT canonical_header_hash(state_cids.block_number))
 									ORDER BY state_cids.block_number DESC
 									LIMIT 1`
-	RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type, storage_cids.block_number
+	RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
 									FROM eth.storage_cids
 									INNER JOIN eth.state_cids ON (
 										storage_cids.state_path = state_cids.state_path
@@ -789,11 +789,9 @@ func (r *IPLDRetriever) RetrieveStatesByPathsAndBlockNumber(tx *sqlx.Tx, paths [
 		}
 
 		if res.NodeType == sdtypes.Leaf.Int() {
-			fmt.Println("found leaf node for path", path, res.BlockNumber)
 			leafNodeCIDs = append(leafNodeCIDs, cid)
 			leafNodeIPLDs = append(leafNodeIPLDs, res.Data)
 		} else {
-			fmt.Println("found intermediate node for path", path, res.NodeType, res.BlockNumber)
 			intermediateNodeCIDs = append(intermediateNodeCIDs, cid)
 			intermediateNodeIPLDs = append(intermediateNodeIPLDs, res.Data)
 		}
@@ -841,11 +839,9 @@ func (r *IPLDRetriever) RetrieveStorageByStateLeafKeyAndPathsAndBlockNumber(tx *
 		}
 
 		if res.NodeType == sdtypes.Leaf.Int() {
-			fmt.Println("found leaf node for path", path, res.BlockNumber)
 			leafNodeCIDs = append(leafNodeCIDs, cid)
 			leafNodeIPLDs = append(leafNodeIPLDs, res.Data)
 		} else {
-			fmt.Println("found intermediate node for path", path, res.NodeType, res.BlockNumber)
 			intermediateNodeCIDs = append(intermediateNodeCIDs, cid)
 			intermediateNodeIPLDs = append(intermediateNodeIPLDs, res.Data)
 		}
