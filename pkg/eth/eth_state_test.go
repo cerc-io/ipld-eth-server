@@ -64,6 +64,19 @@ var (
 	account4Data     = "f871a03957f3e2f04a0764c3a0491b175f69926da61efbcc8f61fa1455fd2d2b4cdd45b84ef84c80883782dace9d9003e8a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
 	account5DataHash = "b356351d60bc9894cf1f1d6cb68c815f0131d50f1da83c4023a09ec855cfff91"
 	account5Data     = "f871a03380c7b7ae81a58eb98d9c78de4a1fd7fd9535fc953ed2be602daaa41767312ab84ef84c80883782dace9d900000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+
+	contractStorageRootBlock5 = common.HexToHash("0x4bd45c41d863f1bcf5da53364387fcdd64f77924d388a4df47e64132273fb4c0")
+	storageRootDataHashBlock5 = "4bd45c41d863f1bcf5da53364387fcdd64f77924d388a4df47e64132273fb4c0"
+	storageRootDataBlock5     = "f838a120290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e5639594703c4b2bd70c169f5717101caee543299fc946c7"
+
+	contractStorageRootBlock4 = common.HexToHash("0x64ad893aa7937d05983daa8b7d221acdf1c116433f29dcd1ea69f16fa96fce68")
+	storageRootDataHashBlock4 = "64ad893aa7937d05983daa8b7d221acdf1c116433f29dcd1ea69f16fa96fce68"
+	storageRootDataBlock4     = "f8518080a08e8ada45207a7d2f19dd6f0ee4955cec64fa5ebef29568b5c449a4c4dd361d558080808080808080a07b58866e3801680bea90c82a80eb08889ececef107b8b504ae1d1a1e1e17b7af8080808080"
+
+	storageNode1DataHash = "7b58866e3801680bea90c82a80eb08889ececef107b8b504ae1d1a1e1e17b7af"
+	storageNode1Data     = "e2a0310e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf609"
+	storageNode2DataHash = "8e8ada45207a7d2f19dd6f0ee4955cec64fa5ebef29568b5c449a4c4dd361d55"
+	storageNode2Data     = "f7a0390decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e5639594703c4b2bd70c169f5717101caee543299fc946c7"
 )
 
 func init() {
@@ -668,6 +681,124 @@ var _ = Describe("eth state reading tests", func() {
 						rootDataHashBlock1: rootDataBlock1,
 					},
 					Head:  map[string]string{},
+					Slice: map[string]string{},
+				},
+				Leaves: map[string]eth.GetSliceResponseAccount{},
+			}
+
+			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+		})
+
+		It("Retrieves the storage slice for root path", func() {
+			path := "0x"
+			depth := 2
+			sliceResponse, err := api.GetSlice(ctx, path, depth, contractStorageRootBlock4, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedResponse := eth.GetSliceResponse{
+				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, contractStorageRootBlock4.String()),
+				MetaData: eth.GetSliceResponseMetadata{
+					NodeStats: map[string]string{
+						"00-stem-and-head-nodes": "1",
+						"01-max-depth":           "1",
+						"02-total-trie-nodes":    "3",
+						"03-leaves":              "2",
+					},
+				},
+				TrieNodes: eth.GetSliceResponseTrieNodes{
+					Stem: map[string]string{},
+					Head: map[string]string{
+						storageRootDataHashBlock4: storageRootDataBlock4,
+					},
+					Slice: map[string]string{
+						storageNode1DataHash: storageNode1Data,
+						storageNode2DataHash: storageNode2Data,
+					},
+				},
+				Leaves: map[string]eth.GetSliceResponseAccount{},
+			}
+
+			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+		})
+		It("Retrieves the storage slice for root path with 0 depth", func() {
+			path := "0x"
+			depth := 0
+			sliceResponse, err := api.GetSlice(ctx, path, depth, contractStorageRootBlock4, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedResponse := eth.GetSliceResponse{
+				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, contractStorageRootBlock4.String()),
+				MetaData: eth.GetSliceResponseMetadata{
+					NodeStats: map[string]string{
+						"00-stem-and-head-nodes": "1",
+						"01-max-depth":           "0",
+						"02-total-trie-nodes":    "1",
+						"03-leaves":              "0",
+					},
+				},
+				TrieNodes: eth.GetSliceResponseTrieNodes{
+					Stem: map[string]string{},
+					Head: map[string]string{
+						storageRootDataHashBlock4: storageRootDataBlock4,
+					},
+					Slice: map[string]string{},
+				},
+				Leaves: map[string]eth.GetSliceResponseAccount{},
+			}
+
+			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+		})
+		It("Retrieves the storage slice for root path with deleted nodes", func() {
+			path := "0x"
+			depth := 2
+			sliceResponse, err := api.GetSlice(ctx, path, depth, contractStorageRootBlock5, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedResponse := eth.GetSliceResponse{
+				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, contractStorageRootBlock5.String()),
+				MetaData: eth.GetSliceResponseMetadata{
+					NodeStats: map[string]string{
+						"00-stem-and-head-nodes": "1",
+						"01-max-depth":           "0",
+						"02-total-trie-nodes":    "1",
+						"03-leaves":              "1",
+					},
+				},
+				TrieNodes: eth.GetSliceResponseTrieNodes{
+					Stem: map[string]string{},
+					Head: map[string]string{
+						storageRootDataHashBlock5: storageRootDataBlock5,
+					},
+					Slice: map[string]string{},
+				},
+				Leaves: map[string]eth.GetSliceResponseAccount{},
+			}
+
+			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+		})
+		It("Retrieves the storage slice for a path to a storage node", func() {
+			path := "0x0b"
+			depth := 2
+			sliceResponse, err := api.GetSlice(ctx, path, depth, contractStorageRootBlock4, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedResponse := eth.GetSliceResponse{
+				SliceID: fmt.Sprintf("%s-%d-%s", path, depth, contractStorageRootBlock4.String()),
+				MetaData: eth.GetSliceResponseMetadata{
+					NodeStats: map[string]string{
+						"00-stem-and-head-nodes": "2",
+						"01-max-depth":           "0",
+						"02-total-trie-nodes":    "2",
+						"03-leaves":              "1",
+					},
+				},
+				TrieNodes: eth.GetSliceResponseTrieNodes{
+					Stem: map[string]string{
+						storageRootDataHashBlock4: storageRootDataBlock4,
+					},
+					Head: map[string]string{
+						storageNode1DataHash: storageNode1Data,
+					},
 					Slice: map[string]string{},
 				},
 				Leaves: map[string]eth.GetSliceResponseAccount{},
