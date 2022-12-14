@@ -27,7 +27,6 @@ import (
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
-	ethServerShared "github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -54,16 +53,25 @@ var (
 	rootDataHashBlock5 = "572ef3b6b3d5164ed9d83341073f13af4d60a3aab38989b6c03917544f186a43"
 	rootDataBlock5     = "f8b1a0408dd81f6cd5c614f91ecd9faa01d5feba936e0314ba04f99c74069ba819e0f280808080a0b356351d60bc9894cf1f1d6cb68c815f0131d50f1da83c4023a09ec855cfff91a0180d554b171f6acf8295e376266df2311f68975d74c02753b85707d308f703e48080808080a0422c7cc4fa407603f0879a0ecaa809682ce98dbef30551a34bcce09fa3ac995180a02d264f591aa3fa9df3cbeea190a4fd8d5483ddfb1b85603b2a006d179f79ba358080"
 
-	account1DataHash = "180d554b171f6acf8295e376266df2311f68975d74c02753b85707d308f703e4"
-	account1Data     = "f869a03114658a74d9cc9f7acf2c5cd696c3494d7c344d78bfec3add0d91ec4e8d1c45b846f8440180a04bd45c41d863f1bcf5da53364387fcdd64f77924d388a4df47e64132273fb4c0a0ba79854f3dbf6505fdbb085888e25fae8fa97288c5ce8fcd39aa589290d9a659"
-	account2DataHash = "2d264f591aa3fa9df3cbeea190a4fd8d5483ddfb1b85603b2a006d179f79ba35"
-	account2Data     = "f871a03926db69aaced518e9b9f0f434a473e7174109c943548bb8f23be41ca76d9ad2b84ef84c02881bc16d674ec82710a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
-	account3DataHash = "408dd81f6cd5c614f91ecd9faa01d5feba936e0314ba04f99c74069ba819e0f2"
-	account3Data     = "f86da030bf49f440a1cd0527e4d06e2765654c0f56452257516d793a9b8d604dcfdf2ab84af848058405f5b608a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
-	account4DataHash = "422c7cc4fa407603f0879a0ecaa809682ce98dbef30551a34bcce09fa3ac9951"
-	account4Data     = "f871a03957f3e2f04a0764c3a0491b175f69926da61efbcc8f61fa1455fd2d2b4cdd45b84ef84c80883782dace9d9003e8a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
-	account5DataHash = "b356351d60bc9894cf1f1d6cb68c815f0131d50f1da83c4023a09ec855cfff91"
-	account5Data     = "f871a03380c7b7ae81a58eb98d9c78de4a1fd7fd9535fc953ed2be602daaa41767312ab84ef84c80883782dace9d900000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+	account1DataHash     = "180d554b171f6acf8295e376266df2311f68975d74c02753b85707d308f703e4"
+	account1Data         = "f869a03114658a74d9cc9f7acf2c5cd696c3494d7c344d78bfec3add0d91ec4e8d1c45b846f8440180a04bd45c41d863f1bcf5da53364387fcdd64f77924d388a4df47e64132273fb4c0a0ba79854f3dbf6505fdbb085888e25fae8fa97288c5ce8fcd39aa589290d9a659"
+	account1StateLeafKey = "0x6114658a74d9cc9f7acf2c5cd696c3494d7c344d78bfec3add0d91ec4e8d1c45"
+	account1Code         = "608060405234801561001057600080fd5b50600436106100415760003560e01c806343d726d61461004657806365f3c31a1461005057806373d4a13a1461007e575b600080fd5b61004e61009c565b005b61007c6004803603602081101561006657600080fd5b810190808035906020019092919050505061017b565b005b610086610185565b6040518082815260200191505060405180910390f35b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610141576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040180806020018281038252602281526020018061018c6022913960400191505060405180910390fd5b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b8060018190555050565b6001548156fe4f6e6c79206f776e65722063616e2063616c6c20746869732066756e6374696f6e2ea265627a7a723158205ba91466129f45285f53176d805117208c231ec6343d7896790e6fc4165b802b64736f6c63430005110032"
+	account2DataHash     = "2d264f591aa3fa9df3cbeea190a4fd8d5483ddfb1b85603b2a006d179f79ba35"
+	account2Data         = "f871a03926db69aaced518e9b9f0f434a473e7174109c943548bb8f23be41ca76d9ad2b84ef84c02881bc16d674ec82710a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+	account2StateLeafKey = "0xe926db69aaced518e9b9f0f434a473e7174109c943548bb8f23be41ca76d9ad2"
+	account3DataHash     = "408dd81f6cd5c614f91ecd9faa01d5feba936e0314ba04f99c74069ba819e0f2"
+	account3Data         = "f86da030bf49f440a1cd0527e4d06e2765654c0f56452257516d793a9b8d604dcfdf2ab84af848058405f5b608a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+	account3StateLeafKey = "0x00bf49f440a1cd0527e4d06e2765654c0f56452257516d793a9b8d604dcfdf2a"
+	account4DataHash     = "422c7cc4fa407603f0879a0ecaa809682ce98dbef30551a34bcce09fa3ac9951"
+	account4Data         = "f871a03957f3e2f04a0764c3a0491b175f69926da61efbcc8f61fa1455fd2d2b4cdd45b84ef84c80883782dace9d9003e8a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+	account4StateLeafKey = "0xc957f3e2f04a0764c3a0491b175f69926da61efbcc8f61fa1455fd2d2b4cdd45"
+	account5DataHash     = "b356351d60bc9894cf1f1d6cb68c815f0131d50f1da83c4023a09ec855cfff91"
+	account5Data         = "f871a03380c7b7ae81a58eb98d9c78de4a1fd7fd9535fc953ed2be602daaa41767312ab84ef84c80883782dace9d900000a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a0c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+	account5StateLeafKey = "0x5380c7b7ae81a58eb98d9c78de4a1fd7fd9535fc953ed2be602daaa41767312a"
+
+	emptyStorageRoot = common.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+	emptyCode        = ""
 
 	contractStorageRootBlock5 = common.HexToHash("0x4bd45c41d863f1bcf5da53364387fcdd64f77924d388a4df47e64132273fb4c0")
 	storageRootDataHashBlock5 = "4bd45c41d863f1bcf5da53364387fcdd64f77924d388a4df47e64132273fb4c0"
@@ -114,8 +122,8 @@ var _ = Describe("eth state reading tests", func() {
 			ChainConfig: chainConfig,
 			VMConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
-			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
-				StateDB: ethServerShared.GroupConfig{
+			GroupCacheConfig: &shared.GroupCacheConfig{
+				StateDB: shared.GroupConfig{
 					Name:                   "eth_state_test",
 					CacheSizeInMB:          8,
 					CacheExpiryInMins:      60,
@@ -578,7 +586,7 @@ var _ = Describe("eth state reading tests", func() {
 						"01-max-depth":           "1",
 						"02-total-trie-nodes":    "6",
 						"03-leaves":              "5",
-						"04-smart-contracts":     "",
+						"04-smart-contracts":     "1",
 					},
 				},
 				TrieNodes: eth.GetSliceResponseTrieNodes{
@@ -594,7 +602,28 @@ var _ = Describe("eth state reading tests", func() {
 						account5DataHash: account5Data,
 					},
 				},
-				Leaves: map[string]eth.GetSliceResponseAccount{},
+				Leaves: map[string]eth.GetSliceResponseAccount{
+					account1StateLeafKey: {
+						StorageRoot: contractStorageRootBlock5.Hex(),
+						EVMCode:     account1Code,
+					},
+					account2StateLeafKey: {
+						StorageRoot: emptyStorageRoot.Hex(),
+						EVMCode:     emptyCode,
+					},
+					account3StateLeafKey: {
+						StorageRoot: emptyStorageRoot.Hex(),
+						EVMCode:     emptyCode,
+					},
+					account4StateLeafKey: {
+						StorageRoot: emptyStorageRoot.Hex(),
+						EVMCode:     emptyCode,
+					},
+					account5StateLeafKey: {
+						StorageRoot: emptyStorageRoot.Hex(),
+						EVMCode:     emptyCode,
+					},
+				},
 			}
 
 			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
@@ -613,7 +642,7 @@ var _ = Describe("eth state reading tests", func() {
 						"01-max-depth":           "0",
 						"02-total-trie-nodes":    "1",
 						"03-leaves":              "0",
-						"04-smart-contracts":     "",
+						"04-smart-contracts":     "0",
 					},
 				},
 				TrieNodes: eth.GetSliceResponseTrieNodes{
@@ -642,7 +671,7 @@ var _ = Describe("eth state reading tests", func() {
 						"01-max-depth":           "0",
 						"02-total-trie-nodes":    "2",
 						"03-leaves":              "1",
-						"04-smart-contracts":     "",
+						"04-smart-contracts":     "1",
 					},
 				},
 				TrieNodes: eth.GetSliceResponseTrieNodes{
@@ -654,7 +683,12 @@ var _ = Describe("eth state reading tests", func() {
 					},
 					Slice: map[string]string{},
 				},
-				Leaves: map[string]eth.GetSliceResponseAccount{},
+				Leaves: map[string]eth.GetSliceResponseAccount{
+					account1StateLeafKey: {
+						StorageRoot: contractStorageRootBlock5.Hex(),
+						EVMCode:     account1Code,
+					},
+				},
 			}
 
 			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
@@ -673,7 +707,7 @@ var _ = Describe("eth state reading tests", func() {
 						"01-max-depth":           "0",
 						"02-total-trie-nodes":    "1",
 						"03-leaves":              "0",
-						"04-smart-contracts":     "",
+						"04-smart-contracts":     "0",
 					},
 				},
 				TrieNodes: eth.GetSliceResponseTrieNodes{

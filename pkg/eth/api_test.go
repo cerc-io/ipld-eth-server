@@ -24,7 +24,6 @@ import (
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
-	ethServerShared "github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -202,8 +201,8 @@ var _ = Describe("API", func() {
 			ChainConfig: chainConfig,
 			VMConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
-			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
-				StateDB: ethServerShared.GroupConfig{
+			GroupCacheConfig: &shared.GroupCacheConfig{
+				StateDB: shared.GroupConfig{
 					Name:                   "api_test",
 					CacheSizeInMB:          8,
 					CacheExpiryInMins:      60,
