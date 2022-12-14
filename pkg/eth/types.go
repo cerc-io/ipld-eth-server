@@ -271,7 +271,7 @@ type GetSliceResponse struct {
 	SliceID   string                             `json:"sliceId"`
 	MetaData  GetSliceResponseMetadata           `json:"metadata"`
 	TrieNodes GetSliceResponseTrieNodes          `json:"trieNodes"`
-	Leaves    map[string]GetSliceResponseAccount `json:"leaves"` // we won't be using addresses, but keccak256(address) // TODO: address comment
+	Leaves    map[string]GetSliceResponseAccount `json:"leaves"` // key: Keccak256Hash(address) in hex (leafKey)
 }
 
 func (sr *GetSliceResponse) init(path string, depth int, root common.Hash) {
@@ -294,7 +294,7 @@ type GetSliceResponseMetadata struct {
 }
 
 type GetSliceResponseTrieNodes struct {
-	Stem  map[string]string `json:"stem"`
+	Stem  map[string]string `json:"stem"` // key: Keccak256Hash(data) in hex, value: trie node data in hex
 	Head  map[string]string `json:"head"`
 	Slice map[string]string `json:"sliceNodes"`
 }

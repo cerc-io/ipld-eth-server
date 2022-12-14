@@ -1145,8 +1145,4 @@ var _ = Describe("API", func() {
 			Expect(code).To(BeEmpty())
 		})
 	})
-
-	Describe("eth_getSlice", func() {
-		// TODO Implement
-	})
 })

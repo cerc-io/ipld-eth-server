@@ -109,8 +109,20 @@ const (
 			AND state_cids.state_path = state_accounts.state_path
 			AND state_cids.header_id = state_accounts.header_id
 			AND state_cids.block_number = state_accounts.block_number
+			AND state_cids.node_type != 3
 			AND state_accounts.header_id = (SELECT canonical_header_hash(state_accounts.block_number))
 			ORDER BY state_accounts.block_number DESC
+			LIMIT 1`
+	RetrieveAccountByStateCID = `SELECT state_leaf_key, storage_root, code_hash
+			FROM eth.state_cids
+				INNER JOIN eth.state_accounts ON (
+					state_cids.state_path = state_accounts.state_path
+					AND state_cids.header_id = state_accounts.header_id
+					AND state_cids.block_number = state_accounts.block_number
+				)
+			WHERE state_cids.cid = $1
+			AND state_cids.block_number <= $2
+			ORDER BY state_cids.block_number DESC
 			LIMIT 1`
 )
 
@@ -971,7 +983,24 @@ func (b *Backend) GetStateSlice(path string, depth int, root common.Hash) (*GetS
 	leafNodes = append(leafNodes, stemLeafCIDs...)
 	leafNodes = append(leafNodes, sliceLeafCIDs...)
 	leafNodes = append(leafNodes, headLeafCID...)
-	// TODO: fill in contract data `response.Leaves`
+
+	contractCount := 0
+	for _, leafNodeCID := range leafNodes {
+		stateLeafKey, storageRoot, code, err := b.getAccountByStateCID(tx, leafNodeCID.String(), blockHeight)
+		if err != nil {
+			return nil, fmt.Errorf("GetStateSlice account lookup error: %s", err.Error())
+		}
+
+		response.Leaves[stateLeafKey] = GetSliceResponseAccount{
+			StorageRoot: storageRoot,
+			EVMCode:     common.Bytes2Hex(code),
+		}
+
+		if len(code) > 0 {
+			contractCount++
+		}
+	}
+
 	response.MetaData.TimeStats["03-fetch-leaves-info"] = strconv.Itoa(int(makeTimestamp() - leafFetchStart))
 
 	maxDepth := deepestPath - len(headPath)
@@ -982,7 +1011,7 @@ func (b *Backend) GetStateSlice(path string, depth int, root common.Hash) (*GetS
 
 	response.MetaData.NodeStats["02-total-trie-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Head) + len(response.TrieNodes.Slice))
 	response.MetaData.NodeStats["03-leaves"] = strconv.Itoa(len(leafNodes))
-	response.MetaData.NodeStats["04-smart-contracts"] = "" // TODO: count # of contracts
+	response.MetaData.NodeStats["04-smart-contracts"] = strconv.Itoa(contractCount)
 	response.MetaData.NodeStats["00-stem-and-head-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Head))
 
 	return response, nil
@@ -1100,6 +1129,32 @@ func (b *Backend) getStateNodesByPathsAndBlockNumber(tx *sqlx.Tx, paths [][]byte
 	}
 
 	return nodes, leafCIDs, deepestPath, strconv.Itoa(int(makeTimestamp() - fetchStart)), nil
+}
+
+func (b *Backend) getAccountByStateCID(tx *sqlx.Tx, cid string, blockHeight uint64) (string, string, []byte, error) {
+	var err error
+	var res struct {
+		StateLeafKey string `db:"state_leaf_key"`
+		StorageRoot  string `db:"storage_root"`
+		CodeHash     []byte `db:"code_hash"`
+	}
+
+	if err = tx.Get(&res, RetrieveAccountByStateCID, cid, blockHeight); err != nil {
+		return "", "", nil, err
+	}
+
+	mhKey, err := ethServerShared.MultihashKeyFromKeccak256(common.BytesToHash(res.CodeHash))
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	code := make([]byte, 0)
+	err = tx.Get(&code, RetrieveCodeByMhKey, mhKey)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	return res.StateLeafKey, res.StorageRoot, code, nil
 }
 
 func (b *Backend) getStorageNodesByStateLeafKeyAndPathsAndBlockNumber(tx *sqlx.Tx, stateLeafKey string, paths [][]byte, blockHeight uint64) (map[string]string, []cid.Cid, int, string, error) {
