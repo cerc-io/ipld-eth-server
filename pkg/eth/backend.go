@@ -892,11 +892,14 @@ func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage boo
 	response := new(GetSliceResponse)
 	response.init(path, depth, root)
 
-	t, _ := b.StateDatabase.OpenTrie(root)
-	headPath := common.FromHex(path)
-
 	// Metadata fields
 	metaData := metaDataFields{}
+
+	startTime := makeTimestamp()
+	t, _ := b.StateDatabase.OpenTrie(root)
+	metaData.trieLoadingTime = makeTimestamp() - startTime
+
+	headPath := common.FromHex(path)
 
 	// Get Stem nodes
 	err := b.getSliceStem(headPath, t, response, &metaData, storage)
@@ -944,8 +947,9 @@ func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSlice
 		}
 
 		// Update metadata
-		if (sliceNodeMetrics.pathLen - len(headPath)) > metaData.maxDepth {
-			metaData.maxDepth = sliceNodeMetrics.pathLen
+		depthReached := sliceNodeMetrics.pathLen - len(headPath)
+		if depthReached > metaData.maxDepth {
+			metaData.maxDepth = depthReached
 		}
 		if sliceNodeMetrics.isLeaf {
 			metaData.leafCount++
@@ -973,8 +977,9 @@ func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSlice
 	}
 
 	// Update metadata
-	if (sliceNodeMetrics.pathLen - len(headPath)) > metaData.maxDepth {
-		metaData.maxDepth = sliceNodeMetrics.pathLen
+	depthReached := sliceNodeMetrics.pathLen - len(headPath)
+	if depthReached > metaData.maxDepth {
+		metaData.maxDepth = depthReached
 	}
 	if sliceNodeMetrics.isLeaf {
 		metaData.leafCount++
@@ -1013,8 +1018,9 @@ func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSlice
 		}
 
 		// Update metadata
-		if (sliceNodeMetrics.pathLen - len(headPath)) > metaData.maxDepth {
-			metaData.maxDepth = sliceNodeMetrics.pathLen
+		depthReached := sliceNodeMetrics.pathLen - len(headPath)
+		if depthReached > metaData.maxDepth {
+			metaData.maxDepth = depthReached
 		}
 		if sliceNodeMetrics.isLeaf {
 			metaData.leafCount++
