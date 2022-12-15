@@ -714,6 +714,7 @@ var _ = Describe("eth state reading tests", func() {
 						"01-max-depth":           "1",
 						"02-total-trie-nodes":    "3",
 						"03-leaves":              "2",
+						"04-smart-contracts":     "0",
 					},
 				},
 				TrieNodes: eth.GetSliceResponseTrieNodes{
@@ -745,6 +746,7 @@ var _ = Describe("eth state reading tests", func() {
 						"01-max-depth":           "0",
 						"02-total-trie-nodes":    "1",
 						"03-leaves":              "0",
+						"04-smart-contracts":     "0",
 					},
 				},
 				TrieNodes: eth.GetSliceResponseTrieNodes{
@@ -773,6 +775,7 @@ var _ = Describe("eth state reading tests", func() {
 						"01-max-depth":           "0",
 						"02-total-trie-nodes":    "1",
 						"03-leaves":              "1",
+						"04-smart-contracts":     "0",
 					},
 				},
 				TrieNodes: eth.GetSliceResponseTrieNodes{
@@ -801,6 +804,7 @@ var _ = Describe("eth state reading tests", func() {
 						"01-max-depth":           "0",
 						"02-total-trie-nodes":    "2",
 						"03-leaves":              "1",
+						"04-smart-contracts":     "0",
 					},
 				},
 				TrieNodes: eth.GetSliceResponseTrieNodes{
