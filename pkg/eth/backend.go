@@ -42,12 +42,10 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/ipfs/go-cid"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-
-	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
@@ -96,34 +94,7 @@ const (
 											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 											ORDER BY header_cids.block_number DESC
 											LIMIT 1`
-	RetrieveCodeByMhKey             = `SELECT data FROM public.blocks WHERE key = $1`
-	RetrieveBlockNumberForStateRoot = `SELECT block_number
-			FROM eth.header_cids
-			WHERE state_root = $1
-			AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
-			ORDER BY block_number DESC
-			LIMIT 1`
-	RetrieveBlockNumberAndStateLeafKeyForStorageRoot = `SELECT state_accounts.block_number, state_leaf_key
-			FROM eth.state_cids, eth.state_accounts
-			WHERE state_accounts.storage_root = $1
-			AND state_cids.state_path = state_accounts.state_path
-			AND state_cids.header_id = state_accounts.header_id
-			AND state_cids.block_number = state_accounts.block_number
-			AND state_cids.node_type != 3
-			AND state_accounts.header_id = (SELECT canonical_header_hash(state_accounts.block_number))
-			ORDER BY state_accounts.block_number DESC
-			LIMIT 1`
-	RetrieveAccountByStateCID = `SELECT state_leaf_key, storage_root, code_hash
-			FROM eth.state_cids
-				INNER JOIN eth.state_accounts ON (
-					state_cids.state_path = state_accounts.state_path
-					AND state_cids.header_id = state_accounts.header_id
-					AND state_cids.block_number = state_accounts.block_number
-				)
-			WHERE state_cids.cid = $1
-			AND state_cids.block_number <= $2
-			ORDER BY state_cids.block_number DESC
-			LIMIT 1`
+	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
 
 const (
@@ -916,267 +887,132 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 	return storageRlp, err
 }
 
-func (b *Backend) GetStateSlice(path string, depth int, root common.Hash) (*GetSliceResponse, error) {
+func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage bool) (*GetSliceResponse, error) {
 	response := new(GetSliceResponse)
 	response.init(path, depth, root)
 
-	// Start a timer
-	trieLoadingStart := makeTimestamp()
+	t, _ := b.StateDatabase.OpenTrie(root)
+	headPath := common.FromHex(path)
 
-	// Get the block height for the input state root
-	blockHeight, err := b.getBlockHeightForStateRoot(root)
-	if err != nil {
-		return nil, fmt.Errorf("GetStateSlice blockheight lookup error: %s", err.Error())
-	}
+	// Metadata fields
+	metaData := metaDataFields{}
 
-	// TODO: Use an iterator instead of doing an exhausitive database search for all possible paths at the given depth
-	// Get all the paths
-	headPath, stemPaths, slicePaths, err := getPaths(path, depth)
-	if err != nil {
-		return nil, fmt.Errorf("GetStateSlice path generation error: %s", err.Error())
-	}
-	response.MetaData.TimeStats["00-trie-loading"] = strconv.Itoa(int(makeTimestamp() - trieLoadingStart))
-
-	// Begin tx
-	tx, err := b.DB.Beginx()
+	// Get Stem nodes
+	err := b.getSliceStem(headPath, t, response, &metaData, storage)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
 
-	// Fetch stem nodes
-	// some of the "stem" nodes can be leaf nodes (but not value nodes)
-	stemNodes, stemLeafCIDs, _, timeSpent, err := b.getStateNodesByPathsAndBlockNumber(tx, stemPaths, blockHeight)
+	// Get Head node
+	err = b.getSliceHead(headPath, t, response, &metaData, storage)
 	if err != nil {
-		return nil, fmt.Errorf("GetStateSlice stem node lookup error: %s", err.Error())
+		return nil, err
 	}
-	response.TrieNodes.Stem = stemNodes
-	response.MetaData.TimeStats["01-fetch-stem-keys"] = timeSpent
 
-	// Fetch slice nodes
-	sliceNodes, sliceLeafCIDs, deepestPath, timeSpent, err := b.getStateNodesByPathsAndBlockNumber(tx, slicePaths, blockHeight)
-	if err != nil {
-		return nil, fmt.Errorf("GetStateSlice slice node lookup error: %s", err.Error())
-	}
-	response.TrieNodes.Slice = sliceNodes
-	response.MetaData.TimeStats["02-fetch-slice-keys"] = timeSpent
-
-	// Fetch head node
-	headNode, headLeafCID, _, _, err := b.getStateNodesByPathsAndBlockNumber(tx, [][]byte{headPath}, blockHeight)
-	if err != nil {
-		return nil, fmt.Errorf("GetStateSlice head node lookup error: %s", err.Error())
-	}
-	response.TrieNodes.Head = headNode
-
-	// Fetch leaf contract data and fill in remaining metadata
-	leafFetchStart := makeTimestamp()
-	leafNodes := make([]cid.Cid, 0, len(stemLeafCIDs)+len(sliceLeafCIDs)+len(headLeafCID))
-	leafNodes = append(leafNodes, stemLeafCIDs...)
-	leafNodes = append(leafNodes, sliceLeafCIDs...)
-	leafNodes = append(leafNodes, headLeafCID...)
-
-	for _, leafNodeCID := range leafNodes {
-		stateLeafKey, storageRoot, code, err := b.getAccountByStateCID(tx, leafNodeCID.String(), blockHeight)
+	if depth > 0 {
+		// Get Slice nodes
+		err = b.getSliceTrie(headPath, t, response, &metaData, depth, storage)
 		if err != nil {
-			return nil, fmt.Errorf("GetStateSlice account lookup error: %s", err.Error())
-		}
-
-		if len(code) > 0 {
-			response.Leaves[stateLeafKey] = GetSliceResponseAccount{
-				StorageRoot: storageRoot,
-				EVMCode:     common.Bytes2Hex(code),
-			}
+			return nil, err
 		}
 	}
 
-	response.MetaData.TimeStats["03-fetch-leaves-info"] = strconv.Itoa(int(makeTimestamp() - leafFetchStart))
-
-	maxDepth := deepestPath - len(headPath)
-	if maxDepth < 0 {
-		maxDepth = 0
-	}
-	response.MetaData.NodeStats["01-max-depth"] = strconv.Itoa(maxDepth)
-
-	response.MetaData.NodeStats["02-total-trie-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Head) + len(response.TrieNodes.Slice))
-	response.MetaData.NodeStats["03-leaves"] = strconv.Itoa(len(leafNodes))
-	response.MetaData.NodeStats["04-smart-contracts"] = strconv.Itoa(len(response.Leaves))
-	response.MetaData.NodeStats["00-stem-and-head-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Head))
+	response.populateMetaData(metaData)
 
 	return response, nil
 }
 
-func (b *Backend) GetStorageSlice(path string, depth int, root common.Hash) (*GetSliceResponse, error) {
-	response := new(GetSliceResponse)
-	response.init(path, depth, root)
+func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+	for i := 0; i < len(headPath); i++ {
+		// Create path for each node along the stem
+		startPath := make([]byte, len(headPath[:i]))
+		copy(startPath, headPath[:i])
 
-	// Start a timer
-	trieLoadingStart := makeTimestamp()
+		// Create an iterator initialized at startPath
+		it, timeTaken := getIteratorAtPath(t, startPath)
+		metaData.trieLoadingTime += timeTaken
 
-	// Get the block height and state leaf key for the input storage root
-	blockHeight, stateLeafKey, err := b.getBlockHeightAndStateLeafKeyForStorageRoot(root)
-	if err != nil {
-		return nil, fmt.Errorf("GetStorageSlice blockheight and state key lookup error: %s", err.Error())
+		sliceNodeMetrics, err := fillSliceNodeData(b.EthDB, b.StateDatabase.TrieDB(), response.TrieNodes.Stem, response.Leaves, it, storage)
+		if err != nil {
+			return err
+		}
+
+		// Update metadata
+		if (sliceNodeMetrics.pathLen - len(headPath)) > metaData.maxDepth {
+			metaData.maxDepth = sliceNodeMetrics.pathLen
+		}
+		if sliceNodeMetrics.isLeaf {
+			metaData.leafCount++
+		}
+		metaData.stemNodesFetchTime += sliceNodeMetrics.nodeFetchTime
+		metaData.leavesFetchTime += sliceNodeMetrics.leafFetchTime
 	}
 
-	// Get all the paths
-	headPath, stemPaths, slicePaths, err := getPaths(path, depth)
-	if err != nil {
-		return nil, fmt.Errorf("GetStorageSlice path generation error: %s", err.Error())
-	}
-	response.MetaData.TimeStats["00-trie-loading"] = strconv.Itoa(int(makeTimestamp() - trieLoadingStart))
+	return nil
+}
 
-	// Begin tx
-	tx, err := b.DB.Beginx()
+func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+	// Create an iterator initialized at headPath
+	it, timeTaken := getIteratorAtPath(t, headPath)
+	metaData.trieLoadingTime += timeTaken
+
+	sliceNodeMetrics, err := fillSliceNodeData(b.EthDB, b.StateDatabase.TrieDB(), response.TrieNodes.Head, response.Leaves, it, storage)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
+
+	// Update metadata
+	if (sliceNodeMetrics.pathLen - len(headPath)) > metaData.maxDepth {
+		metaData.maxDepth = sliceNodeMetrics.pathLen
+	}
+	if sliceNodeMetrics.isLeaf {
+		metaData.leafCount++
+	}
+	metaData.stemNodesFetchTime += sliceNodeMetrics.nodeFetchTime
+	metaData.leavesFetchTime += sliceNodeMetrics.leafFetchTime
+
+	return nil
+}
+
+func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, depth int, storage bool) error {
+	it, timeTaken := getIteratorAtPath(t, headPath)
+	metaData.trieLoadingTime += timeTaken
+
+	headPathLen := len(headPath)
+	maxPathLen := headPathLen + depth
+	descend := true
+	for it.Next(descend) {
+		pathLen := len(it.Path())
+
+		// End iteration on coming out of subtrie
+		if pathLen <= headPathLen {
+			break
+		}
+
+		// Avoid descending further if max depth reached
+		if pathLen >= maxPathLen {
+			descend = false
 		} else {
-			err = tx.Commit()
+			descend = true
 		}
-	}()
 
-	// Fetch stem nodes
-	// some of the "stem" nodes can be leaf nodes (but not value nodes)
-	stemNodes, stemLeafCIDs, _, timeSpent, err := b.getStorageNodesByStateLeafKeyAndPathsAndBlockNumber(tx, stateLeafKey, stemPaths, blockHeight)
-	if err != nil {
-		return nil, fmt.Errorf("GetStorageSlice stem node lookup error: %s", err.Error())
-	}
-	response.TrieNodes.Stem = stemNodes
-	response.MetaData.TimeStats["01-fetch-stem-keys"] = timeSpent
+		sliceNodeMetrics, err := fillSliceNodeData(b.EthDB, b.StateDatabase.TrieDB(), response.TrieNodes.Slice, response.Leaves, it, storage)
+		if err != nil {
+			return err
+		}
 
-	// Fetch slice nodes
-	sliceNodes, sliceLeafCIDs, deepestPath, timeSpent, err := b.getStorageNodesByStateLeafKeyAndPathsAndBlockNumber(tx, stateLeafKey, slicePaths, blockHeight)
-	if err != nil {
-		return nil, fmt.Errorf("GetStorageSlice slice node lookup error: %s", err.Error())
-	}
-	response.TrieNodes.Slice = sliceNodes
-	response.MetaData.TimeStats["02-fetch-slice-keys"] = timeSpent
-
-	// Fetch head node
-	headNode, headLeafCID, _, _, err := b.getStorageNodesByStateLeafKeyAndPathsAndBlockNumber(tx, stateLeafKey, [][]byte{headPath}, blockHeight)
-	if err != nil {
-		return nil, fmt.Errorf("GetStorageSlice head node lookup error: %s", err.Error())
-	}
-	response.TrieNodes.Head = headNode
-
-	// Fill in metadata
-	maxDepth := deepestPath - len(headPath)
-	if maxDepth < 0 {
-		maxDepth = 0
-	}
-	response.MetaData.NodeStats["01-max-depth"] = strconv.Itoa(maxDepth)
-
-	response.MetaData.NodeStats["02-total-trie-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Slice) + 1)
-	response.MetaData.NodeStats["03-leaves"] = strconv.Itoa(len(stemLeafCIDs) + len(sliceLeafCIDs) + len(headLeafCID))
-	response.MetaData.NodeStats["00-stem-and-head-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + 1)
-	response.MetaData.TimeStats["03-fetch-leaves-info"] = strconv.Itoa(0)
-
-	return response, nil
-}
-
-func (b *Backend) getBlockHeightForStateRoot(root common.Hash) (uint64, error) {
-	var blockHeight uint64
-	return blockHeight, b.DB.Get(&blockHeight, RetrieveBlockNumberForStateRoot, root.String())
-}
-
-func (b *Backend) getBlockHeightAndStateLeafKeyForStorageRoot(root common.Hash) (uint64, string, error) {
-	var res struct {
-		BlockNumber  uint64 `db:"block_number"`
-		StateLeafKey string `db:"state_leaf_key"`
+		// Update metadata
+		if (sliceNodeMetrics.pathLen - len(headPath)) > metaData.maxDepth {
+			metaData.maxDepth = sliceNodeMetrics.pathLen
+		}
+		if sliceNodeMetrics.isLeaf {
+			metaData.leafCount++
+		}
+		metaData.sliceNodesFetchTime += sliceNodeMetrics.nodeFetchTime
+		metaData.leavesFetchTime += sliceNodeMetrics.leafFetchTime
 	}
 
-	return res.BlockNumber, res.StateLeafKey, b.DB.Get(&res, RetrieveBlockNumberAndStateLeafKeyForStorageRoot, root.String())
-}
-
-func (b *Backend) getStateNodesByPathsAndBlockNumber(tx *sqlx.Tx, paths [][]byte, blockHeight uint64) (map[string]string, []cid.Cid, int, string, error) {
-	nodes := make(map[string]string)
-	fetchStart := makeTimestamp()
-
-	// Get CIDs for all nodes at the provided paths
-	leafCIDs, leafIPLDs, intermediateCIDs, intermediateIPLDs, deepestPath, err := b.IPLDRetriever.RetrieveStatesByPathsAndBlockNumber(tx, paths, blockHeight)
-	if err != nil {
-		return nil, nil, 0, "", err
-	}
-
-	// Populate the nodes map for leaf nodes
-	err = populateNodesMap(nodes, leafCIDs, leafIPLDs)
-	if err != nil {
-		return nil, nil, 0, "", err
-	}
-
-	// Populate the nodes map for intermediate nodes
-	err = populateNodesMap(nodes, intermediateCIDs, intermediateIPLDs)
-	if err != nil {
-		return nil, nil, 0, "", err
-	}
-
-	return nodes, leafCIDs, deepestPath, strconv.Itoa(int(makeTimestamp() - fetchStart)), nil
-}
-
-func (b *Backend) getAccountByStateCID(tx *sqlx.Tx, cid string, blockHeight uint64) (string, string, []byte, error) {
-	var err error
-	var res struct {
-		StateLeafKey string `db:"state_leaf_key"`
-		StorageRoot  string `db:"storage_root"`
-		CodeHash     []byte `db:"code_hash"`
-	}
-
-	if err = tx.Get(&res, RetrieveAccountByStateCID, cid, blockHeight); err != nil {
-		return "", "", nil, err
-	}
-
-	mhKey, err := ethServerShared.MultihashKeyFromKeccak256(common.BytesToHash(res.CodeHash))
-	if err != nil {
-		return "", "", nil, err
-	}
-
-	code := make([]byte, 0)
-	err = tx.Get(&code, RetrieveCodeByMhKey, mhKey)
-	if err != nil {
-		return "", "", nil, err
-	}
-
-	return res.StateLeafKey, res.StorageRoot, code, nil
-}
-
-func (b *Backend) getStorageNodesByStateLeafKeyAndPathsAndBlockNumber(tx *sqlx.Tx, stateLeafKey string, paths [][]byte, blockHeight uint64) (map[string]string, []cid.Cid, int, string, error) {
-	nodes := make(map[string]string)
-	fetchStart := makeTimestamp()
-
-	// Get CIDs for all nodes at the provided paths
-	leafCIDs, leafIPLDs, intermediateCIDs, intermediateIPLDs, deepestPath, err := b.IPLDRetriever.RetrieveStorageByStateLeafKeyAndPathsAndBlockNumber(tx, stateLeafKey, paths, blockHeight)
-	if err != nil {
-		return nil, nil, 0, "", err
-	}
-
-	// Populate the nodes map for leaf nodes
-	err = populateNodesMap(nodes, leafCIDs, leafIPLDs)
-	if err != nil {
-		return nil, nil, 0, "", err
-	}
-
-	// Populate the nodes map for intermediate nodes
-	err = populateNodesMap(nodes, intermediateCIDs, intermediateIPLDs)
-	if err != nil {
-		return nil, nil, 0, "", err
-	}
-
-	return nodes, leafCIDs, deepestPath, strconv.Itoa(int(makeTimestamp() - fetchStart)), nil
+	return nil
 }
 
 // Engine satisfied the ChainContext interface

@@ -839,10 +839,7 @@ func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Addre
 
 // GetSlice returns a slice of state or storage nodes from a provided root to a provided path and past it to a certain depth
 func (pea *PublicEthAPI) GetSlice(ctx context.Context, path string, depth int, root common.Hash, storage bool) (*GetSliceResponse, error) {
-	if storage {
-		return pea.B.GetStorageSlice(path, depth, root)
-	}
-	return pea.B.GetStateSlice(path, depth, root)
+	return pea.B.GetSlice(path, depth, root, storage)
 }
 
 // revertError is an API error that encompassas an EVM revertal with JSON error

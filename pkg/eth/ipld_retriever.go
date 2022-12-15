@@ -17,14 +17,12 @@
 package eth
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/statediff/trie_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
-	"github.com/ipfs/go-cid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -236,34 +234,6 @@ const (
 										)
 									WHERE tx_hash = $1
 									AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
-	RetrieveStateByPathAndBlockNumberPgStr = `SELECT cid, data, node_type
-									FROM eth.state_cids
-									INNER JOIN public.blocks ON (
-										state_cids.mh_key = blocks.key
-										AND state_cids.block_number = blocks.block_number
-									)
-									WHERE state_path = $1
-									AND state_cids.block_number <= $2
-									AND state_cids.header_id = (SELECT canonical_header_hash(state_cids.block_number))
-									ORDER BY state_cids.block_number DESC
-									LIMIT 1`
-	RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr = `SELECT storage_cids.cid, data, storage_cids.node_type
-									FROM eth.storage_cids
-									INNER JOIN eth.state_cids ON (
-										storage_cids.state_path = state_cids.state_path
-										AND storage_cids.header_id = state_cids.header_id
-										AND storage_cids.block_number = state_cids.block_number
-									)
-									INNER JOIN public.blocks ON (
-										storage_cids.mh_key = blocks.key
-										AND storage_cids.block_number = blocks.block_number
-									)
-									WHERE state_leaf_key = $1
-									AND storage_path = $2
-									AND storage_cids.block_number <= $3
-									AND storage_cids.header_id = (SELECT canonical_header_hash(storage_cids.block_number))
-									ORDER BY storage_cids.block_number DESC
-									LIMIT 1`
 	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, state_cids.mh_key, state_cids.block_number, state_cids.node_type
 												FROM eth.state_cids
 													INNER JOIN eth.header_cids ON (
@@ -748,104 +718,4 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 		return "", nil, fmt.Errorf("eth IPLDRetriever expected storage leaf node rlp to decode into two elements")
 	}
 	return storageResult.CID, i[1].([]byte), nil
-}
-
-// RetrieveStatesByPathsAndBlockNumber returns the cid and rlp bytes for the state nodes corresponding to the provided state paths and block number
-func (r *IPLDRetriever) RetrieveStatesByPathsAndBlockNumber(tx *sqlx.Tx, paths [][]byte, number uint64) ([]cid.Cid, [][]byte, []cid.Cid, [][]byte, int, error) {
-	deepestPath := 0
-
-	leafNodeCIDs := make([]cid.Cid, 0)
-	intermediateNodeCIDs := make([]cid.Cid, 0)
-
-	leafNodeIPLDs := make([][]byte, 0)
-	intermediateNodeIPLDs := make([][]byte, 0)
-
-	// TODO: fetch all nodes in a single query
-	for _, path := range paths {
-		// Create a result object, select: cid, data, node_type
-		res := new(nodeInfo)
-		if err := tx.Get(res, RetrieveStateByPathAndBlockNumberPgStr, path, number); err != nil {
-			// Skip if node not found for a path
-			if err == sql.ErrNoRows {
-				continue
-			}
-
-			return nil, nil, nil, nil, 0, err
-		}
-
-		// Skip if node is of removed type
-		if res.NodeType == sdtypes.Removed.Int() {
-			continue
-		}
-
-		pathLen := len(path)
-		if pathLen > deepestPath {
-			deepestPath = pathLen
-		}
-
-		cid, err := cid.Decode(res.CID)
-		if err != nil {
-			return nil, nil, nil, nil, 0, err
-		}
-
-		if res.NodeType == sdtypes.Leaf.Int() {
-			leafNodeCIDs = append(leafNodeCIDs, cid)
-			leafNodeIPLDs = append(leafNodeIPLDs, res.Data)
-		} else {
-			intermediateNodeCIDs = append(intermediateNodeCIDs, cid)
-			intermediateNodeIPLDs = append(intermediateNodeIPLDs, res.Data)
-		}
-	}
-
-	return leafNodeCIDs, leafNodeIPLDs, intermediateNodeCIDs, intermediateNodeIPLDs, deepestPath, nil
-}
-
-// RetrieveStorageByStateLeafKeyAndPathsAndBlockNumber returns the cid and rlp bytes for the storage nodes corresponding to the provided state leaf key, storage paths and block number
-func (r *IPLDRetriever) RetrieveStorageByStateLeafKeyAndPathsAndBlockNumber(tx *sqlx.Tx, stateLeafKey string, paths [][]byte, number uint64) ([]cid.Cid, [][]byte, []cid.Cid, [][]byte, int, error) {
-	deepestPath := 0
-
-	leafNodeCIDs := make([]cid.Cid, 0)
-	intermediateNodeCIDs := make([]cid.Cid, 0)
-
-	leafNodeIPLDs := make([][]byte, 0)
-	intermediateNodeIPLDs := make([][]byte, 0)
-
-	// TODO: fetch all nodes in a single query
-	for _, path := range paths {
-		// Create a result object, select: cid, data, node_type
-		res := new(nodeInfo)
-		if err := tx.Get(res, RetrieveStorageByStateLeafKeyAndPathAndBlockNumberPgStr, stateLeafKey, path, number); err != nil {
-			// Skip if node not found for a path
-			if err == sql.ErrNoRows {
-				continue
-			}
-
-			return nil, nil, nil, nil, 0, err
-		}
-
-		// Skip if node is of removed type
-		if res.NodeType == sdtypes.Removed.Int() {
-			continue
-		}
-
-		pathLen := len(path)
-		if pathLen > deepestPath {
-			deepestPath = pathLen
-		}
-
-		cid, err := cid.Decode(res.CID)
-		if err != nil {
-			return nil, nil, nil, nil, 0, err
-		}
-
-		if res.NodeType == sdtypes.Leaf.Int() {
-			leafNodeCIDs = append(leafNodeCIDs, cid)
-			leafNodeIPLDs = append(leafNodeIPLDs, res.Data)
-		} else {
-			intermediateNodeCIDs = append(intermediateNodeCIDs, cid)
-			intermediateNodeIPLDs = append(intermediateNodeIPLDs, res.Data)
-		}
-	}
-
-	return leafNodeCIDs, leafNodeIPLDs, intermediateNodeCIDs, intermediateNodeIPLDs, deepestPath, nil
 }

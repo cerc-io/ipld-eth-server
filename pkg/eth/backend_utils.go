@@ -17,19 +17,31 @@
 package eth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
 
+	nodeiter "github.com/cerc-io/go-eth-state-node-iterator"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	sdtrie "github.com/ethereum/go-ethereum/statediff/trie_helpers"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+	"github.com/ethereum/go-ethereum/trie"
 )
+
+var nullHashBytes = common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000000")
+var emptyCodeHash = crypto.Keccak256([]byte{})
 
 // RPCMarshalHeader converts the given header to the RPC output.
 // This function is eth/internal so we have to make our own version here...
@@ -299,4 +311,109 @@ func toBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
+}
+
+func getIteratorAtPath(t state.Trie, startKey []byte) (trie.NodeIterator, int64) {
+	startTime := makeTimestamp()
+	var it trie.NodeIterator
+
+	if len(startKey)%2 != 0 {
+		// Zero-pad for odd-length keys, required by HexToKeyBytes()
+		startKey = append(startKey, 0)
+		it = t.NodeIterator(nodeiter.HexToKeyBytes(startKey))
+	} else {
+		it = t.NodeIterator(nodeiter.HexToKeyBytes(startKey))
+		// Step to the required node (not required if original startKey was odd-length)
+		it.Next(true)
+	}
+
+	return it, makeTimestamp() - startTime
+}
+
+type SliceNodeMetrics struct {
+	pathLen       int
+	isLeaf        bool
+	nodeFetchTime int64
+	leafFetchTime int64
+}
+
+func fillSliceNodeData(
+	ethDB ethdb.KeyValueReader,
+	trieDB *trie.Database,
+	nodesMap map[string]string,
+	leavesMap map[string]GetSliceResponseAccount,
+	it trie.NodeIterator,
+	storage bool,
+) (SliceNodeMetrics, error) {
+	// Skip value nodes
+	if it.Leaf() || bytes.Equal(nullHashBytes, it.Hash().Bytes()) {
+		return SliceNodeMetrics{}, nil
+	}
+
+	nodeStartTime := makeTimestamp()
+
+	node, nodeElements, err := sdtrie.ResolveNode(it, trieDB)
+	if err != nil {
+		return SliceNodeMetrics{}, err
+	}
+
+	sliceNodeMetrics := SliceNodeMetrics{
+		pathLen: len(it.Path()),
+		isLeaf:  node.NodeType == sdtypes.Leaf,
+	}
+
+	// Populate the nodes map
+	nodeVal := node.NodeValue
+	nodeValHash := crypto.Keccak256Hash(nodeVal)
+	nodesMap[common.Bytes2Hex(nodeValHash.Bytes())] = common.Bytes2Hex(nodeVal)
+
+	sliceNodeMetrics.nodeFetchTime = makeTimestamp() - nodeStartTime
+
+	// Extract account data if it's a Leaf node
+	if node.NodeType == sdtypes.Leaf && !storage {
+		leafStartTime := makeTimestamp()
+
+		stateLeafKey, storageRoot, code, err := extractContractAccountInfo(ethDB, node, nodeElements)
+		if err != nil {
+			return SliceNodeMetrics{}, fmt.Errorf("GetSlice account lookup error: %s", err.Error())
+		}
+
+		if len(code) > 0 {
+			// Populate the leaves map
+			leavesMap[stateLeafKey] = GetSliceResponseAccount{
+				StorageRoot: storageRoot,
+				EVMCode:     common.Bytes2Hex(code),
+			}
+		}
+
+		sliceNodeMetrics.leafFetchTime = makeTimestamp() - leafStartTime
+	}
+
+	return sliceNodeMetrics, nil
+}
+
+func extractContractAccountInfo(ethDB ethdb.KeyValueReader, node sdtypes.StateNode, nodeElements []interface{}) (string, string, []byte, error) {
+	var account types.StateAccount
+	if err := rlp.DecodeBytes(nodeElements[1].([]byte), &account); err != nil {
+		return "", "", nil, fmt.Errorf("error decoding account for leaf node at path %x nerror: %v", node.Path, err)
+	}
+
+	if bytes.Equal(account.CodeHash, emptyCodeHash) {
+		return "", "", nil, nil
+	}
+
+	// Extract state leaf key
+	partialPath := trie.CompactToHex(nodeElements[0].([]byte))
+	valueNodePath := append(node.Path, partialPath...)
+	encodedPath := trie.HexToCompact(valueNodePath)
+	leafKey := encodedPath[1:]
+	stateLeafKeyString := common.BytesToHash(leafKey).String()
+
+	storageRootString := account.Root.String()
+
+	// Extract codeHash and get code
+	codeHash := common.BytesToHash(account.CodeHash)
+	codeBytes := rawdb.ReadCode(ethDB, codeHash)
+
+	return stateLeafKeyString, storageRootString, codeBytes, nil
 }
