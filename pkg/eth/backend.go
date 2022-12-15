@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -932,6 +933,11 @@ func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSlice
 		it, timeTaken := getIteratorAtPath(t, startPath)
 		metaData.trieLoadingTime += timeTaken
 
+		// Skip if iterator not at required path (might happen if node not present at given path)
+		if !bytes.Equal(it.Path(), startPath) {
+			continue
+		}
+
 		sliceNodeMetrics, err := fillSliceNodeData(b.EthDB, b.StateDatabase.TrieDB(), response.TrieNodes.Stem, response.Leaves, it, storage)
 		if err != nil {
 			return err
@@ -955,6 +961,11 @@ func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSlice
 	// Create an iterator initialized at headPath
 	it, timeTaken := getIteratorAtPath(t, headPath)
 	metaData.trieLoadingTime += timeTaken
+
+	// Skip if iterator not at required path (might happen if node not present at given path)
+	if !bytes.Equal(it.Path(), headPath) {
+		return nil
+	}
 
 	sliceNodeMetrics, err := fillSliceNodeData(b.EthDB, b.StateDatabase.TrieDB(), response.TrieNodes.Head, response.Leaves, it, storage)
 	if err != nil {
