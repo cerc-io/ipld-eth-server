@@ -984,20 +984,17 @@ func (b *Backend) GetStateSlice(path string, depth int, root common.Hash) (*GetS
 	leafNodes = append(leafNodes, sliceLeafCIDs...)
 	leafNodes = append(leafNodes, headLeafCID...)
 
-	contractCount := 0
 	for _, leafNodeCID := range leafNodes {
 		stateLeafKey, storageRoot, code, err := b.getAccountByStateCID(tx, leafNodeCID.String(), blockHeight)
 		if err != nil {
 			return nil, fmt.Errorf("GetStateSlice account lookup error: %s", err.Error())
 		}
 
-		response.Leaves[stateLeafKey] = GetSliceResponseAccount{
-			StorageRoot: storageRoot,
-			EVMCode:     common.Bytes2Hex(code),
-		}
-
 		if len(code) > 0 {
-			contractCount++
+			response.Leaves[stateLeafKey] = GetSliceResponseAccount{
+				StorageRoot: storageRoot,
+				EVMCode:     common.Bytes2Hex(code),
+			}
 		}
 	}
 
@@ -1011,7 +1008,7 @@ func (b *Backend) GetStateSlice(path string, depth int, root common.Hash) (*GetS
 
 	response.MetaData.NodeStats["02-total-trie-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Head) + len(response.TrieNodes.Slice))
 	response.MetaData.NodeStats["03-leaves"] = strconv.Itoa(len(leafNodes))
-	response.MetaData.NodeStats["04-smart-contracts"] = strconv.Itoa(contractCount)
+	response.MetaData.NodeStats["04-smart-contracts"] = strconv.Itoa(len(response.Leaves))
 	response.MetaData.NodeStats["00-stem-and-head-nodes"] = strconv.Itoa(len(response.TrieNodes.Stem) + len(response.TrieNodes.Head))
 
 	return response, nil
