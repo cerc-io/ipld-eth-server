@@ -1045,7 +1045,7 @@ func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSlice
 
 		// Skip value nodes
 		if it.Leaf() || bytes.Equal(nullHashBytes, it.Hash().Bytes()) {
-			return nil
+			continue
 		}
 
 		node, nodeElements, err := sdtrie.ResolveNode(it, b.StateDatabase.TrieDB())
