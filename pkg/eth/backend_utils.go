@@ -330,52 +330,25 @@ func getIteratorAtPath(t state.Trie, startKey []byte) (trie.NodeIterator, int64)
 	return it, makeTimestamp() - startTime
 }
 
-type SliceNodeMetrics struct {
-	pathLen       int
-	isLeaf        bool
-	nodeFetchTime int64
-	leafFetchTime int64
-}
-
 func fillSliceNodeData(
 	ethDB ethdb.KeyValueReader,
-	trieDB *trie.Database,
 	nodesMap map[string]string,
 	leavesMap map[string]GetSliceResponseAccount,
-	it trie.NodeIterator,
+	node sdtypes.StateNode,
+	nodeElements []interface{},
 	storage bool,
-) (SliceNodeMetrics, error) {
-	// Skip value nodes
-	if it.Leaf() || bytes.Equal(nullHashBytes, it.Hash().Bytes()) {
-		return SliceNodeMetrics{}, nil
-	}
-
-	nodeStartTime := makeTimestamp()
-
-	node, nodeElements, err := sdtrie.ResolveNode(it, trieDB)
-	if err != nil {
-		return SliceNodeMetrics{}, err
-	}
-
-	sliceNodeMetrics := SliceNodeMetrics{
-		pathLen: len(it.Path()),
-		isLeaf:  node.NodeType == sdtypes.Leaf,
-	}
-
+) (int64, error) {
 	// Populate the nodes map
-	nodeVal := node.NodeValue
-	nodeValHash := crypto.Keccak256Hash(nodeVal)
-	nodesMap[common.Bytes2Hex(nodeValHash.Bytes())] = common.Bytes2Hex(nodeVal)
-
-	sliceNodeMetrics.nodeFetchTime = makeTimestamp() - nodeStartTime
+	// nodeVal := node.NodeValue
+	nodeValHash := crypto.Keccak256Hash(node.NodeValue)
+	nodesMap[common.Bytes2Hex(nodeValHash.Bytes())] = common.Bytes2Hex(node.NodeValue)
 
 	// Extract account data if it's a Leaf node
+	leafStartTime := makeTimestamp()
 	if node.NodeType == sdtypes.Leaf && !storage {
-		leafStartTime := makeTimestamp()
-
 		stateLeafKey, storageRoot, code, err := extractContractAccountInfo(ethDB, node, nodeElements)
 		if err != nil {
-			return SliceNodeMetrics{}, fmt.Errorf("GetSlice account lookup error: %s", err.Error())
+			return 0, fmt.Errorf("GetSlice account lookup error: %s", err.Error())
 		}
 
 		if len(code) > 0 {
@@ -385,11 +358,9 @@ func fillSliceNodeData(
 				EVMCode:     common.Bytes2Hex(code),
 			}
 		}
-
-		sliceNodeMetrics.leafFetchTime = makeTimestamp() - leafStartTime
 	}
 
-	return sliceNodeMetrics, nil
+	return makeTimestamp() - leafStartTime, nil
 }
 
 func extractContractAccountInfo(ethDB ethdb.KeyValueReader, node sdtypes.StateNode, nodeElements []interface{}) (string, string, []byte, error) {
@@ -416,4 +387,24 @@ func extractContractAccountInfo(ethDB ethdb.KeyValueReader, node sdtypes.StateNo
 	codeBytes := rawdb.ReadCode(ethDB, codeHash)
 
 	return stateLeafKeyString, storageRootString, codeBytes, nil
+}
+
+func ResolveNode(path []byte, node []byte, trieDB *trie.Database) (sdtypes.StateNode, []interface{}, error) {
+	nodePath := make([]byte, len(path))
+	copy(nodePath, path)
+
+	var nodeElements []interface{}
+	if err := rlp.DecodeBytes(node, &nodeElements); err != nil {
+		return sdtypes.StateNode{}, nil, err
+	}
+
+	ty, err := sdtrie.CheckKeyType(nodeElements)
+	if err != nil {
+		return sdtypes.StateNode{}, nil, err
+	}
+	return sdtypes.StateNode{
+		NodeType:  ty,
+		Path:      nodePath,
+		NodeValue: node,
+	}, nodeElements, nil
 }

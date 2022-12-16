@@ -44,6 +44,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
+	sdtrie "github.com/ethereum/go-ethereum/statediff/trie_helpers"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
@@ -899,6 +901,7 @@ func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage boo
 	t, _ := b.StateDatabase.OpenTrie(root)
 	metaData.trieLoadingTime = makeTimestamp() - startTime
 
+	// Convert the head hex path to a decoded byte path
 	headPath := common.FromHex(path)
 
 	// Get Stem nodes
@@ -927,65 +930,90 @@ func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage boo
 }
 
 func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+	leavesFetchTime := int64(0)
+	totalStemStartTime := makeTimestamp()
+
 	for i := 0; i < len(headPath); i++ {
 		// Create path for each node along the stem
-		startPath := make([]byte, len(headPath[:i]))
-		copy(startPath, headPath[:i])
+		nodePath := make([]byte, len(headPath[:i]))
+		copy(nodePath, headPath[:i])
 
-		// Create an iterator initialized at startPath
-		it, timeTaken := getIteratorAtPath(t, startPath)
-		metaData.trieLoadingTime += timeTaken
+		// TODO: verify doesn't return for non-existent node
+		rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(nodePath))
+		if err != nil {
+			return err
+		}
 
-		// Skip if iterator not at required path (might happen if node not present at given path)
-		if !bytes.Equal(it.Path(), startPath) {
+		// Skip if node not found
+		if rawNode == nil {
 			continue
 		}
 
-		sliceNodeMetrics, err := fillSliceNodeData(b.EthDB, b.StateDatabase.TrieDB(), response.TrieNodes.Stem, response.Leaves, it, storage)
+		node, nodeElements, err := ResolveNode(nodePath, rawNode, b.StateDatabase.TrieDB())
+		if err != nil {
+			return err
+		}
+
+		leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Stem, response.Leaves, node, nodeElements, storage)
 		if err != nil {
 			return err
 		}
 
 		// Update metadata
-		depthReached := sliceNodeMetrics.pathLen - len(headPath)
+		depthReached := len(node.Path) - len(headPath)
 		if depthReached > metaData.maxDepth {
 			metaData.maxDepth = depthReached
 		}
-		if sliceNodeMetrics.isLeaf {
+		if node.NodeType == sdtypes.Leaf {
 			metaData.leafCount++
 		}
-		metaData.stemNodesFetchTime += sliceNodeMetrics.nodeFetchTime
-		metaData.leavesFetchTime += sliceNodeMetrics.leafFetchTime
+		leavesFetchTime += leafFetchTime
 	}
+
+	// Update metadata time metrics
+	totalStemTime := makeTimestamp() - totalStemStartTime
+	metaData.sliceNodesFetchTime = totalStemTime - leavesFetchTime
+	metaData.leavesFetchTime += leavesFetchTime
 
 	return nil
 }
 
 func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
-	// Create an iterator initialized at headPath
-	it, timeTaken := getIteratorAtPath(t, headPath)
-	metaData.trieLoadingTime += timeTaken
+	totalHeadStartTime := makeTimestamp()
 
-	// Skip if iterator not at required path (might happen if node not present at given path)
-	if !bytes.Equal(it.Path(), headPath) {
+	rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(headPath))
+	if err != nil {
+		return err
+	}
+
+	// Skip if node not found
+	if rawNode == nil {
 		return nil
 	}
 
-	sliceNodeMetrics, err := fillSliceNodeData(b.EthDB, b.StateDatabase.TrieDB(), response.TrieNodes.Head, response.Leaves, it, storage)
+	node, nodeElements, err := ResolveNode(headPath, rawNode, b.StateDatabase.TrieDB())
+	if err != nil {
+		return err
+	}
+
+	leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Head, response.Leaves, node, nodeElements, storage)
 	if err != nil {
 		return err
 	}
 
 	// Update metadata
-	depthReached := sliceNodeMetrics.pathLen - len(headPath)
+	depthReached := len(node.Path) - len(headPath)
 	if depthReached > metaData.maxDepth {
 		metaData.maxDepth = depthReached
 	}
-	if sliceNodeMetrics.isLeaf {
+	if node.NodeType == sdtypes.Leaf {
 		metaData.leafCount++
 	}
-	metaData.stemNodesFetchTime += sliceNodeMetrics.nodeFetchTime
-	metaData.leavesFetchTime += sliceNodeMetrics.leafFetchTime
+
+	// Update metadata time metrics
+	totalHeadTime := makeTimestamp() - totalHeadStartTime
+	metaData.stemNodesFetchTime = totalHeadTime - leafFetchTime
+	metaData.leavesFetchTime += leafFetchTime
 
 	return nil
 }
@@ -993,6 +1021,9 @@ func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSlice
 func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, depth int, storage bool) error {
 	it, timeTaken := getIteratorAtPath(t, headPath)
 	metaData.trieLoadingTime += timeTaken
+
+	leavesFetchTime := int64(0)
+	totalSliceStartTime := makeTimestamp()
 
 	headPathLen := len(headPath)
 	maxPathLen := headPathLen + depth
@@ -1012,22 +1043,36 @@ func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSlice
 			descend = true
 		}
 
-		sliceNodeMetrics, err := fillSliceNodeData(b.EthDB, b.StateDatabase.TrieDB(), response.TrieNodes.Slice, response.Leaves, it, storage)
+		// Skip value nodes
+		if it.Leaf() || bytes.Equal(nullHashBytes, it.Hash().Bytes()) {
+			return nil
+		}
+
+		node, nodeElements, err := sdtrie.ResolveNode(it, b.StateDatabase.TrieDB())
+		if err != nil {
+			return err
+		}
+
+		leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Slice, response.Leaves, node, nodeElements, storage)
 		if err != nil {
 			return err
 		}
 
 		// Update metadata
-		depthReached := sliceNodeMetrics.pathLen - len(headPath)
+		depthReached := len(node.Path) - len(headPath)
 		if depthReached > metaData.maxDepth {
 			metaData.maxDepth = depthReached
 		}
-		if sliceNodeMetrics.isLeaf {
+		if node.NodeType == sdtypes.Leaf {
 			metaData.leafCount++
 		}
-		metaData.sliceNodesFetchTime += sliceNodeMetrics.nodeFetchTime
-		metaData.leavesFetchTime += sliceNodeMetrics.leafFetchTime
+		leavesFetchTime += leafFetchTime
 	}
+
+	// Update metadata time metrics
+	totalSliceTime := makeTimestamp() - totalSliceStartTime
+	metaData.sliceNodesFetchTime = totalSliceTime - leavesFetchTime
+	metaData.leavesFetchTime += leavesFetchTime
 
 	return nil
 }
