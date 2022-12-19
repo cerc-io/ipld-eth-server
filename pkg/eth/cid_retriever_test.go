@@ -300,6 +300,7 @@ var _ = Describe("Retriever", func() {
 				AND header_cids.block_number = $1
 				ORDER BY transaction_cids.index`
 			err := db.Select(&expectedRctCIDsAndLeafNodes, pgStr, test_helpers.BlockNumber.Uint64())
+			Expect(err).ToNot(HaveOccurred())
 			cids1, empty, err := retriever.Retrieve(rctAddressFilter, 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(empty).ToNot(BeTrue())

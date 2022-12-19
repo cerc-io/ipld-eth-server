@@ -208,7 +208,7 @@ func checkReceipts(rct *types.Receipt, wantedTopics, actualTopics [][]string, wa
 	}
 	// If there are no wanted contract addresses, we keep all receipts that match the topic filter
 	if len(wantedAddresses) == 0 {
-		if match := filterMatch(wantedTopics, actualTopics); match == true {
+		if match := filterMatch(wantedTopics, actualTopics); match {
 			return true
 		}
 	}
@@ -218,7 +218,7 @@ func checkReceipts(rct *types.Receipt, wantedTopics, actualTopics [][]string, wa
 		for _, actualAddr := range actualAddresses {
 			if wantedAddr == actualAddr {
 				// we keep the receipt if it matches on the topic filter
-				if match := filterMatch(wantedTopics, actualTopics); match == true {
+				if match := filterMatch(wantedTopics, actualTopics); match {
 					return true
 				}
 			}
@@ -240,10 +240,7 @@ func filterMatch(wantedTopics, actualTopics [][]string) bool {
 			matches++
 		}
 	}
-	if matches == 4 {
-		return true
-	}
-	return false
+	return matches == 4
 }
 
 // returns 1 if the two slices have a string in common, 0 if they do not

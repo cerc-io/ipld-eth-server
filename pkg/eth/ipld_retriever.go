@@ -32,10 +32,6 @@ import (
 )
 
 const (
-	// node type removed value.
-	// https://github.com/cerc-io/go-ethereum/blob/271f4d01e7e2767ffd8e0cd469bf545be96f2a84/statediff/indexer/helpers.go#L34
-	removedNode = 3
-
 	RetrieveHeadersByHashesPgStr = `SELECT cid, data
 								FROM eth.header_cids
 									INNER JOIN public.blocks ON (
@@ -611,7 +607,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 		return "", nil, err
 	}
 
-	if accountResult.NodeType == removedNode {
+	if accountResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, nil
 	}
 
@@ -643,7 +639,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockNumber(address common.Ad
 		return "", nil, err
 	}
 
-	if accountResult.NodeType == removedNode {
+	if accountResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, nil
 	}
 
@@ -671,7 +667,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
 		return "", nil, nil, err
 	}
-	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
+	if storageResult.StateLeafRemoved || storageResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, EmptyNodeValue, nil
 	}
 
@@ -704,7 +700,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageKeyAndBlockNumber(ad
 		return "", nil, err
 	}
 
-	if storageResult.StateLeafRemoved || storageResult.NodeType == removedNode {
+	if storageResult.StateLeafRemoved || storageResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, nil
 	}
 

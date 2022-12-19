@@ -17,6 +17,7 @@
 package eth
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -42,11 +43,12 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
+	sdtrie "github.com/ethereum/go-ethereum/statediff/trie_helpers"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-
-	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
@@ -886,6 +888,192 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 
 	_, _, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
 	return storageRlp, err
+}
+
+func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage bool) (*GetSliceResponse, error) {
+	response := new(GetSliceResponse)
+	response.init(path, depth, root)
+
+	// Metadata fields
+	metaData := metaDataFields{}
+
+	startTime := makeTimestamp()
+	t, _ := b.StateDatabase.OpenTrie(root)
+	metaData.trieLoadingTime = makeTimestamp() - startTime
+
+	// Convert the head hex path to a decoded byte path
+	headPath := common.FromHex(path)
+
+	// Get Stem nodes
+	err := b.getSliceStem(headPath, t, response, &metaData, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get Head node
+	err = b.getSliceHead(headPath, t, response, &metaData, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	if depth > 0 {
+		// Get Slice nodes
+		err = b.getSliceTrie(headPath, t, response, &metaData, depth, storage)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	response.populateMetaData(metaData)
+
+	return response, nil
+}
+
+func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+	leavesFetchTime := int64(0)
+	totalStemStartTime := makeTimestamp()
+
+	for i := 0; i < len(headPath); i++ {
+		// Create path for each node along the stem
+		nodePath := make([]byte, len(headPath[:i]))
+		copy(nodePath, headPath[:i])
+
+		rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(nodePath))
+		if err != nil {
+			return err
+		}
+
+		// Skip if node not found
+		if rawNode == nil {
+			continue
+		}
+
+		node, nodeElements, err := ResolveNode(nodePath, rawNode, b.StateDatabase.TrieDB())
+		if err != nil {
+			return err
+		}
+
+		leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Stem, response.Leaves, node, nodeElements, storage)
+		if err != nil {
+			return err
+		}
+
+		// Update metadata
+		depthReached := len(node.Path) - len(headPath)
+		if depthReached > metaData.maxDepth {
+			metaData.maxDepth = depthReached
+		}
+		if node.NodeType == sdtypes.Leaf {
+			metaData.leafCount++
+		}
+		leavesFetchTime += leafFetchTime
+	}
+
+	// Update metadata time metrics
+	totalStemTime := makeTimestamp() - totalStemStartTime
+	metaData.sliceNodesFetchTime = totalStemTime - leavesFetchTime
+	metaData.leavesFetchTime += leavesFetchTime
+
+	return nil
+}
+
+func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+	totalHeadStartTime := makeTimestamp()
+
+	rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(headPath))
+	if err != nil {
+		return err
+	}
+
+	// Skip if node not found
+	if rawNode == nil {
+		return nil
+	}
+
+	node, nodeElements, err := ResolveNode(headPath, rawNode, b.StateDatabase.TrieDB())
+	if err != nil {
+		return err
+	}
+
+	leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Head, response.Leaves, node, nodeElements, storage)
+	if err != nil {
+		return err
+	}
+
+	// Update metadata
+	depthReached := len(node.Path) - len(headPath)
+	if depthReached > metaData.maxDepth {
+		metaData.maxDepth = depthReached
+	}
+	if node.NodeType == sdtypes.Leaf {
+		metaData.leafCount++
+	}
+
+	// Update metadata time metrics
+	totalHeadTime := makeTimestamp() - totalHeadStartTime
+	metaData.stemNodesFetchTime = totalHeadTime - leafFetchTime
+	metaData.leavesFetchTime += leafFetchTime
+
+	return nil
+}
+
+func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, depth int, storage bool) error {
+	it, timeTaken := getIteratorAtPath(t, headPath)
+	metaData.trieLoadingTime += timeTaken
+
+	leavesFetchTime := int64(0)
+	totalSliceStartTime := makeTimestamp()
+
+	headPathLen := len(headPath)
+	maxPathLen := headPathLen + depth
+	descend := true
+	for it.Next(descend) {
+		pathLen := len(it.Path())
+
+		// End iteration on coming out of subtrie
+		if pathLen <= headPathLen {
+			break
+		}
+
+		// Avoid descending further if max depth reached
+		if pathLen >= maxPathLen {
+			descend = false
+		} else {
+			descend = true
+		}
+
+		// Skip value nodes
+		if it.Leaf() || bytes.Equal(nullHashBytes, it.Hash().Bytes()) {
+			continue
+		}
+
+		node, nodeElements, err := sdtrie.ResolveNode(it, b.StateDatabase.TrieDB())
+		if err != nil {
+			return err
+		}
+
+		leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Slice, response.Leaves, node, nodeElements, storage)
+		if err != nil {
+			return err
+		}
+
+		// Update metadata
+		depthReached := len(node.Path) - len(headPath)
+		if depthReached > metaData.maxDepth {
+			metaData.maxDepth = depthReached
+		}
+		if node.NodeType == sdtypes.Leaf {
+			metaData.leafCount++
+		}
+		leavesFetchTime += leafFetchTime
+	}
+
+	// Update metadata time metrics
+	totalSliceTime := makeTimestamp() - totalSliceStartTime
+	metaData.sliceNodesFetchTime = totalSliceTime - leavesFetchTime
+	metaData.leavesFetchTime += leavesFetchTime
+
+	return nil
 }
 
 // Engine satisfied the ChainContext interface

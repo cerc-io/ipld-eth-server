@@ -18,7 +18,9 @@ package eth
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -263,4 +265,64 @@ type LogResult struct {
 	BlockHash   string `db:"block_hash"`
 	TxnIndex    int64  `db:"txn_index"`
 	TxHash      string `db:"tx_hash"`
+}
+
+// GetSliceResponse holds response for the eth_getSlice method
+type GetSliceResponse struct {
+	SliceID   string                             `json:"sliceId"`
+	MetaData  GetSliceResponseMetadata           `json:"metadata"`
+	TrieNodes GetSliceResponseTrieNodes          `json:"trieNodes"`
+	Leaves    map[string]GetSliceResponseAccount `json:"leaves"` // key: Keccak256Hash(address) in hex (leafKey)
+}
+
+func (sr *GetSliceResponse) init(path string, depth int, root common.Hash) {
+	sr.SliceID = fmt.Sprintf("%s-%d-%s", path, depth, root.String())
+	sr.MetaData = GetSliceResponseMetadata{
+		NodeStats: make(map[string]string, 0),
+		TimeStats: make(map[string]string, 0),
+	}
+	sr.Leaves = make(map[string]GetSliceResponseAccount)
+	sr.TrieNodes = GetSliceResponseTrieNodes{
+		Stem:  make(map[string]string),
+		Head:  make(map[string]string),
+		Slice: make(map[string]string),
+	}
+}
+
+func (sr *GetSliceResponse) populateMetaData(metaData metaDataFields) {
+	sr.MetaData.NodeStats["00-stem-and-head-nodes"] = strconv.Itoa(len(sr.TrieNodes.Stem) + len(sr.TrieNodes.Head))
+	sr.MetaData.NodeStats["01-max-depth"] = strconv.Itoa(metaData.maxDepth)
+	sr.MetaData.NodeStats["02-total-trie-nodes"] = strconv.Itoa(len(sr.TrieNodes.Stem) + len(sr.TrieNodes.Head) + len(sr.TrieNodes.Slice))
+	sr.MetaData.NodeStats["03-leaves"] = strconv.Itoa(metaData.leafCount)
+	sr.MetaData.NodeStats["04-smart-contracts"] = strconv.Itoa(len(sr.Leaves))
+
+	sr.MetaData.TimeStats["00-trie-loading"] = strconv.FormatInt(metaData.trieLoadingTime, 10)
+	sr.MetaData.TimeStats["01-fetch-stem-keys"] = strconv.FormatInt(metaData.stemNodesFetchTime, 10)
+	sr.MetaData.TimeStats["02-fetch-slice-keys"] = strconv.FormatInt(metaData.sliceNodesFetchTime, 10)
+	sr.MetaData.TimeStats["03-fetch-leaves-info"] = strconv.FormatInt(metaData.leavesFetchTime, 10)
+}
+
+type GetSliceResponseMetadata struct {
+	TimeStats map[string]string `json:"timeStats"` // stem, state, storage (one by one)
+	NodeStats map[string]string `json:"nodeStats"` // total, leaves, smart contracts
+}
+
+type GetSliceResponseTrieNodes struct {
+	Stem  map[string]string `json:"stem"` // key: Keccak256Hash(data) in hex, value: trie node data in hex
+	Head  map[string]string `json:"head"`
+	Slice map[string]string `json:"sliceNodes"`
+}
+
+type GetSliceResponseAccount struct {
+	StorageRoot string `json:"storageRoot"`
+	EVMCode     string `json:"evmCode"`
+}
+
+type metaDataFields struct {
+	maxDepth            int
+	leafCount           int
+	trieLoadingTime     int64
+	stemNodesFetchTime  int64
+	sliceNodesFetchTime int64
+	leavesFetchTime     int64
 }
