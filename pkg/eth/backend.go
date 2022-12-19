@@ -938,7 +938,6 @@ func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSlice
 		nodePath := make([]byte, len(headPath[:i]))
 		copy(nodePath, headPath[:i])
 
-		// TODO: verify doesn't return for non-existent node
 		rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(nodePath))
 		if err != nil {
 			return err

@@ -339,7 +339,6 @@ func fillSliceNodeData(
 	storage bool,
 ) (int64, error) {
 	// Populate the nodes map
-	// nodeVal := node.NodeValue
 	nodeValHash := crypto.Keccak256Hash(node.NodeValue)
 	nodesMap[common.Bytes2Hex(nodeValHash.Bytes())] = common.Bytes2Hex(node.NodeValue)
 
