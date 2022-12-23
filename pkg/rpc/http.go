@@ -35,8 +35,7 @@ func StartHTTPEndpoint(endpoint string, apis []rpc.API, modules []string, cors [
 	if err != nil {
 		utils.Fatalf("Could not register HTTP API: %w", err)
 	}
-	handler := node.NewHTTPHandlerStack(srv, cors, vhosts, nil)
-	handler = prom.HTTPMiddleware(handler)
+	handler := prom.HTTPMiddleware(node.NewHTTPHandlerStack(srv, cors, vhosts, nil))
 
 	// start http server
 	_, addr, err := node.StartHTTPEndpoint(endpoint, rpc.DefaultHTTPTimeouts, handler)
