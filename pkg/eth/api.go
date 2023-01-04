@@ -481,6 +481,28 @@ func (pea *PublicEthAPI) GetRawTransactionByHash(ctx context.Context, hash commo
 	return nil, err
 }
 
+// accessListResult returns an optional accesslist
+// Its the result of the `debug_createAccessList` RPC call.
+// It contains an error if the transaction itself failed.
+type accessListResult struct {
+	Accesslist *types.AccessList `json:"accessList"`
+	Error      string            `json:"error,omitempty"`
+	GasUsed    hexutil.Uint64    `json:"gasUsed"`
+}
+
+// CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
+// Reexec and BlockNrOrHash can be specified to create the accessList on top of a certain state.
+func (pea *PublicEthAPI) CreateAccessList(ctx context.Context, args TransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash) (*accessListResult, error) {
+	if pea.proxyOnError {
+		var res *accessListResult
+		if err := pea.rpc.CallContext(ctx, &res, "eth_createAccessList", args, blockNrOrHash); err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+	return nil, RequiresProxyError{method: "eth_createAccessList"}
+}
+
 /*
 
 Receipts and Logs
