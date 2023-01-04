@@ -535,6 +535,18 @@ func (pea *PublicEthAPI) EstimateGas(ctx context.Context, args TransactionArgs, 
 	return hexutil.Uint64(0), RequiresProxyError{method: "eth_estimateGas"}
 }
 
+// GasPrice returns a suggestion for a gas price for legacy transactions.
+func (pea *PublicEthAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) {
+	if pea.proxyOnError {
+		var res *hexutil.Big
+		if err := pea.rpc.CallContext(ctx, &res, "eth_gasPrice"); err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+	return nil, RequiresProxyError{method: "eth_gasPrice"}
+}
+
 /*
 
 Receipts and Logs
