@@ -503,6 +503,25 @@ func (pea *PublicEthAPI) CreateAccessList(ctx context.Context, args TransactionA
 	return nil, RequiresProxyError{method: "eth_createAccessList"}
 }
 
+type feeHistoryResult struct {
+	OldestBlock  *hexutil.Big     `json:"oldestBlock"`
+	Reward       [][]*hexutil.Big `json:"reward,omitempty"`
+	BaseFee      []*hexutil.Big   `json:"baseFeePerGas,omitempty"`
+	GasUsedRatio []float64        `json:"gasUsedRatio"`
+}
+
+// FeeHistory returns the fee market history.
+func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
+	if pea.proxyOnError {
+		var res *feeHistoryResult
+		if err := pea.rpc.CallContext(ctx, &res, "eth_feeHistory", blockCount, lastBlock, rewardPercentiles); err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+	return nil, RequiresProxyError{method: "eth_feeHistory"}
+}
+
 /*
 
 Receipts and Logs
