@@ -493,7 +493,7 @@ type accessListResult struct {
 // CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
 // Reexec and BlockNrOrHash can be specified to create the accessList on top of a certain state.
 func (pea *PublicEthAPI) CreateAccessList(ctx context.Context, args TransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash) (*accessListResult, error) {
-	if pea.proxyOnError {
+	if pea.rpc != nil {
 		var res *accessListResult
 		if err := pea.rpc.CallContext(ctx, &res, "eth_createAccessList", args, blockNrOrHash); err != nil {
 			return nil, err
@@ -512,7 +512,7 @@ type feeHistoryResult struct {
 
 // FeeHistory returns the fee market history.
 func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
-	if pea.proxyOnError {
+	if pea.rpc != nil {
 		var res *feeHistoryResult
 		if err := pea.rpc.CallContext(ctx, &res, "eth_feeHistory", blockCount, lastBlock, rewardPercentiles); err != nil {
 			return nil, err
@@ -525,7 +525,7 @@ func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalO
 // EstimateGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block.
 func (pea *PublicEthAPI) EstimateGas(ctx context.Context, args TransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
-	if pea.proxyOnError {
+	if pea.rpc != nil {
 		var res hexutil.Uint64
 		if err := pea.rpc.CallContext(ctx, &res, "eth_estimateGas", args, blockNrOrHash); err != nil {
 			return hexutil.Uint64(0), err
@@ -537,7 +537,7 @@ func (pea *PublicEthAPI) EstimateGas(ctx context.Context, args TransactionArgs, 
 
 // GasPrice returns a suggestion for a gas price for legacy transactions.
 func (pea *PublicEthAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) {
-	if pea.proxyOnError {
+	if pea.rpc != nil {
 		var res *hexutil.Big
 		if err := pea.rpc.CallContext(ctx, &res, "eth_gasPrice"); err != nil {
 			return nil, err
@@ -545,6 +545,18 @@ func (pea *PublicEthAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) {
 		return res, nil
 	}
 	return nil, RequiresProxyError{method: "eth_gasPrice"}
+}
+
+// MaxPriorityFeePerGas returns a suggestion for a gas tip cap for dynamic fee transactions.
+func (pea *PublicEthAPI) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big, error) {
+	if pea.rpc != nil {
+		var res *hexutil.Big
+		if err := pea.rpc.CallContext(ctx, &res, "eth_maxPriorityFeePerGas"); err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+	return nil, RequiresProxyError{method: "eth_maxPriorityFeePerGas"}
 }
 
 /*
