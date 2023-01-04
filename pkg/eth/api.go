@@ -522,6 +522,19 @@ func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalO
 	return nil, RequiresProxyError{method: "eth_feeHistory"}
 }
 
+// EstimateGas returns an estimate of the amount of gas needed to execute the
+// given transaction against the current pending block.
+func (pea *PublicEthAPI) EstimateGas(ctx context.Context, args TransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
+	if pea.proxyOnError {
+		var res hexutil.Uint64
+		if err := pea.rpc.CallContext(ctx, &res, "eth_estimateGas", args, blockNrOrHash); err != nil {
+			return hexutil.Uint64(0), err
+		}
+		return res, nil
+	}
+	return hexutil.Uint64(0), RequiresProxyError{method: "eth_estimateGas"}
+}
+
 /*
 
 Receipts and Logs
