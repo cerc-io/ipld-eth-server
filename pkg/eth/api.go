@@ -57,17 +57,21 @@ type PublicEthAPI struct {
 	B *Backend
 
 	// Proxy node for forwarding cache misses
-	supportsStateDiff bool // Whether the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
-	rpc               *rpc.Client
-	ethClient         *ethclient.Client
-	forwardEthCalls   bool // if true, forward eth_call calls directly to the configured proxy node
-	proxyOnError      bool // turn on regular proxy fall-through on errors; needed to test difference between direct and indirect fall-through
+	supportsStateDiff   bool // Whether the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
+	rpc                 *rpc.Client
+	ethClient           *ethclient.Client
+	forwardEthCalls     bool // if true, forward eth_call calls directly to the configured proxy node
+	forwardGetStorageAt bool // if true, forward eth_getStorageAt calls directly to the configured proxy node
+	proxyOnError        bool // turn on regular proxy fall-through on errors; needed to test difference between direct and indirect fall-through
 }
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
-func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls, proxyOnError bool) (*PublicEthAPI, error) {
+func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls, forwardGetStorageAt, proxyOnError bool) (*PublicEthAPI, error) {
 	if forwardEthCalls && client == nil {
 		return nil, errors.New("ipld-eth-server is configured to forward eth_calls to proxy node but no proxy node is configured")
+	}
+	if forwardGetStorageAt && client == nil {
+		return nil, errors.New("ipld-eth-server is configured to forward eth_getStorageAt to proxy node but no proxy node is configured")
 	}
 	if proxyOnError && client == nil {
 		return nil, errors.New("ipld-eth-server is configured to forward all calls to proxy node on errors but no proxy node is configured")
@@ -77,12 +81,13 @@ func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardE
 		ethClient = ethclient.NewClient(client)
 	}
 	return &PublicEthAPI{
-		B:                 b,
-		supportsStateDiff: supportsStateDiff,
-		rpc:               client,
-		ethClient:         ethClient,
-		forwardEthCalls:   forwardEthCalls,
-		proxyOnError:      proxyOnError,
+		B:                   b,
+		supportsStateDiff:   supportsStateDiff,
+		rpc:                 client,
+		ethClient:           ethClient,
+		forwardEthCalls:     forwardEthCalls,
+		forwardGetStorageAt: forwardGetStorageAt,
+		proxyOnError:        proxyOnError,
 	}, nil
 }
 
@@ -720,6 +725,13 @@ func (pea *PublicEthAPI) localGetBalance(ctx context.Context, address common.Add
 // block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta block
 // numbers are also allowed.
 func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Address, key string, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
+	if pea.forwardGetStorageAt {
+		var res hexutil.Bytes
+		// If forwarding all getStorageAt calls, don't request statediffing.
+		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
+			return res, nil
+		}
+	}
 	storageVal, err := pea.B.GetStorageByNumberOrHash(ctx, address, common.HexToHash(key), blockNrOrHash)
 	if storageVal != nil && err == nil {
 		var value common.Hash
@@ -735,8 +747,10 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 		return value[:], nil
 	}
 	if pea.proxyOnError {
+		logrus.Warnf("Missing eth_getStorageAt(%s, %s, %s)", address.Hash().String(), key, blockNrOrHash.String())
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
+			// If only proxying on error, request statediffing for the missing data.
 			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
@@ -1065,6 +1079,7 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 		IncludeTD:                true,
 		IncludeCode:              true,
 	}
+	logrus.Debugf("Calling statediff_writeStateDiffAt(%d)", height)
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffAt", uint64(height), params); err != nil {
 		logrus.Errorf("writeStateDiffAt %d faild with err %s", height, err.Error())
 	}
@@ -1087,6 +1102,7 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 		IncludeTD:                true,
 		IncludeCode:              true,
 	}
+	logrus.Debugf("Calling statediff_writeStateDiffFor(%s)", blockHash.Hex())
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffFor", blockHash, params); err != nil {
 		logrus.Errorf("writeStateDiffFor %s faild with err %s", blockHash.Hex(), err.Error())
 	}

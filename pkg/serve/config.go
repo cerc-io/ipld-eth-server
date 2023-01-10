@@ -46,12 +46,13 @@ const (
 	SERVER_MAX_OPEN_CONNECTIONS = "SERVER_MAX_OPEN_CONNECTIONS"
 	SERVER_MAX_CONN_LIFETIME    = "SERVER_MAX_CONN_LIFETIME"
 
-	ETH_DEFAULT_SENDER_ADDR = "ETH_DEFAULT_SENDER_ADDR"
-	ETH_RPC_GAS_CAP         = "ETH_RPC_GAS_CAP"
-	ETH_CHAIN_CONFIG        = "ETH_CHAIN_CONFIG"
-	ETH_SUPPORTS_STATEDIFF  = "ETH_SUPPORTS_STATEDIFF"
-	ETH_FORWARD_ETH_CALLS   = "ETH_FORWARD_ETH_CALLS"
-	ETH_PROXY_ON_ERROR      = "ETH_PROXY_ON_ERROR"
+	ETH_DEFAULT_SENDER_ADDR    = "ETH_DEFAULT_SENDER_ADDR"
+	ETH_RPC_GAS_CAP            = "ETH_RPC_GAS_CAP"
+	ETH_CHAIN_CONFIG           = "ETH_CHAIN_CONFIG"
+	ETH_SUPPORTS_STATEDIFF     = "ETH_SUPPORTS_STATEDIFF"
+	ETH_FORWARD_ETH_CALLS      = "ETH_FORWARD_ETH_CALLS"
+	ETH_FORWARD_GET_STORAGE_AT = "ETH_FORWARD_GET_STORAGE_AT"
+	ETH_PROXY_ON_ERROR         = "ETH_PROXY_ON_ERROR"
 
 	VALIDATOR_ENABLED         = "VALIDATOR_ENABLED"
 	VALIDATOR_EVERY_NTH_BLOCK = "VALIDATOR_EVERY_NTH_BLOCK"
@@ -80,15 +81,16 @@ type Config struct {
 	TracingHttpEndpoint         string
 	TracingPostgraphileEndpoint string
 
-	ChainConfig      *params.ChainConfig
-	DefaultSender    *common.Address
-	RPCGasCap        *big.Int
-	EthHttpEndpoint  string
-	Client           *rpc.Client
-	SupportStateDiff bool
-	ForwardEthCalls  bool
-	ProxyOnError     bool
-	NodeNetworkID    string
+	ChainConfig         *params.ChainConfig
+	DefaultSender       *common.Address
+	RPCGasCap           *big.Int
+	EthHttpEndpoint     string
+	Client              *rpc.Client
+	SupportStateDiff    bool
+	ForwardEthCalls     bool
+	ForwardGetStorageAt bool
+	ProxyOnError        bool
+	NodeNetworkID       string
 
 	// Cache configuration.
 	GroupCache *ethServerShared.GroupCacheConfig
@@ -108,6 +110,7 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
 	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
 	viper.BindEnv("ethereum.forwardEthCalls", ETH_FORWARD_ETH_CALLS)
+	viper.BindEnv("ethereum.forwardGetStorageAt", ETH_FORWARD_GET_STORAGE_AT)
 	viper.BindEnv("ethereum.proxyOnError", ETH_PROXY_ON_ERROR)
 
 	c.dbInit()
@@ -121,6 +124,7 @@ func NewConfig() (*Config, error) {
 	c.Client = cli
 	c.SupportStateDiff = viper.GetBool("ethereum.supportsStateDiff")
 	c.ForwardEthCalls = viper.GetBool("ethereum.forwardEthCalls")
+	c.ForwardGetStorageAt = viper.GetBool("ethereum.forwardGetStorageAt")
 	c.ProxyOnError = viper.GetBool("ethereum.proxyOnError")
 	c.EthHttpEndpoint = ethHTTPEndpoint
 
