@@ -71,7 +71,7 @@ type PublicEthAPI struct {
 }
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
-func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls, forwardGetStorageAt, proxyOnError bool) (*P
+func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls, forwardGetStorageAt, proxyOnError bool) (*PublicEthAPI, error) {
 	if b == nil {
 		return nil, errors.New("ipld-eth-server must be configured with an ethereum backend")
 	}
