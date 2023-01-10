@@ -733,10 +733,10 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 	if pea.forwardGetStorageAt {
 		var res hexutil.Bytes
 		// If forwarding all getStorageAt calls, don't request statediffing.
-		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
-			return res, nil
-		}
+		err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash)
+		return res, err
 	}
+
 	storageVal, err := pea.B.GetStorageByNumberOrHash(ctx, address, common.HexToHash(key), blockNrOrHash)
 	if storageVal != nil && err == nil {
 		var value common.Hash
