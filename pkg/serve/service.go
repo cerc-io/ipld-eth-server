@@ -87,6 +87,8 @@ type Service struct {
 	backend *eth.Backend
 	// whether to forward eth_calls directly to proxy node
 	forwardEthCalls bool
+	// whether to forward eth_getStorageAt directly to proxy node
+	forwardGetStorageAt bool
 	// whether to forward all calls to proxy node if they throw an error locally
 	proxyOnError bool
 	// eth node network id
@@ -106,6 +108,7 @@ func NewServer(settings *Config) (Server, error) {
 	sap.client = settings.Client
 	sap.supportsStateDiffing = settings.SupportStateDiff
 	sap.forwardEthCalls = settings.ForwardEthCalls
+	sap.forwardGetStorageAt = settings.ForwardGetStorageAt
 	sap.proxyOnError = settings.ProxyOnError
 	sap.nodeNetworkId = settings.NodeNetworkID
 	var err error
@@ -141,8 +144,7 @@ func (sap *Service) APIs() []rpc.API {
 			Public:    true,
 		},
 	}
-
-	ethAPI, err := eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing, sap.forwardEthCalls, sap.proxyOnError)
+	ethAPI, err := eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing, sap.forwardEthCalls, sap.forwardGetStorageAt, sap.proxyOnError)
 	if err != nil {
 		log.Fatalf("unable to create public eth api: %v", err)
 	}
