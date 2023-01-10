@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/lib/pq"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -668,8 +667,6 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
 		return "", nil, nil, err
 	}
-	log.Debugf("getStorageAt: state_leaf_key=%s, storage_hex=%s, storage_leaf_key=%s, block_hash=%s",
-		stateLeafKey.Hex(), key.Hex(), storageHash.Hex(), hash.Hex())
 	if storageResult.StateLeafRemoved || storageResult.NodeType == sdtypes.Removed.Int() {
 		return "", EmptyNodeValue, EmptyNodeValue, nil
 	}
