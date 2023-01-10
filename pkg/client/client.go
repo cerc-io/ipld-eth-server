@@ -22,8 +22,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/serve"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/serve"
 )
 
 // Client is used to subscribe to the ipld-eth-server ipld data stream

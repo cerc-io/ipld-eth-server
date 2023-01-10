@@ -5,7 +5,7 @@ RUN apk --update --no-cache add make git g++ linux-headers
 RUN apk add busybox-extras
 
 # Build ipld-eth-server
-WORKDIR /go/src/github.com/vulcanize/ipld-eth-server
+WORKDIR /go/src/github.com/cerc-io/ipld-eth-server
 
 # Cache the modules
 ENV GO111MODULE=on
@@ -37,13 +37,13 @@ USER $USER
 
 # chown first so dir is writable
 # note: using $USER is merged, but not in the stable release yet
-COPY --chown=5000:5000 --from=builder /go/src/github.com/vulcanize/ipld-eth-server/$CONFIG_FILE config.toml
-COPY --chown=5000:5000 --from=builder /go/src/github.com/vulcanize/ipld-eth-server/entrypoint.sh .
+COPY --chown=5000:5000 --from=builder /go/src/github.com/cerc-io/ipld-eth-server/$CONFIG_FILE config.toml
+COPY --chown=5000:5000 --from=builder /go/src/github.com/cerc-io/ipld-eth-server/entrypoint.sh .
 
 
 # keep binaries immutable
-COPY --from=builder /go/src/github.com/vulcanize/ipld-eth-server/ipld-eth-server ipld-eth-server
+COPY --from=builder /go/src/github.com/cerc-io/ipld-eth-server/ipld-eth-server ipld-eth-server
 COPY --from=builder /goose goose
-COPY --from=builder /go/src/github.com/vulcanize/ipld-eth-server/environments environments
+COPY --from=builder /go/src/github.com/cerc-io/ipld-eth-server/environments environments
 
 ENTRYPOINT ["/app/entrypoint.sh"]

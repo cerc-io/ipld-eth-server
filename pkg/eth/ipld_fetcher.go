@@ -20,12 +20,13 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 // Fetcher interface for substituting mocks in tests
@@ -102,13 +103,19 @@ func (f *IPLDFetcher) Fetch(cids CIDWrapper) (*IPLDs, error) {
 // FetchHeader fetches header
 func (f *IPLDFetcher) FetchHeader(tx *sqlx.Tx, c models.HeaderModel) (models.IPLDModel, error) {
 	log.Debug("fetching header ipld")
-	headerBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
+	blockNumber, err := strconv.ParseUint(c.BlockNumber, 10, 64)
+	if err != nil {
+		return models.IPLDModel{}, err
+	}
+
+	headerBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, c.MhKey, blockNumber)
 	if err != nil {
 		return models.IPLDModel{}, err
 	}
 	return models.IPLDModel{
-		Data: headerBytes,
-		Key:  c.CID,
+		BlockNumber: c.BlockNumber,
+		Data:        headerBytes,
+		Key:         c.CID,
 	}, nil
 }
 
@@ -117,13 +124,18 @@ func (f *IPLDFetcher) FetchUncles(tx *sqlx.Tx, cids []models.UncleModel) ([]mode
 	log.Debug("fetching uncle iplds")
 	uncleIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
-		uncleBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
+		blockNumber, err := strconv.ParseUint(c.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		uncleBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, c.MhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
 		uncleIPLDs[i] = models.IPLDModel{
-			Data: uncleBytes,
-			Key:  c.CID,
+			BlockNumber: c.BlockNumber,
+			Data:        uncleBytes,
+			Key:         c.CID,
 		}
 	}
 	return uncleIPLDs, nil
@@ -134,13 +146,18 @@ func (f *IPLDFetcher) FetchTrxs(tx *sqlx.Tx, cids []models.TxModel) ([]models.IP
 	log.Debug("fetching transaction iplds")
 	trxIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
-		txBytes, err := shared.FetchIPLDByMhKey(tx, c.MhKey)
+		blockNumber, err := strconv.ParseUint(c.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		txBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, c.MhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
 		trxIPLDs[i] = models.IPLDModel{
-			Data: txBytes,
-			Key:  c.CID,
+			BlockNumber: c.BlockNumber,
+			Data:        txBytes,
+			Key:         c.CID,
 		}
 	}
 	return trxIPLDs, nil
@@ -151,14 +168,19 @@ func (f *IPLDFetcher) FetchRcts(tx *sqlx.Tx, cids []models.ReceiptModel) ([]mode
 	log.Debug("fetching receipt iplds")
 	rctIPLDs := make([]models.IPLDModel, len(cids))
 	for i, c := range cids {
-		rctBytes, err := shared.FetchIPLDByMhKey(tx, c.LeafMhKey)
+		blockNumber, err := strconv.ParseUint(c.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		rctBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, c.LeafMhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
 		//nodeVal, err := DecodeLeafNode(rctBytes)
 		rctIPLDs[i] = models.IPLDModel{
-			Data: rctBytes,
-			Key:  c.LeafCID,
+			BlockNumber: c.BlockNumber,
+			Data:        rctBytes,
+			Key:         c.LeafCID,
 		}
 	}
 	return rctIPLDs, nil
@@ -172,14 +194,19 @@ func (f *IPLDFetcher) FetchState(tx *sqlx.Tx, cids []models.StateNodeModel) ([]S
 		if stateNode.CID == "" {
 			continue
 		}
-		stateBytes, err := shared.FetchIPLDByMhKey(tx, stateNode.MhKey)
+		blockNumber, err := strconv.ParseUint(stateNode.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		stateBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, stateNode.MhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
 		stateNodes = append(stateNodes, StateNode{
 			IPLD: models.IPLDModel{
-				Data: stateBytes,
-				Key:  stateNode.CID,
+				BlockNumber: stateNode.BlockNumber,
+				Data:        stateBytes,
+				Key:         stateNode.CID,
 			},
 			StateLeafKey: common.HexToHash(stateNode.StateKey),
 			Type:         ResolveToNodeType(stateNode.NodeType),
@@ -197,14 +224,19 @@ func (f *IPLDFetcher) FetchStorage(tx *sqlx.Tx, cids []models.StorageNodeWithSta
 		if storageNode.CID == "" || storageNode.StateKey == "" {
 			continue
 		}
-		storageBytes, err := shared.FetchIPLDByMhKey(tx, storageNode.MhKey)
+		blockNumber, err := strconv.ParseUint(storageNode.BlockNumber, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		storageBytes, err := shared.FetchIPLDByMhKeyAndBlockNumber(tx, storageNode.MhKey, blockNumber)
 		if err != nil {
 			return nil, err
 		}
 		storageNodes = append(storageNodes, StorageNode{
 			IPLD: models.IPLDModel{
-				Data: storageBytes,
-				Key:  storageNode.CID,
+				BlockNumber: storageNode.BlockNumber,
+				Data:        storageBytes,
+				Key:         storageNode.CID,
 			},
 			StateLeafKey:   common.HexToHash(storageNode.StateKey),
 			StorageLeafKey: common.HexToHash(storageNode.StorageKey),

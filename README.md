@@ -22,20 +22,20 @@ Additional, unique endpoints are exposed which utilize the new indexes and state
 
 ## Dependencies
 Minimal build dependencies
-* Go (1.13)
+* Go (1.18)
 * Git
 * GCC compiler
 * This repository
 
 External dependency
-* Postgres database populated by [ipld-eth-indexer](https://github.com/vulcanize/ipld-eth-indexer)
+* Postgres database populated by [ipld-eth-db](https://github.com/cerc-io/ipld-eth-db)
 
 ## Install
 Start by downloading ipld-eth-server and moving into the repo:
 
-`GO111MODULE=off go get -d github.com/vulcanize/ipld-eth-server/v3`
+`GO111MODULE=off go get -d github.com/cerc-io/ipld-eth-server/v4`
 
-`cd $GOPATH/src/github.com/vulcanize/ipld-eth-server/v3@v3.x.x`
+`cd $GOPATH/src/github.com/cerc-io/ipld-eth-server/v4@v4.x.x`
 
 Then, build the binary:
 

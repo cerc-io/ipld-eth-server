@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"errors"
+	"github.com/mailgun/groupcache/v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,17 +27,16 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/mailgun/groupcache/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vulcanize/gap-filler/pkg/mux"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/graphql"
-	srpc "github.com/vulcanize/ipld-eth-server/v3/pkg/rpc"
-	s "github.com/vulcanize/ipld-eth-server/v3/pkg/serve"
-	v "github.com/vulcanize/ipld-eth-server/v3/version"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/graphql"
+	srpc "github.com/cerc-io/ipld-eth-server/v4/pkg/rpc"
+	s "github.com/cerc-io/ipld-eth-server/v4/pkg/serve"
+	v "github.com/cerc-io/ipld-eth-server/v4/version"
 )
 
 var ErrNoRpcEndpoints = errors.New("no rpc endpoints is available")
@@ -123,7 +123,7 @@ func startServers(server s.Server, settings *s.Config) error {
 
 	if settings.WSEnabled {
 		logWithCommand.Info("starting up WS server")
-		_, _, err := srpc.StartWSEndpoint(settings.WSEndpoint, server.APIs(), []string{"vdb", "net"}, nil, true)
+		_, _, err := srpc.StartWSEndpoint(settings.WSEndpoint, server.APIs(), []string{"vdb", "net"}, nil)
 		if err != nil {
 			return err
 		}
@@ -133,7 +133,7 @@ func startServers(server s.Server, settings *s.Config) error {
 
 	if settings.HTTPEnabled {
 		logWithCommand.Info("starting up HTTP server")
-		_, err := srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"vdb", "eth", "net"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
+		_, err := srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"vdb", "eth", "debug", "net"}, nil, []string{"*"}, rpc.HTTPTimeouts{})
 		if err != nil {
 			return err
 		}

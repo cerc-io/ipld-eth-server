@@ -82,8 +82,9 @@ func (s *ResponseFilterer) filterHeaders(headerFilter HeaderFilter, response *IP
 			return err
 		}
 		response.Header = models.IPLDModel{
-			Data: headerRLP,
-			Key:  cid.String(),
+			BlockNumber: payload.Block.Number().String(),
+			Data:        headerRLP,
+			Key:         cid.String(),
 		}
 		if headerFilter.Uncles {
 			response.Uncles = make([]models.IPLDModel, len(payload.Block.Body().Uncles))
@@ -97,8 +98,9 @@ func (s *ResponseFilterer) filterHeaders(headerFilter HeaderFilter, response *IP
 					return err
 				}
 				response.Uncles[i] = models.IPLDModel{
-					Data: uncleRlp,
-					Key:  cid.String(),
+					BlockNumber: uncle.Number.String(),
+					Data:        uncleRlp,
+					Key:         cid.String(),
 				}
 			}
 		}
@@ -183,8 +185,9 @@ func (s *ResponseFilterer) filerReceipts(receiptFilter ReceiptFilter, response *
 			// TODO: Verify this filter logic.
 			if checkReceipts(receipt, receiptFilter.Topics, topics, receiptFilter.LogAddresses, contracts, trxHashes) {
 				response.Receipts = append(response.Receipts, models.IPLDModel{
-					Data: rctIPLDData[idx],
-					Key:  rctLeafCID[idx].String(),
+					BlockNumber: payload.Block.Number().String(),
+					Data:        rctIPLDData[idx],
+					Key:         rctLeafCID[idx].String(),
 				})
 			}
 		}
@@ -205,7 +208,7 @@ func checkReceipts(rct *types.Receipt, wantedTopics, actualTopics [][]string, wa
 	}
 	// If there are no wanted contract addresses, we keep all receipts that match the topic filter
 	if len(wantedAddresses) == 0 {
-		if match := filterMatch(wantedTopics, actualTopics); match == true {
+		if match := filterMatch(wantedTopics, actualTopics); match {
 			return true
 		}
 	}
@@ -215,7 +218,7 @@ func checkReceipts(rct *types.Receipt, wantedTopics, actualTopics [][]string, wa
 		for _, actualAddr := range actualAddresses {
 			if wantedAddr == actualAddr {
 				// we keep the receipt if it matches on the topic filter
-				if match := filterMatch(wantedTopics, actualTopics); match == true {
+				if match := filterMatch(wantedTopics, actualTopics); match {
 					return true
 				}
 			}
@@ -237,10 +240,7 @@ func filterMatch(wantedTopics, actualTopics [][]string) bool {
 			matches++
 		}
 	}
-	if matches == 4 {
-		return true
-	}
-	return false
+	return matches == 4
 }
 
 // returns 1 if the two slices have a string in common, 0 if they do not
@@ -282,8 +282,9 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 					StateLeafKey: common.BytesToHash(stateNode.LeafKey),
 					Path:         stateNode.Path,
 					IPLD: models.IPLDModel{
-						Data: stateNode.NodeValue,
-						Key:  cid.String(),
+						BlockNumber: payload.Block.Number().String(),
+						Data:        stateNode.NodeValue,
+						Key:         cid.String(),
 					},
 					Type: stateNode.NodeType,
 				})
@@ -300,8 +301,9 @@ func (s *ResponseFilterer) filterStateAndStorage(stateFilter StateFilter, storag
 						StateLeafKey:   common.BytesToHash(stateNode.LeafKey),
 						StorageLeafKey: common.BytesToHash(storageNode.LeafKey),
 						IPLD: models.IPLDModel{
-							Data: storageNode.NodeValue,
-							Key:  cid.String(),
+							BlockNumber: payload.Block.Number().String(),
+							Data:        storageNode.NodeValue,
+							Key:         cid.String(),
 						},
 						Type: storageNode.NodeType,
 						Path: storageNode.Path,

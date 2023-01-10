@@ -25,9 +25,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth/test_helpers"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
 var (
@@ -61,14 +61,16 @@ var _ = Describe("Filterer", func() {
 				Expect(stateNode.Type).To(Equal(sdtypes.Leaf))
 				if bytes.Equal(stateNode.StateLeafKey.Bytes(), test_helpers.AccountLeafKey) {
 					Expect(stateNode.IPLD).To(Equal(models.IPLDModel{
-						Data: test_helpers.State2IPLD.RawData(),
-						Key:  test_helpers.State2IPLD.Cid().String(),
+						BlockNumber: test_helpers.BlockNumber.String(),
+						Data:        test_helpers.State2IPLD.RawData(),
+						Key:         test_helpers.State2IPLD.Cid().String(),
 					}))
 				}
 				if bytes.Equal(stateNode.StateLeafKey.Bytes(), test_helpers.ContractLeafKey) {
 					Expect(stateNode.IPLD).To(Equal(models.IPLDModel{
-						Data: test_helpers.State1IPLD.RawData(),
-						Key:  test_helpers.State1IPLD.Cid().String(),
+						BlockNumber: test_helpers.BlockNumber.String(),
+						Data:        test_helpers.State1IPLD.RawData(),
+						Key:         test_helpers.State1IPLD.Cid().String(),
 					}))
 				}
 			}
@@ -87,8 +89,9 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds1.StateNodes)).To(Equal(0))
 			Expect(len(iplds1.Receipts)).To(Equal(1))
 			Expect(iplds1.Receipts[0]).To(Equal(models.IPLDModel{
-				Data: test_helpers.Rct1IPLD,
-				Key:  test_helpers.Rct1CID.String(),
+				BlockNumber: test_helpers.BlockNumber.String(),
+				Data:        test_helpers.Rct1IPLD,
+				Key:         test_helpers.Rct1CID.String(),
 			}))
 
 			iplds2, err := filterer.Filter(rctTopicsFilter, test_helpers.MockConvertedPayload)
@@ -102,8 +105,9 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds2.StateNodes)).To(Equal(0))
 			Expect(len(iplds2.Receipts)).To(Equal(1))
 			Expect(iplds2.Receipts[0]).To(Equal(models.IPLDModel{
-				Data: test_helpers.Rct1IPLD,
-				Key:  test_helpers.Rct1CID.String(),
+				BlockNumber: test_helpers.BlockNumber.String(),
+				Data:        test_helpers.Rct1IPLD,
+				Key:         test_helpers.Rct1CID.String(),
 			}))
 
 			iplds3, err := filterer.Filter(rctTopicsAndAddressFilter, test_helpers.MockConvertedPayload)
@@ -117,8 +121,9 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds3.StateNodes)).To(Equal(0))
 			Expect(len(iplds3.Receipts)).To(Equal(1))
 			Expect(iplds3.Receipts[0]).To(Equal(models.IPLDModel{
-				Data: test_helpers.Rct1IPLD,
-				Key:  test_helpers.Rct1CID.String(),
+				BlockNumber: test_helpers.BlockNumber.String(),
+				Data:        test_helpers.Rct1IPLD,
+				Key:         test_helpers.Rct1CID.String(),
 			}))
 
 			iplds4, err := filterer.Filter(rctAddressesAndTopicFilter, test_helpers.MockConvertedPayload)
@@ -132,8 +137,9 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds4.StateNodes)).To(Equal(0))
 			Expect(len(iplds4.Receipts)).To(Equal(1))
 			Expect(iplds4.Receipts[0]).To(Equal(models.IPLDModel{
-				Data: test_helpers.Rct2IPLD,
-				Key:  test_helpers.Rct2CID.String(),
+				BlockNumber: test_helpers.BlockNumber.String(),
+				Data:        test_helpers.Rct2IPLD,
+				Key:         test_helpers.Rct2CID.String(),
 			}))
 
 			iplds5, err := filterer.Filter(rctsForAllCollectedTrxs, test_helpers.MockConvertedPayload)
@@ -165,8 +171,9 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds6.StateNodes)).To(Equal(0))
 			Expect(len(iplds6.Receipts)).To(Equal(1))
 			Expect(iplds4.Receipts[0]).To(Equal(models.IPLDModel{
-				Data: test_helpers.Rct2IPLD,
-				Key:  test_helpers.Rct2CID.String(),
+				BlockNumber: test_helpers.BlockNumber.String(),
+				Data:        test_helpers.Rct2IPLD,
+				Key:         test_helpers.Rct2CID.String(),
 			}))
 
 			iplds7, err := filterer.Filter(stateFilter, test_helpers.MockConvertedPayload)
@@ -181,8 +188,9 @@ var _ = Describe("Filterer", func() {
 			Expect(len(iplds7.StateNodes)).To(Equal(1))
 			Expect(iplds7.StateNodes[0].StateLeafKey.Bytes()).To(Equal(test_helpers.AccountLeafKey))
 			Expect(iplds7.StateNodes[0].IPLD).To(Equal(models.IPLDModel{
-				Data: test_helpers.State2IPLD.RawData(),
-				Key:  test_helpers.State2IPLD.Cid().String(),
+				BlockNumber: test_helpers.BlockNumber.String(),
+				Data:        test_helpers.State2IPLD.RawData(),
+				Key:         test_helpers.State2IPLD.Cid().String(),
 			}))
 
 			iplds8, err := filterer.Filter(rctTopicsAndAddressFilterFail, test_helpers.MockConvertedPayload)

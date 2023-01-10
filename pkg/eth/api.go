@@ -42,7 +42,12 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+)
+
+const (
+	defaultEVMTimeout       = 30 * time.Second
+	defaultStateDiffTimeout = 240 * time.Second
 )
 
 // APIName is the namespace for the watcher's eth api
@@ -66,7 +71,10 @@ type PublicEthAPI struct {
 }
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
-func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls, forwardGetStorageAt, proxyOnError bool) (*PublicEthAPI, error) {
+func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls, forwardGetStorageAt, proxyOnError bool) (*P
+	if b == nil {
+		return nil, errors.New("ipld-eth-server must be configured with an ethereum backend")
+	}
 	if forwardEthCalls && client == nil {
 		return nil, errors.New("ipld-eth-server is configured to forward eth_calls to proxy node but no proxy node is configured")
 	}
@@ -125,11 +133,10 @@ func (pea *PublicEthAPI) GetHeaderByHash(ctx context.Context, hash common.Hash) 
 	}
 
 	if pea.proxyOnError {
-		if header, err := pea.ethClient.HeaderByHash(ctx, hash); header != nil && err == nil {
+		var result map[string]interface{}
+		if err := pea.rpc.CallContext(ctx, &result, "eth_getHeaderByHash", hash); result != nil && err == nil {
 			go pea.writeStateDiffFor(hash)
-			if res, err := pea.rpcMarshalHeader(header); err != nil {
-				return res
-			}
+			return result
 		}
 	}
 
@@ -161,6 +168,7 @@ func (pea *PublicEthAPI) BlockNumber() hexutil.Uint64 {
 // * When fullTx is true all transactions in the block are returned, otherwise
 //   only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
+	logrus.Debug("Received getBlockByNumber request for number ", number.Int64())
 	block, err := pea.B.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)
@@ -179,6 +187,7 @@ func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockN
 // GetBlockByHash returns the requested block. When fullTx is true all transactions in the block are returned in full
 // detail, otherwise only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, fullTx bool) (map[string]interface{}, error) {
+	logrus.Debug("Received getBlockByHash request for hash ", hash.Hex())
 	block, err := pea.B.BlockByHash(ctx, hash)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)
@@ -195,21 +204,17 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
-func (pea *PublicEthAPI) ChainId() (*hexutil.Big, error) {
-	block, err := pea.B.CurrentBlock()
-	if err != nil {
+func (pea *PublicEthAPI) ChainId() *hexutil.Big {
+	if pea.B.Config.ChainConfig.ChainID == nil || pea.B.Config.ChainConfig.ChainID.Cmp(big.NewInt(0)) <= 0 {
 		if pea.proxyOnError {
 			if id, err := pea.ethClient.ChainID(context.Background()); err == nil {
-				return (*hexutil.Big)(id), nil
+				return (*hexutil.Big)(id)
 			}
 		}
-		return nil, err
+		return nil
 	}
 
-	if config := pea.B.Config.ChainConfig; config.IsEIP155(block.Number()) {
-		return (*hexutil.Big)(config.ChainID), nil
-	}
-	return nil, fmt.Errorf("chain not synced beyond EIP-155 replay-protection fork block")
+	return (*hexutil.Big)(pea.B.Config.ChainConfig.ChainID)
 }
 
 /*
@@ -846,6 +851,11 @@ func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Addre
 	}, state.Error()
 }
 
+// GetSlice returns a slice of state or storage nodes from a provided root to a provided path and past it to a certain depth
+func (pea *PublicEthAPI) GetSlice(ctx context.Context, path string, depth int, root common.Hash, storage bool) (*GetSliceResponse, error) {
+	return pea.B.GetSlice(path, depth, root, storage)
+}
+
 // revertError is an API error that encompassas an EVM revertal with JSON error
 // code and a binary data blob.
 type revertError struct {
@@ -941,7 +951,7 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 		return hex, err
 	}
 
-	result, err := DoCall(ctx, pea.B, args, blockNrOrHash, overrides, 5*time.Second, pea.B.Config.RPCGasCap.Uint64())
+	result, err := DoCall(ctx, pea.B, args, blockNrOrHash, overrides, defaultEVMTimeout, pea.B.Config.RPCGasCap.Uint64())
 
 	// If the result contains a revert reason, try to unpack and return it.
 	if err == nil {
@@ -959,7 +969,12 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 			return hex, nil
 		}
 	}
-	return result.Return(), err
+
+	if result != nil {
+		return result.Return(), err
+	} else {
+		return nil, err
+	}
 }
 
 func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
@@ -1068,7 +1083,7 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 		return
 	}
 	// we use a separate context than the one provided by the client
-	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultStateDiffTimeout)
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
@@ -1091,7 +1106,7 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 		return
 	}
 	// we use a separate context than the one provided by the client
-	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultStateDiffTimeout)
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
@@ -1112,11 +1127,13 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
 	if err != nil {
+		logrus.Errorf("error RPC marshalling block with hash %s: %s", b.Hash().String(), err)
 		return nil, err
 	}
 	if inclTx {
 		td, err := pea.B.GetTd(b.Hash())
 		if err != nil {
+			logrus.Errorf("error getting td for block with hash and number %s, %s: %s", b.Hash().String(), b.Number().String(), err)
 			return nil, err
 		}
 		fields["totalDifficulty"] = (*hexutil.Big)(td)

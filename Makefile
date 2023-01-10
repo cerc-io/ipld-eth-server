@@ -51,19 +51,19 @@ TEST_CONNECT_STRING = postgresql://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATAB
 TEST_CONNECT_STRING_LOCAL = postgresql://$(USER)@$(HOST_NAME):$(PORT)/$(TEST_DB)?sslmode=disable
 
 .PHONY: test
-test: |  $(GOOSE)
+test:
 	go vet ./...
 	go fmt ./...
-	go run github.com/onsi/ginkgo/ginkgo  -r --skipPackage=test
+	go run github.com/onsi/ginkgo/ginkgo -r --skipPackage=test
 
 .PHONY: integrationtest
-integrationtest: | $(GOOSE)
+integrationtest:
 	go vet ./...
 	go fmt ./...
 	go run github.com/onsi/ginkgo/ginkgo -r test/ -v
 
 .PHONY: test_local
-test_local: | $(GOOSE)
+test_local:
 	go vet ./...
 	go fmt ./...
 	./scripts/run_unit_test.sh
@@ -135,4 +135,4 @@ import:
 ## Build docker image
 .PHONY: docker-build
 docker-build:
-	docker build -t vulcanize/ipld-eth-server .
+	docker build -t cerc-io/ipld-eth-server .

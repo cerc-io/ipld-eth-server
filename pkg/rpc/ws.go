@@ -24,11 +24,11 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/prom"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/prom"
 )
 
 // StartWSEndpoint starts a websocket endpoint.
-func StartWSEndpoint(endpoint string, apis []rpc.API, modules []string, wsOrigins []string, exposeAll bool) (net.Listener, *rpc.Server, error) {
+func StartWSEndpoint(endpoint string, apis []rpc.API, modules []string, wsOrigins []string) (net.Listener, *rpc.Server, error) {
 	// All APIs registered, start the HTTP listener
 	var (
 		listener net.Listener
@@ -37,7 +37,7 @@ func StartWSEndpoint(endpoint string, apis []rpc.API, modules []string, wsOrigin
 
 	// Register all the APIs exposed by the services
 	handler := rpc.NewServer()
-	err = node.RegisterApis(apis, modules, handler, exposeAll)
+	err = node.RegisterApis(apis, modules, handler)
 	if err != nil {
 		utils.Fatalf("Could not register WS API: %w", err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -91,10 +92,16 @@ func NewClient(endpoint string) *Client {
 	return &Client{client: client}
 }
 
-func (c *Client) GetLogs(ctx context.Context, hash common.Hash, address *common.Address) ([]LogResponse, error) {
+func (c *Client) GetLogs(ctx context.Context, hash common.Hash, addresses []common.Address) ([]LogResponse, error) {
 	params := fmt.Sprintf(`blockHash: "%s"`, hash.String())
-	if address != nil {
-		params += fmt.Sprintf(`, contract: "%s"`, address.String())
+
+	if addresses != nil {
+		addressStrings := make([]string, len(addresses))
+		for i, address := range addresses {
+			addressStrings[i] = fmt.Sprintf(`"%s"`, address.String())
+		}
+
+		params += fmt.Sprintf(`, addresses: [%s]`, strings.Join(addressStrings, ","))
 	}
 
 	getLogsQuery := fmt.Sprintf(`query{

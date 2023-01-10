@@ -21,6 +21,9 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -35,11 +38,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth/test_helpers"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
-	ethServerShared "github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
 )
 
 var (
@@ -203,8 +201,8 @@ var _ = Describe("API", func() {
 			ChainConfig: chainConfig,
 			VMConfig:    vm.Config{},
 			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
-			GroupCacheConfig: &ethServerShared.GroupCacheConfig{
-				StateDB: ethServerShared.GroupConfig{
+			GroupCacheConfig: &shared.GroupCacheConfig{
+				StateDB: shared.GroupConfig{
 					Name:                   "api_test",
 					CacheSizeInMB:          8,
 					CacheExpiryInMins:      60,
@@ -334,6 +332,18 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
 		})
+		It("Retrieves a block by number with uncles in correct order", func() {
+			block, err := api.GetBlockByNumber(ctx, londonBlockNum, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedUncles := []common.Hash{
+				test_helpers.MockLondonUncles[0].Hash(),
+				test_helpers.MockLondonUncles[1].Hash(),
+			}
+			Expect(block["uncles"]).To(Equal(expectedUncles))
+			Expect(block["sha3Uncles"]).To(Equal(test_helpers.MockLondonBlock.UncleHash()))
+			Expect(block["hash"]).To(Equal(test_helpers.MockLondonBlock.Hash()))
+		})
 	})
 
 	Describe("eth_getBlockByHash", func() {
@@ -374,6 +384,18 @@ var _ = Describe("API", func() {
 			block, err = api.GetBlockByHash(ctx, test_helpers.MockLondonBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
+		})
+		It("Retrieves a block by hash with uncles in correct order", func() {
+			block, err := api.GetBlockByHash(ctx, test_helpers.MockLondonBlock.Hash(), false)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedUncles := []common.Hash{
+				test_helpers.MockLondonUncles[0].Hash(),
+				test_helpers.MockLondonUncles[1].Hash(),
+			}
+			Expect(block["uncles"]).To(Equal(expectedUncles))
+			Expect(block["sha3Uncles"]).To(Equal(test_helpers.MockLondonBlock.UncleHash()))
+			Expect(block["hash"]).To(Equal(test_helpers.MockLondonBlock.Hash()))
 		})
 	})
 

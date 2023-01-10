@@ -29,7 +29,7 @@ import (
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 )
 
 // Service encapsulates a GraphQL service.

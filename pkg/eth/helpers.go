@@ -17,6 +17,8 @@
 package eth
 
 import (
+	"time"
+
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 )
 
@@ -33,4 +35,9 @@ func ResolveToNodeType(nodeType int) sdtypes.NodeType {
 	default:
 		return sdtypes.Unknown
 	}
+}
+
+// Timestamp in milliseconds
+func makeTimestamp() int64 {
+	return time.Now().UnixNano() / int64(time.Millisecond)
 }

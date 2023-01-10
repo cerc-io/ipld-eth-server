@@ -23,6 +23,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -34,8 +35,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
 var (
@@ -776,8 +777,8 @@ func (b *Block) Logs(ctx context.Context, args struct{ Filter BlockFilterCriteri
 		hash = header.Hash()
 	}
 	// Construct the range filter
-	filter := filters.NewBlockFilter(b.backend, hash, addresses, topics)
-
+	filterSys := filters.NewFilterSystem(b.backend, filters.Config{})
+	filter := filterSys.NewBlockFilter(hash, addresses, topics)
 	// Run the filter and return all the logs
 	return runFilter(ctx, b.backend, filter)
 }
@@ -837,7 +838,7 @@ func (b *Block) Call(ctx context.Context, args struct {
 			return nil, err
 		}
 	}
-	result, err := eth.DoCall(ctx, b.backend, args.Data, *b.numberOrHash, nil, 5*time.Second, b.backend.RPCGasCap().Uint64())
+	result, err := eth.DoCall(ctx, b.backend, args.Data, *b.numberOrHash, nil, 5*time.Second, b.backend.RPCGasCap())
 	if err != nil {
 		return nil, err
 	}
@@ -979,7 +980,8 @@ func (r *Resolver) Logs(ctx context.Context, args struct{ Filter FilterCriteria 
 		topics = *args.Filter.Topics
 	}
 	// Construct the range filter
-	filter := filters.NewRangeFilter(filters.Backend(r.backend), begin, end, addresses, topics)
+	filterSys := filters.NewFilterSystem(r.backend, filters.Config{})
+	filter := filterSys.NewRangeFilter(begin, end, addresses, topics)
 	return runFilter(ctx, r.backend, filter)
 }
 
@@ -1034,13 +1036,17 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 }
 
 func (r *Resolver) GetLogs(ctx context.Context, args struct {
-	BlockHash common.Hash
-	Contract  *common.Address
+	BlockHash   common.Hash
+	BlockNumber *BigInt
+	Addresses   *[]common.Address
 }) (*[]*Log, error) {
-
 	var filter eth.ReceiptFilter
-	if args.Contract != nil {
-		filter.LogAddresses = []string{args.Contract.String()}
+
+	if args.Addresses != nil {
+		filter.LogAddresses = make([]string, len(*args.Addresses))
+		for i, address := range *args.Addresses {
+			filter.LogAddresses[i] = address.String()
+		}
 	}
 
 	// Begin tx
@@ -1049,7 +1055,7 @@ func (r *Resolver) GetLogs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash)
+	filteredLogs, err := r.backend.Retriever.RetrieveFilteredGQLLogs(tx, filter, &args.BlockHash, args.BlockNumber.ToInt())
 	if err != nil {
 		return nil, err
 	}
@@ -1266,12 +1272,14 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 	var headerCIDs []eth.HeaderCIDRecord
 	var err error
 	if args.Condition.BlockHash != nil {
-		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash))
+		headerCID, err := r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockHash(common.HexToHash(*args.Condition.BlockHash), args.Condition.BlockNumber.ToInt())
 		if err != nil {
-			return nil, err
+			if !strings.Contains(err.Error(), "not found") {
+				return nil, err
+			}
+		} else {
+			headerCIDs = append(headerCIDs, headerCID)
 		}
-
-		headerCIDs = append(headerCIDs, headerCID)
 	} else if args.Condition.BlockNumber != nil {
 		headerCIDs, err = r.backend.Retriever.RetrieveHeaderAndTxCIDsByBlockNumber(args.Condition.BlockNumber.ToInt().Int64())
 		if err != nil {
@@ -1345,9 +1353,12 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 }
 
 func (r *Resolver) EthTransactionCidByTxHash(ctx context.Context, args struct {
-	TxHash string
+	TxHash      string
+	BlockNumber *BigInt
 }) (*EthTransactionCID, error) {
-	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash)
+	// Need not check args.BlockNumber for nil as .ToInt() uses a pointer receiver and returns nil if BlockNumber is nil
+	// https://stackoverflow.com/questions/42238624/calling-a-method-on-a-nil-struct-pointer-doesnt-panic-why-not
+	txCID, err := r.backend.Retriever.RetrieveTxCIDByHash(args.TxHash, args.BlockNumber.ToInt())
 
 	if err != nil {
 		return nil, err

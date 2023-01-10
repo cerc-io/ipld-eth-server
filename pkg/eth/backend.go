@@ -17,13 +17,17 @@
 package eth
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
+	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
+	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -39,51 +43,59 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/models"
+	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
+	sdtrie "github.com/ethereum/go-ethereum/statediff/trie_helpers"
+	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
-	validator "github.com/vulcanize/eth-ipfs-state-validator/v3/pkg"
-	ipfsethdb "github.com/vulcanize/ipfs-ethdb/v3/postgres"
 
-	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
-
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
 var (
-	errPendingBlockNumber  = errors.New("pending block number not supported")
-	errNegativeBlockNumber = errors.New("negative block number not supported")
-	errHeaderHashNotFound  = errors.New("header for hash not found")
-	errHeaderNotFound      = errors.New("header not found")
+	errPendingBlockNumber     = errors.New("pending block number not supported")
+	errNegativeBlockNumber    = errors.New("negative block number not supported")
+	errHeaderHashNotFound     = errors.New("header for hash not found")
+	errHeaderNotFound         = errors.New("header not found")
+	errMultipleHeadersForHash = errors.New("more than one headers for the given hash")
+	errTxHashNotFound         = errors.New("transaction for hash not found")
+	errTxHashInMultipleBlocks = errors.New("transaction for hash found in more than one canonical block")
 
 	// errMissingSignature is returned if a block's extra-data section doesn't seem
 	// to contain a 65 byte secp256k1 signature.
-	errMissingSignature = errors.New("extra-data 65 byte signature suffix missing")
 )
 
 const (
-	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids
-									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
-									WHERE block_hash = (SELECT canonical_header_hash($1))`
+	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash
+									FROM canonical_header_hash($1) AS block_hash
+									WHERE block_hash IS NOT NULL`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
-									INNER JOIN public.blocks ON (header_cids.mh_key = blocks.key)
+									INNER JOIN public.blocks ON (
+										header_cids.mh_key = blocks.key
+										AND header_cids.block_number = blocks.block_number
+									)
 									WHERE block_hash = (SELECT canonical_header_hash($1))`
 	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
-	RetrieveRPCTransaction = `SELECT blocks.data, block_hash, block_number, index FROM public.blocks, eth.transaction_cids, eth.header_cids
+	RetrieveRPCTransaction = `SELECT blocks.data, header_id, transaction_cids.block_number, index
+			FROM public.blocks, eth.transaction_cids
 			WHERE blocks.key = transaction_cids.mh_key
-			AND transaction_cids.header_id = header_cids.block_hash
-			AND transaction_cids.tx_hash = $1`
+			AND blocks.block_number = transaction_cids.block_number
+			AND transaction_cids.tx_hash = $1
+			AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
 	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
-											WHERE state_accounts.header_id = state_cids.header_id AND state_accounts.state_path = state_cids.state_path
+											WHERE state_accounts.header_id = state_cids.header_id
+											AND state_accounts.state_path = state_cids.state_path
+											AND state_accounts.block_number = state_cids.block_number
 											AND state_cids.header_id = header_cids.block_hash
+											AND state_cids.block_number = header_cids.block_number
 											AND state_leaf_key = $1
-											AND block_number <= (SELECT block_number
+											AND header_cids.block_number <= (SELECT block_number
 																FROM eth.header_cids
 																WHERE block_hash = $2)
-											AND header_cids.block_hash = (SELECT canonical_header_hash(block_number))
-											ORDER BY block_number DESC
+											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
+											ORDER BY header_cids.block_number DESC
 											LIMIT 1`
 	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
@@ -182,7 +194,23 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumbe
 
 // HeaderByHash gets the header for the provided block hash
 func (b *Backend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(hash)
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +243,10 @@ func (b *Backend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Bl
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
+func (b *Backend) PendingBlockAndReceipts() (*types.Block, types.Receipts) {
+	return nil, nil
+}
+
 // GetTd gets the total difficulty at the given block hash
 func (b *Backend) GetTd(blockHash common.Hash) (*big.Int, error) {
 	var tdStr string
@@ -227,6 +259,11 @@ func (b *Backend) GetTd(blockHash common.Hash) (*big.Int, error) {
 		return nil, errors.New("total difficulty retrieved from Postgres cannot be converted to an integer")
 	}
 	return td, nil
+}
+
+// ChainConfig returns the active chain configuration.
+func (b *Backend) ChainConfig() *params.ChainConfig {
+	return b.Config.ChainConfig
 }
 
 // CurrentBlock returns the current block
@@ -267,7 +304,7 @@ func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Blo
 	return nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-// BlockByNumber returns the requested canonical block.
+// BlockByNumber returns the requested canonical block
 func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Block, error) {
 	var err error
 	number := blockNumber.Int64()
@@ -289,6 +326,7 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 	if number < 0 {
 		return nil, errNegativeBlockNumber
 	}
+
 	// Get the canonical hash
 	canonicalHash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
@@ -297,112 +335,12 @@ func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber
 		}
 		return nil, err
 	}
-	// Retrieve all the CIDs for the block
-	// TODO: optimize this by retrieving iplds directly rather than the cids first (this is remanent from when we fetched iplds through ipfs blockservice interface)
-	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(canonicalHash)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
 
-	// Begin tx
-	tx, err := b.DB.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
-
-	// Fetch and decode the header IPLD
-	var headerIPLD models.IPLDModel
-	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var header types.Header
-	err = rlp.DecodeBytes(headerIPLD.Data, &header)
-	if err != nil {
-		return nil, err
-	}
-	// Fetch and decode the uncle IPLDs
-	var uncleIPLDs []models.IPLDModel
-	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
-	if err != nil {
-		return nil, err
-	}
-	var uncles []*types.Header
-	for _, uncleIPLD := range uncleIPLDs {
-		var uncle types.Header
-		err = rlp.DecodeBytes(uncleIPLD.Data, &uncle)
-		if err != nil {
-			return nil, err
-		}
-		uncles = append(uncles, &uncle)
-	}
-	// Fetch and decode the transaction IPLDs
-	var txIPLDs []models.IPLDModel
-	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
-	if err != nil {
-		return nil, err
-	}
-	var transactions []*types.Transaction
-	for _, txIPLD := range txIPLDs {
-		var transaction types.Transaction
-		err = transaction.UnmarshalBinary(txIPLD.Data)
-		if err != nil {
-			return nil, err
-		}
-		transactions = append(transactions, &transaction)
-	}
-	// Fetch and decode the receipt IPLDs
-	var rctIPLDs []models.IPLDModel
-	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
-	if err != nil {
-		return nil, err
-	}
-	var receipts []*types.Receipt
-	for _, rctIPLD := range rctIPLDs {
-		var receipt types.Receipt
-		nodeVal, err := DecodeLeafNode(rctIPLD.Data)
-		if err != nil {
-			return nil, err
-		}
-
-		err = receipt.UnmarshalBinary(nodeVal)
-		if err != nil {
-			return nil, err
-		}
-		receipts = append(receipts, &receipt)
-	}
-	// Compose everything together into a complete block
-	return types.NewBlock(&header, transactions, uncles, receipts, new(trie.Trie)), err
+	return b.BlockByHash(ctx, canonicalHash)
 }
 
-// BlockByHash returns the requested block. When fullTx is true all transactions in the block are returned in full
-// detail, otherwise only the transaction hash is returned.
+// BlockByHash returns the requested block
 func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	// Retrieve all the CIDs for the block
-	headerCID, uncleCIDs, txCIDs, rctCIDs, err := b.Retriever.RetrieveBlockByHash(hash)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
 	// Begin tx
 	tx, err := b.DB.Beginx()
 	if err != nil {
@@ -419,105 +357,156 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		}
 	}()
 
-	// Fetch and decode the header IPLD
-	var headerIPLD models.IPLDModel
-	headerIPLD, err = b.Fetcher.FetchHeader(tx, headerCID)
+	// Fetch header
+	header, err := b.GetHeaderByBlockHash(tx, hash)
 	if err != nil {
+		log.Error("error fetching header: ", err)
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-	var header types.Header
-	err = rlp.DecodeBytes(headerIPLD.Data, &header)
-	if err != nil {
-		return nil, err
-	}
-	// Fetch and decode the uncle IPLDs
-	var uncleIPLDs []models.IPLDModel
-	uncleIPLDs, err = b.Fetcher.FetchUncles(tx, uncleCIDs)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var uncles []*types.Header
-	for _, uncleIPLD := range uncleIPLDs {
-		var uncle types.Header
-		err = rlp.DecodeBytes(uncleIPLD.Data, &uncle)
-		if err != nil {
-			return nil, err
-		}
-		uncles = append(uncles, &uncle)
-	}
-	// Fetch and decode the transaction IPLDs
-	var txIPLDs []models.IPLDModel
-	txIPLDs, err = b.Fetcher.FetchTrxs(tx, txCIDs)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var transactions []*types.Transaction
-	for _, txIPLD := range txIPLDs {
-		var transaction types.Transaction
-		err = transaction.UnmarshalBinary(txIPLD.Data)
-		if err != nil {
-			return nil, err
-		}
-		transactions = append(transactions, &transaction)
-	}
-	// Fetch and decode the receipt IPLDs
-	var rctIPLDs []models.IPLDModel
-	rctIPLDs, err = b.Fetcher.FetchRcts(tx, rctCIDs)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var receipts []*types.Receipt
-	for _, rctIPLD := range rctIPLDs {
-		var receipt types.Receipt
-		nodeVal, err := DecodeLeafNode(rctIPLD.Data)
-		if err != nil {
-			return nil, err
-		}
 
-		err = receipt.UnmarshalBinary(nodeVal)
-		if err != nil {
-			return nil, err
-		}
-		receipts = append(receipts, &receipt)
+	blockNumber := header.Number.Uint64()
+
+	// Fetch uncles
+	uncles, err := b.GetUnclesByBlockHashAndNumber(tx, hash, blockNumber)
+	if err != nil && err != sql.ErrNoRows {
+		log.Error("error fetching uncles: ", err)
+		return nil, err
 	}
+
+	// When num. of uncles = 2,
+	// Check if calculated uncle hash matches the one in header
+	// If not, re-order the two uncles
+	// Assumption: Max num. of uncles in mainnet = 2
+	if len(uncles) == 2 {
+		uncleHash := types.CalcUncleHash(uncles)
+		if uncleHash != header.UncleHash {
+			uncles[0], uncles[1] = uncles[1], uncles[0]
+
+			uncleHash = types.CalcUncleHash(uncles)
+			// Check if uncle hash matches after re-ordering
+			if uncleHash != header.UncleHash {
+				log.Error("uncle hash mismatch for block hash: ", hash.Hex())
+			}
+		}
+	}
+
+	// Fetch transactions
+	transactions, err := b.GetTransactionsByBlockHashAndNumber(tx, hash, blockNumber)
+	if err != nil && err != sql.ErrNoRows {
+		log.Error("error fetching transactions: ", err)
+		return nil, err
+	}
+
+	// Fetch receipts
+	receipts, err := b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
+	if err != nil && err != sql.ErrNoRows {
+		log.Error("error fetching receipts: ", err)
+		return nil, err
+	}
+
 	// Compose everything together into a complete block
-	return types.NewBlock(&header, transactions, uncles, receipts, new(trie.Trie)), err
+	return types.NewBlock(header, transactions, uncles, receipts, new(trie.Trie)), err
 }
 
-// GetTransaction retrieves a tx by hash
-// It also returns the blockhash, blocknumber, and tx index associated with the transaction
-func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
-	var tempTxStruct struct {
-		Data        []byte `db:"data"`
-		BlockHash   string `db:"block_hash"`
-		BlockNumber uint64 `db:"block_number"`
-		Index       uint64 `db:"index"`
+// GetHeaderByBlockHash retrieves header for a provided block hash
+func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.Header, error) {
+	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
+	if err != nil {
+		return nil, err
 	}
-	if err := b.DB.Get(&tempTxStruct, RetrieveRPCTransaction, txHash.String()); err != nil {
-		return nil, common.Hash{}, 0, 0, err
-	}
-	var transaction types.Transaction
-	if err := transaction.UnmarshalBinary(tempTxStruct.Data); err != nil {
-		return nil, common.Hash{}, 0, 0, err
-	}
-	return &transaction, common.HexToHash(tempTxStruct.BlockHash), tempTxStruct.BlockNumber, tempTxStruct.Index, nil
+
+	header := new(types.Header)
+	return header, rlp.DecodeBytes(headerRLP, header)
 }
 
-// GetReceipts retrieves receipts for provided block hash
-func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+// GetUnclesByBlockHash retrieves uncles for a provided block hash
+func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.Header, error) {
+	_, uncleBytes, err := b.IPLDRetriever.RetrieveUnclesByBlockHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	uncles := make([]*types.Header, len(uncleBytes))
+	for i, bytes := range uncleBytes {
+		var uncle types.Header
+		err = rlp.DecodeBytes(bytes, &uncle)
+		if err != nil {
+			return nil, err
+		}
+
+		uncles[i] = &uncle
+	}
+
+	return uncles, nil
+}
+
+// GetUnclesByBlockHashAndNumber retrieves uncles for a provided block hash and number
+func (b *Backend) GetUnclesByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) ([]*types.Header, error) {
+	_, uncleBytes, err := b.IPLDRetriever.RetrieveUncles(tx, hash, number)
+	if err != nil {
+		return nil, err
+	}
+
+	uncles := make([]*types.Header, len(uncleBytes))
+	for i, bytes := range uncleBytes {
+		var uncle types.Header
+		err = rlp.DecodeBytes(bytes, &uncle)
+		if err != nil {
+			return nil, err
+		}
+
+		uncles[i] = &uncle
+	}
+
+	return uncles, nil
+}
+
+// GetTransactionsByBlockHash retrieves transactions for a provided block hash
+func (b *Backend) GetTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Transactions, error) {
+	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactionsByBlockHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	txs := make(types.Transactions, len(transactionBytes))
+	for i, txBytes := range transactionBytes {
+		var tx types.Transaction
+		if err := tx.UnmarshalBinary(txBytes); err != nil {
+			return nil, err
+		}
+
+		txs[i] = &tx
+	}
+
+	return txs, nil
+}
+
+// GetTransactionsByBlockHashAndNumber retrieves transactions for a provided block hash and number
+func (b *Backend) GetTransactionsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Transactions, error) {
+	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactions(tx, hash, number)
+	if err != nil {
+		return nil, err
+	}
+
+	txs := make(types.Transactions, len(transactionBytes))
+	for i, txBytes := range transactionBytes {
+		var tx types.Transaction
+		if err := tx.UnmarshalBinary(txBytes); err != nil {
+			return nil, err
+		}
+
+		txs[i] = &tx
+	}
+
+	return txs, nil
+}
+
+// GetReceiptsByBlockHash retrieves receipts for a provided block hash
+func (b *Backend) GetReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Receipts, error) {
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -533,9 +522,99 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 	return rcts, nil
 }
 
+// GetReceiptsByBlockHashAndNumber retrieves receipts for a provided block hash and number
+func (b *Backend) GetReceiptsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Receipts, error) {
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceipts(tx, hash, number)
+	if err != nil {
+		return nil, err
+	}
+	rcts := make(types.Receipts, len(receiptBytes))
+	for i, rctBytes := range receiptBytes {
+		rct := new(types.Receipt)
+		if err := rct.UnmarshalBinary(rctBytes); err != nil {
+			return nil, err
+		}
+		rct.TxHash = txs[i]
+		rcts[i] = rct
+	}
+	return rcts, nil
+}
+
+// GetTransaction retrieves a tx by hash
+// It also returns the blockhash, blocknumber, and tx index associated with the transaction
+func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
+	type txRes struct {
+		Data        []byte `db:"data"`
+		HeaderID    string `db:"header_id"`
+		BlockNumber uint64 `db:"block_number"`
+		Index       uint64 `db:"index"`
+	}
+	var res = make([]txRes, 0)
+	if err := b.DB.Select(&res, RetrieveRPCTransaction, txHash.String()); err != nil {
+		return nil, common.Hash{}, 0, 0, err
+	}
+
+	if len(res) == 0 {
+		return nil, common.Hash{}, 0, 0, errTxHashNotFound
+	} else if len(res) > 1 {
+		// a transaction can be part of a only one canonical block
+		return nil, common.Hash{}, 0, 0, errTxHashInMultipleBlocks
+	}
+
+	var transaction types.Transaction
+	if err := transaction.UnmarshalBinary(res[0].Data); err != nil {
+		return nil, common.Hash{}, 0, 0, err
+	}
+
+	return &transaction, common.HexToHash(res[0].HeaderID), res[0].BlockNumber, res[0].Index, nil
+}
+
+// GetReceipts retrieves receipts for provided block hash
+func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	headerCID, err := b.Retriever.RetrieveHeaderCIDByHash(tx, hash)
+	if err != nil {
+		return nil, err
+	}
+	blockNumber, _ := strconv.ParseUint(string(headerCID.BlockNumber), 10, 64)
+
+	return b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
+}
+
 // GetLogs returns all the logs for the given block hash
-func (b *Backend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(hash)
+func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) ([][]*types.Log, error) {
+	// Begin tx
+	tx, err := b.DB.Beginx()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			shared.Rollback(tx)
+			panic(p)
+		} else if err != nil {
+			shared.Rollback(tx)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceipts(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
@@ -811,6 +890,192 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 	return storageRlp, err
 }
 
+func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage bool) (*GetSliceResponse, error) {
+	response := new(GetSliceResponse)
+	response.init(path, depth, root)
+
+	// Metadata fields
+	metaData := metaDataFields{}
+
+	startTime := makeTimestamp()
+	t, _ := b.StateDatabase.OpenTrie(root)
+	metaData.trieLoadingTime = makeTimestamp() - startTime
+
+	// Convert the head hex path to a decoded byte path
+	headPath := common.FromHex(path)
+
+	// Get Stem nodes
+	err := b.getSliceStem(headPath, t, response, &metaData, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get Head node
+	err = b.getSliceHead(headPath, t, response, &metaData, storage)
+	if err != nil {
+		return nil, err
+	}
+
+	if depth > 0 {
+		// Get Slice nodes
+		err = b.getSliceTrie(headPath, t, response, &metaData, depth, storage)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	response.populateMetaData(metaData)
+
+	return response, nil
+}
+
+func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+	leavesFetchTime := int64(0)
+	totalStemStartTime := makeTimestamp()
+
+	for i := 0; i < len(headPath); i++ {
+		// Create path for each node along the stem
+		nodePath := make([]byte, len(headPath[:i]))
+		copy(nodePath, headPath[:i])
+
+		rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(nodePath))
+		if err != nil {
+			return err
+		}
+
+		// Skip if node not found
+		if rawNode == nil {
+			continue
+		}
+
+		node, nodeElements, err := ResolveNode(nodePath, rawNode, b.StateDatabase.TrieDB())
+		if err != nil {
+			return err
+		}
+
+		leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Stem, response.Leaves, node, nodeElements, storage)
+		if err != nil {
+			return err
+		}
+
+		// Update metadata
+		depthReached := len(node.Path) - len(headPath)
+		if depthReached > metaData.maxDepth {
+			metaData.maxDepth = depthReached
+		}
+		if node.NodeType == sdtypes.Leaf {
+			metaData.leafCount++
+		}
+		leavesFetchTime += leafFetchTime
+	}
+
+	// Update metadata time metrics
+	totalStemTime := makeTimestamp() - totalStemStartTime
+	metaData.sliceNodesFetchTime = totalStemTime - leavesFetchTime
+	metaData.leavesFetchTime += leavesFetchTime
+
+	return nil
+}
+
+func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+	totalHeadStartTime := makeTimestamp()
+
+	rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(headPath))
+	if err != nil {
+		return err
+	}
+
+	// Skip if node not found
+	if rawNode == nil {
+		return nil
+	}
+
+	node, nodeElements, err := ResolveNode(headPath, rawNode, b.StateDatabase.TrieDB())
+	if err != nil {
+		return err
+	}
+
+	leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Head, response.Leaves, node, nodeElements, storage)
+	if err != nil {
+		return err
+	}
+
+	// Update metadata
+	depthReached := len(node.Path) - len(headPath)
+	if depthReached > metaData.maxDepth {
+		metaData.maxDepth = depthReached
+	}
+	if node.NodeType == sdtypes.Leaf {
+		metaData.leafCount++
+	}
+
+	// Update metadata time metrics
+	totalHeadTime := makeTimestamp() - totalHeadStartTime
+	metaData.stemNodesFetchTime = totalHeadTime - leafFetchTime
+	metaData.leavesFetchTime += leafFetchTime
+
+	return nil
+}
+
+func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, depth int, storage bool) error {
+	it, timeTaken := getIteratorAtPath(t, headPath)
+	metaData.trieLoadingTime += timeTaken
+
+	leavesFetchTime := int64(0)
+	totalSliceStartTime := makeTimestamp()
+
+	headPathLen := len(headPath)
+	maxPathLen := headPathLen + depth
+	descend := true
+	for it.Next(descend) {
+		pathLen := len(it.Path())
+
+		// End iteration on coming out of subtrie
+		if pathLen <= headPathLen {
+			break
+		}
+
+		// Avoid descending further if max depth reached
+		if pathLen >= maxPathLen {
+			descend = false
+		} else {
+			descend = true
+		}
+
+		// Skip value nodes
+		if it.Leaf() || bytes.Equal(nullHashBytes, it.Hash().Bytes()) {
+			continue
+		}
+
+		node, nodeElements, err := sdtrie.ResolveNode(it, b.StateDatabase.TrieDB())
+		if err != nil {
+			return err
+		}
+
+		leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Slice, response.Leaves, node, nodeElements, storage)
+		if err != nil {
+			return err
+		}
+
+		// Update metadata
+		depthReached := len(node.Path) - len(headPath)
+		if depthReached > metaData.maxDepth {
+			metaData.maxDepth = depthReached
+		}
+		if node.NodeType == sdtypes.Leaf {
+			metaData.leafCount++
+		}
+		leavesFetchTime += leafFetchTime
+	}
+
+	// Update metadata time metrics
+	totalSliceTime := makeTimestamp() - totalSliceStartTime
+	metaData.sliceNodesFetchTime = totalSliceTime - leavesFetchTime
+	metaData.leavesFetchTime += leavesFetchTime
+
+	return nil
+}
+
 // Engine satisfied the ChainContext interface
 func (b *Backend) Engine() consensus.Engine {
 	// TODO: we need to support more than just ethash based engines
@@ -832,8 +1097,8 @@ func (b *Backend) ValidateTrie(stateRoot common.Hash) error {
 }
 
 // RPCGasCap returns the configured gas cap for the rpc server
-func (b *Backend) RPCGasCap() *big.Int {
-	return b.Config.RPCGasCap
+func (b *Backend) RPCGasCap() uint64 {
+	return b.Config.RPCGasCap.Uint64()
 }
 
 func (b *Backend) SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription {

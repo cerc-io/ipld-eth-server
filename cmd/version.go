@@ -19,7 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	v "github.com/vulcanize/ipld-eth-server/v3/version"
+	v "github.com/cerc-io/ipld-eth-server/v4/version"
 )
 
 // versionCmd represents the version command

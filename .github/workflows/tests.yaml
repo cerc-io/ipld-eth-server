@@ -8,6 +8,16 @@ on:
         required: true
       BUILD_KEY:
         required: true
+    inputs:
+      STACK_ORCHESTRATOR_REF:
+        required: true
+        type: string
+      GO_ETHEREUM_REF:
+        required: true
+        type: string
+      IPLD_ETH_DB_REF:
+        required: true
+        type: string
 
 jobs:
   build:
@@ -27,7 +37,7 @@ jobs:
       BUILD_KEY: ${{ secrets.BUILD_KEY }}
     #strategy:
     #  matrix:
-    #    go-version: [1.16.x, 1.17.x]
+    #    go-version: [1.16.x, 1.17.x, 1.18.x]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -41,9 +51,8 @@ jobs:
           echo ${{ env.BUILD_KEY }} >> /tmp/key
           echo "-----END OPENSSH PRIVATE KEY-----" >> /tmp/key
           chmod 400 /tmp/key
-          cat  /tmp/git_repository
-          cat  /tmp/git_head_ref
-          echo
+          cat /tmp/git_repository
+          cat /tmp/git_head_ref
 
       - name: Raw SCP
         run: |
@@ -69,8 +78,6 @@ jobs:
   integrationtest:
     name: Run integration tests
     env:
-      STACK_ORCHESTRATOR_REF: fcbc74451c5494664fe21f765e89c9c6565c07cb
-      GO_ETHEREUM_REF: 498101102c891c4f8c3cab5649158c642ee1fd6b
       GOPATH: /tmp/go
       DB_WRITE: true
       ETH_FORWARD_ETH_CALLS: false
@@ -82,25 +89,33 @@ jobs:
         run: mkdir -p /tmp/go
       - uses: actions/setup-go@v3
         with:
-          go-version: ">=1.18.0"
+          go-version: "1.18.x"
           check-latest: true
       - uses: actions/checkout@v2
         with:
           path: "./ipld-eth-server"
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.STACK_ORCHESTRATOR_REF }}
+          ref: ${{ inputs.STACK_ORCHESTRATOR_REF }}
           path: "./stack-orchestrator/"
           repository: vulcanize/stack-orchestrator
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.GO_ETHEREUM_REF }}
-          repository: vulcanize/go-ethereum
+          ref: ${{ inputs.GO_ETHEREUM_REF }}
+          repository: cerc-io/go-ethereum
           path: "./go-ethereum/"
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.IPLD_ETH_DB_REF }}
+          repository: cerc-io/ipld-eth-db
+          path: "./ipld-eth-db/"
       - name: Create config file
         run: |
           echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
+          echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
           echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
+          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-server/test/contract >> ./config.sh
+          echo genesis_file_path=start-up-files/go-ethereum/genesis.json >> ./config.sh
           echo db_write=$DB_WRITE >> ./config.sh
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
@@ -115,9 +130,10 @@ jobs:
       - name: Run docker compose
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-db.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-sharding.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-contract.yml" \
           --env-file "$GITHUB_WORKSPACE/config.sh" \
           up -d --build
       - name: Test
@@ -130,8 +146,6 @@ jobs:
   integrationtest_forwardethcalls:
     name: Run integration tests for direct proxy fall-through of eth_calls
     env:
-      STACK_ORCHESTRATOR_REF: fcbc74451c5494664fe21f765e89c9c6565c07cb
-      GO_ETHEREUM_REF: 498101102c891c4f8c3cab5649158c642ee1fd6b
       GOPATH: /tmp/go
       DB_WRITE: false
       ETH_FORWARD_ETH_CALLS: true
@@ -143,25 +157,33 @@ jobs:
         run: mkdir -p /tmp/go
       - uses: actions/setup-go@v3
         with:
-          go-version: ">=1.18.0"
+          go-version: "1.18.x"
           check-latest: true
       - uses: actions/checkout@v2
         with:
           path: "./ipld-eth-server"
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.STACK_ORCHESTRATOR_REF }}
+          ref: ${{ inputs.STACK_ORCHESTRATOR_REF }}
           path: "./stack-orchestrator/"
           repository: vulcanize/stack-orchestrator
       - uses: actions/checkout@v2
         with:
-          ref: ${{ env.GO_ETHEREUM_REF }}
-          repository: vulcanize/go-ethereum
+          ref: ${{ inputs.GO_ETHEREUM_REF }}
+          repository: cerc-io/go-ethereum
           path: "./go-ethereum/"
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ inputs.IPLD_ETH_DB_REF }}
+          repository: cerc-io/ipld-eth-db
+          path: "./ipld-eth-db/"
       - name: Create config file
         run: |
           echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
+          echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
           echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
+          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-server/test/contract >>./config.sh
+          echo genesis_file_path=start-up-files/go-ethereum/genesis.json >> ./config.sh
           echo db_write=$DB_WRITE >> ./config.sh
           echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
           echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
@@ -176,9 +198,10 @@ jobs:
       - name: Run docker compose
         run: |
           docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/latest/docker-compose-db.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-sharding.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
           -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
+          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-contract.yml" \
           --env-file "$GITHUB_WORKSPACE/config.sh" \
           up -d --build
       - name: Test

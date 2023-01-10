@@ -10,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/types"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	integration "github.com/vulcanize/ipld-eth-server/v3/test"
+
+	integration "github.com/cerc-io/ipld-eth-server/v4/test"
 )
 
 var (
@@ -226,8 +226,8 @@ var _ = Describe("WatchAddress integration test", func() {
 
 	Context("one contract being watched", func() {
 		It("indexes state only for the watched contract", func() {
-			operation := types.Add
-			args := []types.WatchAddressArg{
+			operation := sdtypes.Add
+			args := []sdtypes.WatchAddressArg{
 				{
 					Address:   contract1.Address,
 					CreatedAt: uint64(contract1.BlockNumber),
@@ -308,8 +308,8 @@ var _ = Describe("WatchAddress integration test", func() {
 
 	Context("contract added to a non-empty watch-list", func() {
 		It("indexes state only for the watched contracts", func() {
-			operation := types.Add
-			args := []types.WatchAddressArg{
+			operation := sdtypes.Add
+			args := []sdtypes.WatchAddressArg{
 				{
 					Address:   contract2.Address,
 					CreatedAt: uint64(contract2.BlockNumber),
@@ -392,8 +392,8 @@ var _ = Describe("WatchAddress integration test", func() {
 
 	Context("contract removed from the watch-list", func() {
 		It("indexes state only for the watched contract", func() {
-			operation := types.Remove
-			args := []types.WatchAddressArg{
+			operation := sdtypes.Remove
+			args := []sdtypes.WatchAddressArg{
 				{
 					Address:   contract1.Address,
 					CreatedAt: uint64(contract1.BlockNumber),
@@ -474,8 +474,8 @@ var _ = Describe("WatchAddress integration test", func() {
 
 	Context("list of watched addresses set", func() {
 		It("indexes state only for the watched contracts", func() {
-			operation := types.Set
-			args := []types.WatchAddressArg{
+			operation := sdtypes.Set
+			args := []sdtypes.WatchAddressArg{
 				{
 					Address:   contract1.Address,
 					CreatedAt: uint64(contract1.BlockNumber),
@@ -562,8 +562,8 @@ var _ = Describe("WatchAddress integration test", func() {
 
 	Context("list of watched addresses cleared", func() {
 		It("indexes state for all the contracts", func() {
-			operation := types.Clear
-			args := []types.WatchAddressArg{}
+			operation := sdtypes.Clear
+			args := []sdtypes.WatchAddressArg{}
 			ipldErr := ipldRPCClient.Call(nil, ipldMethod, operation, args)
 			Expect(ipldErr).ToNot(HaveOccurred())
 
@@ -656,7 +656,7 @@ var _ = Describe("WatchAddress integration test", func() {
 		})
 
 		It("returns an error on args of invalid type", func() {
-			operation := types.Add
+			operation := sdtypes.Add
 			args := []string{"WrongArg"}
 
 			gethErr := gethRPCClient.Call(nil, gethMethod, operation, args)

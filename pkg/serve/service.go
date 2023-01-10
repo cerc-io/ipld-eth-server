@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/tracers"
 	ethnode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -31,8 +32,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/eth"
-	"github.com/vulcanize/ipld-eth-server/v3/pkg/net"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/debug"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/net"
 )
 
 const (
@@ -146,12 +148,18 @@ func (sap *Service) APIs() []rpc.API {
 	if err != nil {
 		log.Fatalf("unable to create public eth api: %v", err)
 	}
-	return append(apis, rpc.API{
-		Namespace: eth.APIName,
-		Version:   eth.APIVersion,
-		Service:   ethAPI,
-		Public:    true,
-	})
+
+	debugTracerAPI := tracers.APIs(&debug.Backend{Backend: *sap.backend})[0]
+
+	return append(apis,
+		rpc.API{
+			Namespace: eth.APIName,
+			Version:   eth.APIVersion,
+			Service:   ethAPI,
+			Public:    true,
+		},
+		debugTracerAPI,
+	)
 }
 
 // Serve listens for incoming converter data off the screenAndServePayload from the Sync process
