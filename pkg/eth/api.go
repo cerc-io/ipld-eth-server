@@ -707,7 +707,6 @@ func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address,
 	if pea.proxyOnError {
 		var res *hexutil.Big
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getBalance", address, blockNrOrHash); res != nil && err == nil {
-			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
 	}
@@ -755,8 +754,6 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 		logrus.Warnf("Missing eth_getStorageAt(%s, %s, %s)", address.Hash().String(), key, blockNrOrHash.String())
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
-			// If only proxying on error, request statediffing for the missing data.
-			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
 	}
@@ -775,7 +772,6 @@ func (pea *PublicEthAPI) GetCode(ctx context.Context, address common.Address, bl
 	if pea.proxyOnError {
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getCode", address, blockNrOrHash); res != nil && err == nil {
-			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
 	}
@@ -795,7 +791,6 @@ func (pea *PublicEthAPI) GetProof(ctx context.Context, address common.Address, s
 	if pea.proxyOnError {
 		var res *AccountResult
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getProof", address, storageKeys, blockNrOrHash); res != nil && err == nil {
-			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return res, nil
 		}
 	}
@@ -965,7 +960,6 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 	if err != nil && pea.proxyOnError {
 		var hex hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
-			go pea.writeStateDiffAtOrFor(blockNrOrHash)
 			return hex, nil
 		}
 	}
@@ -1056,25 +1050,10 @@ func (pea *PublicEthAPI) writeStateDiffAtOrFor(blockNrOrHash rpc.BlockNumberOrHa
 // writeStateDiffWithCriteria calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffWithCriteria(crit filters.FilterCriteria) {
 	// short circuit right away if the proxy doesn't support diffing
-	if !pea.supportsStateDiff {
+	if !pea.supportsStateDiff || crit.BlockHash == nil {
 		return
 	}
-	if crit.BlockHash != nil {
-		pea.writeStateDiffFor(*crit.BlockHash)
-		return
-	}
-	var start, end int64
-	if crit.FromBlock != nil {
-		start = crit.FromBlock.Int64()
-	}
-	if crit.ToBlock != nil {
-		end = crit.ToBlock.Int64()
-	} else {
-		end = start
-	}
-	for i := start; i <= end; i++ {
-		pea.writeStateDiffAt(i)
-	}
+	pea.writeStateDiffFor(*crit.BlockHash)
 }
 
 // writeStateDiffAt calls out to the proxy statediffing geth client to fill in a gap in the index
