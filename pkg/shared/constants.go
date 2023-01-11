@@ -16,9 +16,12 @@
 
 package shared
 
+import "time"
+
 const (
-	DefaultMaxBatchSize   uint64 = 100
-	DefaultMaxBatchNumber int64  = 50
+	DefaultMaxBatchSize     uint64        = 100
+	DefaultMaxBatchNumber   int64         = 50
+	DefaultStateDiffTimeout time.Duration = 240 * time.Second
 
 	GcachePoolEnabled             = "GCACHE_POOL_ENABLED"
 	GcachePoolHttpPath            = "GCACHE_POOL_HTTP_PATH"

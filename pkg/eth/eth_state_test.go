@@ -24,9 +24,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -40,6 +37,10 @@ import (
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
 var (
@@ -125,7 +126,7 @@ var _ = Describe("eth state reading tests", func() {
 			},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		api, _ = eth.NewPublicEthAPI(backend, nil, false, false, false, false)
+		api, _ = eth.NewPublicEthAPI(backend, nil, eth.APIConfig{false, false, false, false, shared.DefaultStateDiffTimeout})
 
 		// make the test blockchain (and state)
 		blocks, receipts, chain = test_helpers.MakeChain(chainLength, test_helpers.Genesis, test_helpers.TestChainGen)
