@@ -46,8 +46,7 @@ import (
 )
 
 const (
-	defaultEVMTimeout       = 30 * time.Second
-	defaultStateDiffTimeout = 240 * time.Second
+	defaultEVMTimeout = 30 * time.Second
 )
 
 // APIName is the namespace for the watcher's eth api
@@ -56,32 +55,37 @@ const APIName = "eth"
 // APIVersion is the version of the watcher's eth api
 const APIVersion = "0.0.1"
 
+type APIConfig struct {
+	// Proxy node for forwarding cache misses
+	SupportsStateDiff   bool // Whether the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
+	ForwardEthCalls     bool // if true, forward eth_call calls directly to the configured proxy node
+	ForwardGetStorageAt bool // if true, forward eth_getStorageAt calls directly to the configured proxy node
+	ProxyOnError        bool // turn on regular proxy fall-through on errors; needed to test difference between direct and indirect fall-through
+
+	StateDiffTimeout time.Duration
+}
+
 // PublicEthAPI is the eth namespace API
 type PublicEthAPI struct {
 	// Local db backend
-	B *Backend
-
-	// Proxy node for forwarding cache misses
-	supportsStateDiff   bool // Whether the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
-	rpc                 *rpc.Client
-	ethClient           *ethclient.Client
-	forwardEthCalls     bool // if true, forward eth_call calls directly to the configured proxy node
-	forwardGetStorageAt bool // if true, forward eth_getStorageAt calls directly to the configured proxy node
-	proxyOnError        bool // turn on regular proxy fall-through on errors; needed to test difference between direct and indirect fall-through
+	B         *Backend
+	rpc       *rpc.Client
+	ethClient *ethclient.Client
+	config    APIConfig
 }
 
 // NewPublicEthAPI creates a new PublicEthAPI with the provided underlying Backend
-func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardEthCalls, forwardGetStorageAt, proxyOnError bool) (*PublicEthAPI, error) {
+func NewPublicEthAPI(b *Backend, client *rpc.Client, config APIConfig) (*PublicEthAPI, error) {
 	if b == nil {
 		return nil, errors.New("ipld-eth-server must be configured with an ethereum backend")
 	}
-	if forwardEthCalls && client == nil {
+	if config.ForwardEthCalls && client == nil {
 		return nil, errors.New("ipld-eth-server is configured to forward eth_calls to proxy node but no proxy node is configured")
 	}
-	if forwardGetStorageAt && client == nil {
+	if config.ForwardGetStorageAt && client == nil {
 		return nil, errors.New("ipld-eth-server is configured to forward eth_getStorageAt to proxy node but no proxy node is configured")
 	}
-	if proxyOnError && client == nil {
+	if config.ProxyOnError && client == nil {
 		return nil, errors.New("ipld-eth-server is configured to forward all calls to proxy node on errors but no proxy node is configured")
 	}
 	var ethClient *ethclient.Client
@@ -89,13 +93,10 @@ func NewPublicEthAPI(b *Backend, client *rpc.Client, supportsStateDiff, forwardE
 		ethClient = ethclient.NewClient(client)
 	}
 	return &PublicEthAPI{
-		B:                   b,
-		supportsStateDiff:   supportsStateDiff,
-		rpc:                 client,
-		ethClient:           ethClient,
-		forwardEthCalls:     forwardEthCalls,
-		forwardGetStorageAt: forwardGetStorageAt,
-		proxyOnError:        proxyOnError,
+		B:         b,
+		rpc:       client,
+		ethClient: ethClient,
+		config:    config,
 	}, nil
 }
 
@@ -113,7 +114,7 @@ func (pea *PublicEthAPI) GetHeaderByNumber(ctx context.Context, number rpc.Block
 	if header != nil && err == nil {
 		return pea.rpcMarshalHeader(header)
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		if header, err := pea.ethClient.HeaderByNumber(ctx, big.NewInt(number.Int64())); header != nil && err == nil {
 			go pea.writeStateDiffAt(number.Int64())
 			return pea.rpcMarshalHeader(header)
@@ -132,7 +133,7 @@ func (pea *PublicEthAPI) GetHeaderByHash(ctx context.Context, hash common.Hash) 
 		}
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var result map[string]interface{}
 		if err := pea.rpc.CallContext(ctx, &result, "eth_getHeaderByHash", hash); result != nil && err == nil {
 			go pea.writeStateDiffFor(hash)
@@ -174,7 +175,7 @@ func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockN
 		return pea.rpcMarshalBlock(block, true, fullTx)
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		if block, err := pea.ethClient.BlockByNumber(ctx, big.NewInt(number.Int64())); block != nil && err == nil {
 			go pea.writeStateDiffAt(number.Int64())
 			return pea.rpcMarshalBlock(block, true, fullTx)
@@ -193,7 +194,7 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 		return pea.rpcMarshalBlock(block, true, fullTx)
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		if block, err := pea.ethClient.BlockByHash(ctx, hash); block != nil && err == nil {
 			go pea.writeStateDiffFor(hash)
 			return pea.rpcMarshalBlock(block, true, fullTx)
@@ -206,7 +207,7 @@ func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, f
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
 func (pea *PublicEthAPI) ChainId() *hexutil.Big {
 	if pea.B.Config.ChainConfig.ChainID == nil || pea.B.Config.ChainConfig.ChainID.Cmp(big.NewInt(0)) <= 0 {
-		if pea.proxyOnError {
+		if pea.config.ProxyOnError {
 			if id, err := pea.ethClient.ChainID(context.Background()); err == nil {
 				return (*hexutil.Big)(id)
 			}
@@ -237,7 +238,7 @@ func (pea *PublicEthAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, bloc
 		return pea.rpcMarshalBlock(block, false, false)
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		if uncle, uncleHashes, err := getBlockAndUncleHashes(pea.rpc, ctx, "eth_getUncleByBlockNumberAndIndex", blockNr, index); uncle != nil && err == nil {
 			go pea.writeStateDiffAt(blockNr.Int64())
 			return pea.rpcMarshalBlockWithUncleHashes(uncle, uncleHashes, false, false)
@@ -261,7 +262,7 @@ func (pea *PublicEthAPI) GetUncleByBlockHashAndIndex(ctx context.Context, blockH
 		return pea.rpcMarshalBlock(block, false, false)
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		if uncle, uncleHashes, err := getBlockAndUncleHashes(pea.rpc, ctx, "eth_getUncleByBlockHashAndIndex", blockHash, index); uncle != nil && err == nil {
 			go pea.writeStateDiffFor(blockHash)
 			return pea.rpcMarshalBlockWithUncleHashes(uncle, uncleHashes, false, false)
@@ -278,7 +279,7 @@ func (pea *PublicEthAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNr
 		return &n
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var num *hexutil.Uint
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getUncleCountByBlockNumber", blockNr); num != nil && err == nil {
 			go pea.writeStateDiffAt(blockNr.Int64())
@@ -296,7 +297,7 @@ func (pea *PublicEthAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash
 		return &n
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var num *hexutil.Uint
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getUncleCountByBlockHash", blockHash); num != nil && err == nil {
 			go pea.writeStateDiffFor(blockHash)
@@ -320,7 +321,7 @@ func (pea *PublicEthAPI) GetTransactionCount(ctx context.Context, address common
 		return count, nil
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var num *hexutil.Uint64
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getTransactionCount", address, blockNrOrHash); num != nil && err == nil {
 			go pea.writeStateDiffAtOrFor(blockNrOrHash)
@@ -348,7 +349,7 @@ func (pea *PublicEthAPI) GetBlockTransactionCountByNumber(ctx context.Context, b
 		return &n
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var num *hexutil.Uint
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getBlockTransactionCountByNumber", blockNr); num != nil && err == nil {
 			go pea.writeStateDiffAt(blockNr.Int64())
@@ -366,7 +367,7 @@ func (pea *PublicEthAPI) GetBlockTransactionCountByHash(ctx context.Context, blo
 		return &n
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var num *hexutil.Uint
 		if err := pea.rpc.CallContext(ctx, &num, "eth_getBlockTransactionCountByHash", blockHash); num != nil && err == nil {
 			go pea.writeStateDiffFor(blockHash)
@@ -383,7 +384,7 @@ func (pea *PublicEthAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context
 		return newRPCTransactionFromBlockIndex(block, uint64(index))
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var tx *RPCTransaction
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByBlockNumberAndIndex", blockNr, index); tx != nil && err == nil {
 			go pea.writeStateDiffAt(blockNr.Int64())
@@ -400,7 +401,7 @@ func (pea *PublicEthAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, 
 		return newRPCTransactionFromBlockIndex(block, uint64(index))
 	}
 
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var tx *RPCTransaction
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByBlockHashAndIndex", blockHash, index); tx != nil && err == nil {
 			go pea.writeStateDiffFor(blockHash)
@@ -416,7 +417,7 @@ func (pea *PublicEthAPI) GetRawTransactionByBlockNumberAndIndex(ctx context.Cont
 	if block, _ := pea.B.BlockByNumber(ctx, blockNr); block != nil {
 		return newRPCRawTransactionFromBlockIndex(block, uint64(index))
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var tx hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByBlockNumberAndIndex", blockNr, index); tx != nil && err == nil {
 			go pea.writeStateDiffAt(blockNr.Int64())
@@ -431,7 +432,7 @@ func (pea *PublicEthAPI) GetRawTransactionByBlockHashAndIndex(ctx context.Contex
 	if block, _ := pea.B.BlockByHash(ctx, blockHash); block != nil {
 		return newRPCRawTransactionFromBlockIndex(block, uint64(index))
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var tx hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByBlockHashAndIndex", blockHash, index); tx != nil && err == nil {
 			go pea.writeStateDiffFor(blockHash)
@@ -453,7 +454,7 @@ func (pea *PublicEthAPI) GetTransactionByHash(ctx context.Context, hash common.H
 
 		return NewRPCTransaction(tx, blockHash, blockNumber, index, header.BaseFee), nil
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var tx *RPCTransaction
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getTransactionByHash", hash); tx != nil && err == nil {
 			go pea.writeStateDiffFor(hash)
@@ -470,7 +471,7 @@ func (pea *PublicEthAPI) GetRawTransactionByHash(ctx context.Context, hash commo
 	if tx != nil && err == nil {
 		return rlp.EncodeToBytes(tx)
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var tx hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &tx, "eth_getRawTransactionByHash", hash); tx != nil && err == nil {
 			go pea.writeStateDiffFor(hash)
@@ -492,7 +493,7 @@ func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.
 	if receipt != nil && err == nil {
 		return receipt, nil
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		if receipt := pea.remoteGetTransactionReceipt(ctx, hash); receipt != nil {
 			go pea.writeStateDiffFor(hash)
 			return receipt, nil
@@ -590,7 +591,7 @@ func (pea *PublicEthAPI) remoteGetTransactionReceipt(ctx context.Context, hash c
 // https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getlogs
 func (pea *PublicEthAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) ([]*types.Log, error) {
 	logs, err := pea.localGetLogs(crit)
-	if err != nil && pea.proxyOnError {
+	if err != nil && pea.config.ProxyOnError {
 		var res []*types.Log
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getLogs", crit); err == nil {
 			go pea.writeStateDiffWithCriteria(crit)
@@ -704,7 +705,7 @@ func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address,
 	if bal != nil && err == nil {
 		return bal, nil
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var res *hexutil.Big
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getBalance", address, blockNrOrHash); res != nil && err == nil {
 			return res, nil
@@ -729,7 +730,7 @@ func (pea *PublicEthAPI) localGetBalance(ctx context.Context, address common.Add
 // block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta block
 // numbers are also allowed.
 func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Address, key string, blockNrOrHash rpc.BlockNumberOrHash) (hexutil.Bytes, error) {
-	if pea.forwardGetStorageAt {
+	if pea.config.ForwardGetStorageAt {
 		var res hexutil.Bytes
 		// If forwarding all getStorageAt calls, don't request statediffing.
 		err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash)
@@ -750,7 +751,7 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 
 		return value[:], nil
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		logrus.Warnf("Missing eth_getStorageAt(%s, %s, %s)", address.Hash().String(), key, blockNrOrHash.String())
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
@@ -769,7 +770,7 @@ func (pea *PublicEthAPI) GetCode(ctx context.Context, address common.Address, bl
 	if code != nil && err == nil {
 		return code, nil
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getCode", address, blockNrOrHash); res != nil && err == nil {
 			return res, nil
@@ -788,7 +789,7 @@ func (pea *PublicEthAPI) GetProof(ctx context.Context, address common.Address, s
 	if proof != nil && err == nil {
 		return proof, nil
 	}
-	if pea.proxyOnError {
+	if pea.config.ProxyOnError {
 		var res *AccountResult
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getProof", address, storageKeys, blockNrOrHash); res != nil && err == nil {
 			return res, nil
@@ -940,7 +941,7 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 // Note, this function doesn't make and changes in the state/blockchain and is
 // useful to execute and retrieve values.
 func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride) (hexutil.Bytes, error) {
-	if pea.forwardEthCalls {
+	if pea.config.ForwardEthCalls {
 		var hex hexutil.Bytes
 		err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides)
 		return hex, err
@@ -957,7 +958,7 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 		}
 	}
 
-	if err != nil && pea.proxyOnError {
+	if err != nil && pea.config.ProxyOnError {
 		var hex hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &hex, "eth_call", args, blockNrOrHash, overrides); hex != nil && err == nil {
 			return hex, nil
@@ -1035,7 +1036,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 // writeStateDiffAtOrFor calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffAtOrFor(blockNrOrHash rpc.BlockNumberOrHash) {
 	// short circuit right away if the proxy doesn't support diffing
-	if !pea.supportsStateDiff {
+	if !pea.config.SupportsStateDiff {
 		return
 	}
 	if blockNr, ok := blockNrOrHash.Number(); ok {
@@ -1050,7 +1051,7 @@ func (pea *PublicEthAPI) writeStateDiffAtOrFor(blockNrOrHash rpc.BlockNumberOrHa
 // writeStateDiffWithCriteria calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffWithCriteria(crit filters.FilterCriteria) {
 	// short circuit right away if the proxy doesn't support diffing
-	if !pea.supportsStateDiff || crit.BlockHash == nil {
+	if !pea.config.SupportsStateDiff || crit.BlockHash == nil {
 		return
 	}
 	pea.writeStateDiffFor(*crit.BlockHash)
@@ -1058,11 +1059,11 @@ func (pea *PublicEthAPI) writeStateDiffWithCriteria(crit filters.FilterCriteria)
 
 // writeStateDiffAt calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
-	if !pea.supportsStateDiff {
+	if !pea.config.SupportsStateDiff {
 		return
 	}
 	// we use a separate context than the one provided by the client
-	ctx, cancel := context.WithTimeout(context.Background(), defaultStateDiffTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), pea.config.StateDiffTimeout)
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
@@ -1075,17 +1076,17 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 	}
 	logrus.Debugf("Calling statediff_writeStateDiffAt(%d)", height)
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffAt", uint64(height), params); err != nil {
-		logrus.Errorf("writeStateDiffAt %d faild with err %s", height, err.Error())
+		logrus.Errorf("writeStateDiffAt %d failed with err %s", height, err.Error())
 	}
 }
 
 // writeStateDiffFor calls out to the proxy statediffing geth client to fill in a gap in the index
 func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
-	if !pea.supportsStateDiff {
+	if !pea.config.SupportsStateDiff {
 		return
 	}
 	// we use a separate context than the one provided by the client
-	ctx, cancel := context.WithTimeout(context.Background(), defaultStateDiffTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), pea.config.StateDiffTimeout)
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
@@ -1098,7 +1099,7 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 	}
 	logrus.Debugf("Calling statediff_writeStateDiffFor(%s)", blockHash.Hex())
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffFor", blockHash, params); err != nil {
-		logrus.Errorf("writeStateDiffFor %s faild with err %s", blockHash.Hex(), err.Error())
+		logrus.Errorf("writeStateDiffFor %s failed with err %s", blockHash.Hex(), err.Error())
 	}
 }
 

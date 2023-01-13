@@ -50,6 +50,7 @@ const (
 	ETH_RPC_GAS_CAP            = "ETH_RPC_GAS_CAP"
 	ETH_CHAIN_CONFIG           = "ETH_CHAIN_CONFIG"
 	ETH_SUPPORTS_STATEDIFF     = "ETH_SUPPORTS_STATEDIFF"
+	ETH_STATEDIFF_TIMEOUT      = "ETH_STATEDIFF_TIMEOUT"
 	ETH_FORWARD_ETH_CALLS      = "ETH_FORWARD_ETH_CALLS"
 	ETH_FORWARD_GET_STORAGE_AT = "ETH_FORWARD_GET_STORAGE_AT"
 	ETH_PROXY_ON_ERROR         = "ETH_PROXY_ON_ERROR"
@@ -87,6 +88,7 @@ type Config struct {
 	EthHttpEndpoint     string
 	Client              *rpc.Client
 	SupportStateDiff    bool
+	StateDiffTimeout    time.Duration
 	ForwardEthCalls     bool
 	ForwardGetStorageAt bool
 	ProxyOnError        bool
@@ -109,6 +111,7 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
 	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
 	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
+	viper.BindEnv("ethereum.stateDiffTimeout", ETH_STATEDIFF_TIMEOUT)
 	viper.BindEnv("ethereum.forwardEthCalls", ETH_FORWARD_ETH_CALLS)
 	viper.BindEnv("ethereum.forwardGetStorageAt", ETH_FORWARD_GET_STORAGE_AT)
 	viper.BindEnv("ethereum.proxyOnError", ETH_PROXY_ON_ERROR)
@@ -225,6 +228,17 @@ func NewConfig() (*Config, error) {
 		}
 	} else {
 		c.RPCGasCap = big.NewInt(0)
+	}
+	if sdTimeout := viper.GetString("ethereum.stateDiffTimeout"); sdTimeout != "" {
+		var err error
+		if c.StateDiffTimeout, err = time.ParseDuration(sdTimeout); err != nil {
+			return nil, err
+		}
+	} else {
+		c.StateDiffTimeout = ethServerShared.DefaultStateDiffTimeout
+	}
+	if c.StateDiffTimeout < 0 {
+		return nil, errors.New("ethereum.stateDiffTimeout < 0")
 	}
 	chainConfigPath := viper.GetString("ethereum.chainConfig")
 	if chainConfigPath != "" {

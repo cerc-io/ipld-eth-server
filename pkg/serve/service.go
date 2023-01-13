@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -83,6 +84,8 @@ type Service struct {
 	client *rpc.Client
 	// whether the proxied client supports state diffing
 	supportsStateDiffing bool
+	// timeout for statediff RPC calls
+	stateDiffTimeout time.Duration
 	// backend for the server
 	backend *eth.Backend
 	// whether to forward eth_calls directly to proxy node
@@ -107,6 +110,7 @@ func NewServer(settings *Config) (Server, error) {
 	sap.SubscriptionTypes = make(map[common.Hash]eth.SubscriptionSettings)
 	sap.client = settings.Client
 	sap.supportsStateDiffing = settings.SupportStateDiff
+	sap.stateDiffTimeout = settings.StateDiffTimeout
 	sap.forwardEthCalls = settings.ForwardEthCalls
 	sap.forwardGetStorageAt = settings.ForwardGetStorageAt
 	sap.proxyOnError = settings.ProxyOnError
@@ -144,7 +148,14 @@ func (sap *Service) APIs() []rpc.API {
 			Public:    true,
 		},
 	}
-	ethAPI, err := eth.NewPublicEthAPI(sap.backend, sap.client, sap.supportsStateDiffing, sap.forwardEthCalls, sap.forwardGetStorageAt, sap.proxyOnError)
+	conf := eth.APIConfig{
+		SupportsStateDiff:   sap.supportsStateDiffing,
+		ForwardEthCalls:     sap.forwardEthCalls,
+		ForwardGetStorageAt: sap.forwardGetStorageAt,
+		ProxyOnError:        sap.proxyOnError,
+		StateDiffTimeout:    sap.stateDiffTimeout,
+	}
+	ethAPI, err := eth.NewPublicEthAPI(sap.backend, sap.client, conf)
 	if err != nil {
 		log.Fatalf("unable to create public eth api: %v", err)
 	}

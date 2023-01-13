@@ -22,6 +22,7 @@
     rpcGasCap = "1000000000000" # $ETH_RPC_GAS_CAP
     httpPath = "127.0.0.1:8545" # $ETH_HTTP_PATH
     supportsStateDiff = true # $ETH_SUPPORTS_STATEDIFF
+    stateDiffTimeout = "4m" # $ETH_STATEDIFF_TIMEOUT
     forwardEthCalls = false # $ETH_FORWARD_ETH_CALLS
     proxyOnError = true # $ETH_PROXY_ON_ERROR
     nodeID = "arch1" # $ETH_NODE_ID
