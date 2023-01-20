@@ -65,10 +65,6 @@ func initFuncs(cmd *cobra.Command, args []string) {
 	}
 }
 
-func logLevel() error {
-	return log.Init()
-}
-
 func init() {
 	cobra.OnInitialize(initConfig)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
