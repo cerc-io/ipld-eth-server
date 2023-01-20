@@ -40,18 +40,16 @@ const (
 )
 
 // Peek at the request and update the Context accordingly (eg, API method, user ID, etc.)
-func prepareRequest(r *http.Request) (*http.Request, error) {
+func preprocessRequest(r *http.Request) (*http.Request, error) {
 	// Generate a unique ID for this request.
 	uniqId, err := uuid.NewUUID()
 	if nil != err {
-		log.Error("Error generating ID: ", err)
 		return nil, err
 	}
 
 	// Read the body so that we can peek inside.
 	body, err := io.ReadAll(r.Body)
 	if nil != err {
-		log.Error("Error reading request body: ", err)
 		return nil, err
 	}
 
@@ -62,7 +60,6 @@ func prepareRequest(r *http.Request) (*http.Request, error) {
 	var result map[string]interface{}
 	err = json.Unmarshal(body, &result)
 	if nil != err {
-		log.Error("Error parsing request body: ", err)
 		return nil, err
 	}
 
@@ -98,9 +95,10 @@ func prepareRequest(r *http.Request) (*http.Request, error) {
 func HTTPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		r, err := prepareRequest(r)
+		r, err := preprocessRequest(r)
 		if nil != err {
-			w.WriteHeader(400)
+			log.WithError(err).Error("Error preprocessing request")
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		ctx := r.Context()
