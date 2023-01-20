@@ -170,8 +170,6 @@ func (pea *PublicEthAPI) BlockNumber() hexutil.Uint64 {
 // * When fullTx is true all transactions in the block are returned, otherwise
 //   only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
-	ctx = context.WithValue(ctx, log.CtxKeyBlockNumber, number.Int64())
-	log.Debugx(ctx, "getBlockByNumber")
 	block, err := pea.B.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)
@@ -190,8 +188,6 @@ func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockN
 // GetBlockByHash returns the requested block. When fullTx is true all transactions in the block are returned in full
 // detail, otherwise only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, fullTx bool) (map[string]interface{}, error) {
-	ctx = context.WithValue(ctx, log.CtxKeyBlockHash, hash.Hex())
-	log.Debugx(ctx, "getBlockByHash")
 	block, err := pea.B.BlockByHash(ctx, hash)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)

@@ -69,11 +69,11 @@ func prepareRequest(r *http.Request) (*http.Request, error) {
 	// Pull out the method name, request ID, user ID, and address info.
 	reqId := fmt.Sprintf("%g", result[jsonReqId])
 	reqMethod := fmt.Sprintf("%v", result[jsonMethod])
-	reqParams, _ := json.Marshal(result[jsonParams])
+	reqParams := fmt.Sprintf("%v", result[jsonParams])
 	// Truncate parameters unless trace logging is enabled.
 	if !log.IsLevelEnabled(log.TraceLevel) {
-		if len(reqParams) > 100 {
-			reqParams = reqParams[:100]
+		if len(reqParams) > 250 {
+			reqParams = reqParams[:250] + "..."
 		}
 	}
 	userId := r.Header.Get(headerUserId)
@@ -86,7 +86,7 @@ func prepareRequest(r *http.Request) (*http.Request, error) {
 	ctx := r.Context()
 	ctx = context.WithValue(ctx, log.CtxKeyUniqId, uniqId.String())
 	ctx = context.WithValue(ctx, log.CtxKeyApiMethod, reqMethod)
-	ctx = context.WithValue(ctx, log.CtxKeyApiMethod, reqParams)
+	ctx = context.WithValue(ctx, log.CtxKeyApiParams, string(reqParams))
 	ctx = context.WithValue(ctx, log.CtxKeyApiReqId, reqId)
 	ctx = context.WithValue(ctx, log.CtxKeyUserId, userId)
 	ctx = context.WithValue(ctx, log.CtxKeyConn, conn)

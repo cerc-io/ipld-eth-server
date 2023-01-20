@@ -13,15 +13,16 @@ import (
 )
 
 const (
-	CtxKeyUniqId      = "id"
 	CtxKeyApiMethod   = "api_method"
 	CtxKeyApiParams   = "api_params"
 	CtxKeyApiReqId    = "api_reqid"
-	CtxKeyUserId      = "user_id"
+	CtxKeyBlockHash   = "block_hash"
+	CtxKeyBlockNumber = "block_num"
 	CtxKeyConn        = "conn"
 	CtxKeyDuration    = "duration"
-	CtxKeyBlockNumber = "block_num"
-	CtxKeyBlockHash   = "block_hash"
+	CtxKeyError       = "err"
+	CtxKeyUniqId      = "uuid"
+	CtxKeyUserId      = "user_id"
 )
 
 // TODO: Allow registering arbitrary keys.
@@ -33,6 +34,7 @@ var registeredKeys = []string{
 	CtxKeyBlockNumber,
 	CtxKeyConn,
 	CtxKeyDuration,
+	CtxKeyError,
 	CtxKeyUniqId,
 	CtxKeyUserId,
 }
