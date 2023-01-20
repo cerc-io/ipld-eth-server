@@ -42,8 +42,8 @@ const TraceLevel = logrus.TraceLevel
 
 type Entry = logrus.Entry
 
-func GetLog(ctx context.Context) *logrus.Entry {
-	entry := logrus.WithContext(ctx)
+func FieldsFromContext(ctx context.Context) *logrus.Entry {
+	entry := logrus.FieldsFromContext(ctx)
 
 	for _, key := range registeredKeys {
 		if value := ctx.Value(key); value != nil {
@@ -54,45 +54,45 @@ func GetLog(ctx context.Context) *logrus.Entry {
 }
 
 func Fatalx(ctx context.Context, args ...interface{}) {
-	GetLog(ctx).Fatal(args...)
+	FieldsFromContext(ctx).Fatal(args...)
 }
 
 func Errorx(ctx context.Context, args ...interface{}) {
-	GetLog(ctx).Error(args...)
+	FieldsFromContext(ctx).Error(args...)
 }
 
 func Warnx(ctx context.Context, args ...interface{}) {
-	GetLog(ctx).Warn(args...)
+	FieldsFromContext(ctx).Warn(args...)
 }
 
 func Infox(ctx context.Context, args ...interface{}) {
-	GetLog(ctx).Info(args...)
+	FieldsFromContext(ctx).Info(args...)
 }
 
 func Debugx(ctx context.Context, args ...interface{}) {
-	GetLog(ctx).Debug(args...)
+	FieldsFromContext(ctx).Debug(args...)
 }
 
 func Tracex(ctx context.Context, args ...interface{}) {
-	GetLog(ctx).Trace(args...)
+	FieldsFromContext(ctx).Trace(args...)
 }
 
 func Errorxf(ctx context.Context, format string, args ...interface{}) {
-	GetLog(ctx).Errorf(format, args...)
+	FieldsFromContext(ctx).Errorf(format, args...)
 }
 
 func Warnxf(ctx context.Context, format string, args ...interface{}) {
-	GetLog(ctx).Warnf(format, args...)
+	FieldsFromContext(ctx).Warnf(format, args...)
 }
 
 func Infoxf(ctx context.Context, format string, args ...interface{}) {
-	GetLog(ctx).Infof(format, args...)
+	FieldsFromContext(ctx).Infof(format, args...)
 }
 func Debugxf(ctx context.Context, format string, args ...interface{}) {
-	GetLog(ctx).Debugf(format, args...)
+	FieldsFromContext(ctx).Debugf(format, args...)
 }
 func Tracexf(ctx context.Context, format string, args ...interface{}) {
-	GetLog(ctx).Tracef(format, args...)
+	FieldsFromContext(ctx).Tracef(format, args...)
 }
 
 func Fatal(args ...interface{}) {
