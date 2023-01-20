@@ -33,6 +33,7 @@ import (
 
 const (
 	jsonMethod               = "method"
+	jsonParams               = "params"
 	jsonReqId                = "id"
 	headerUserId             = "X-User-Id"
 	headerOriginalRemoteAddr = "X-Original-Remote-Addr"
@@ -66,8 +67,15 @@ func prepareRequest(r *http.Request) (*http.Request, error) {
 	}
 
 	// Pull out the method name, request ID, user ID, and address info.
-	reqMethod := fmt.Sprintf("%v", result[jsonMethod])
 	reqId := fmt.Sprintf("%g", result[jsonReqId])
+	reqMethod := fmt.Sprintf("%v", result[jsonMethod])
+	reqParams, _ := json.Marshal(result[jsonParams])
+	// Truncate parameters unless trace logging is enabled.
+	if !log.IsLevelEnabled(log.TraceLevel) {
+		if len(reqParams) > 100 {
+			reqParams = reqParams[:100]
+		}
+	}
 	userId := r.Header.Get(headerUserId)
 	conn := r.Header.Get(headerOriginalRemoteAddr)
 	if len(conn) == 0 {
@@ -78,7 +86,8 @@ func prepareRequest(r *http.Request) (*http.Request, error) {
 	ctx := r.Context()
 	ctx = context.WithValue(ctx, log.CtxKeyUniqId, uniqId.String())
 	ctx = context.WithValue(ctx, log.CtxKeyApiMethod, reqMethod)
-	ctx = context.WithValue(ctx, log.CtxKeyReqId, reqId)
+	ctx = context.WithValue(ctx, log.CtxKeyApiMethod, reqParams)
+	ctx = context.WithValue(ctx, log.CtxKeyApiReqId, reqId)
 	ctx = context.WithValue(ctx, log.CtxKeyUserId, userId)
 	ctx = context.WithValue(ctx, log.CtxKeyConn, conn)
 

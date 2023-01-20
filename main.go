@@ -17,12 +17,8 @@ package main
 
 import (
 	"github.com/cerc-io/ipld-eth-server/v4/cmd"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	logrus.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
 	cmd.Execute()
 }

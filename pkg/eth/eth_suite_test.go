@@ -17,8 +17,10 @@
 package eth_test
 
 import (
+	"io/ioutil"
 	"testing"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -29,4 +31,5 @@ func TestETHSuite(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	log.SetOutput(ioutil.Discard)
 })

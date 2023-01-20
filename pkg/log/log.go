@@ -3,6 +3,7 @@ package log
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strings"
@@ -13,8 +14,9 @@ import (
 
 const (
 	CtxKeyUniqId      = "id"
-	CtxKeyApiMethod   = "method"
-	CtxKeyReqId       = "reqid"
+	CtxKeyApiMethod   = "api_method"
+	CtxKeyApiParams   = "api_params"
+	CtxKeyApiReqId    = "api_reqid"
 	CtxKeyUserId      = "user_id"
 	CtxKeyConn        = "conn"
 	CtxKeyDuration    = "duration"
@@ -25,13 +27,14 @@ const (
 // TODO: Allow registering arbitrary keys.
 var registeredKeys = []string{
 	CtxKeyApiMethod,
-	CtxKeyReqId,
-	CtxKeyUserId,
+	CtxKeyApiParams,
+	CtxKeyApiReqId,
+	CtxKeyBlockHash,
+	CtxKeyBlockNumber,
 	CtxKeyConn,
 	CtxKeyDuration,
 	CtxKeyUniqId,
-	CtxKeyBlockNumber,
-	CtxKeyBlockHash,
+	CtxKeyUserId,
 }
 
 const FatalLevel = logrus.FatalLevel
@@ -41,8 +44,9 @@ const DebugLevel = logrus.DebugLevel
 const TraceLevel = logrus.TraceLevel
 
 type Entry = logrus.Entry
+type Level = logrus.Level
 
-func WithFieldsFromContext(ctx context.Context) *logrus.Entry {
+func WithFieldsFromContext(ctx context.Context) *Entry {
 	entry := logrus.WithContext(ctx)
 
 	for _, key := range registeredKeys {
@@ -138,6 +142,18 @@ func Tracef(format string, args ...interface{}) {
 	logrus.Tracef(format, args...)
 }
 
+func SetOutput(out io.Writer) {
+	logrus.SetOutput(out)
+}
+
+func SetLevel(lvl Level) {
+	logrus.SetLevel(lvl)
+}
+
+func IsLevelEnabled(lvl Level) bool {
+	return logrus.IsLevelEnabled(lvl)
+}
+
 func WithError(err error) *Entry {
 	return logrus.WithError(err)
 }
@@ -154,14 +170,14 @@ func Init() error {
 		file, err := os.OpenFile(logFile,
 			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
 		if err == nil {
-			logrus.Infof("Directing output to %s", logFile)
-			logrus.SetOutput(file)
+			Infof("Directing output to %s", logFile)
+			SetOutput(file)
 		} else {
-			logrus.SetOutput(os.Stdout)
-			logrus.Info("Failed to logrus.to file, using default stdout")
+			SetOutput(os.Stdout)
+			Info("Failed to logrus.to file, using default stdout")
 		}
 	} else {
-		logrus.SetOutput(os.Stdout)
+		SetOutput(os.Stdout)
 	}
 
 	// Set the level.
@@ -170,9 +186,11 @@ func Init() error {
 	if err != nil {
 		return err
 	}
-	logrus.SetLevel(lvl)
+	SetLevel(lvl)
 
-	formatter := &logrus.TextFormatter{}
+	formatter := &logrus.TextFormatter{
+		FullTimestamp: true,
+	}
 	// Show file/line number only at Trace level.
 	if lvl >= TraceLevel {
 		logrus.SetReportCaller(true)
@@ -199,6 +217,6 @@ func Init() error {
 	}
 
 	logrus.SetFormatter(formatter)
-	logrus.Info("Log level set to ", lvl.String())
+	Info("Log level set to ", lvl.String())
 	return nil
 }

@@ -18,9 +18,9 @@ package net_test
 
 import (
 	"io/ioutil"
-	"log"
 	"testing"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
