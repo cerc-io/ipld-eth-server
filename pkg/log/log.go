@@ -109,9 +109,11 @@ func Warnxf(ctx context.Context, format string, args ...interface{}) {
 func Infoxf(ctx context.Context, format string, args ...interface{}) {
 	WithFieldsFromContext(ctx).Infof(format, args...)
 }
+
 func Debugxf(ctx context.Context, format string, args ...interface{}) {
 	WithFieldsFromContext(ctx).Debugf(format, args...)
 }
+
 func Tracexf(ctx context.Context, format string, args ...interface{}) {
 	WithFieldsFromContext(ctx).Tracef(format, args...)
 }
@@ -119,6 +121,7 @@ func Tracexf(ctx context.Context, format string, args ...interface{}) {
 func Fatal(args ...interface{}) {
 	logrus.Fatal(args...)
 }
+
 func Error(args ...interface{}) {
 	logrus.Error(args...)
 }
@@ -138,9 +141,11 @@ func Debug(args ...interface{}) {
 func Trace(args ...interface{}) {
 	logrus.Trace(args...)
 }
+
 func Fatalf(format string, args ...interface{}) {
 	logrus.Fatalf(format, args...)
 }
+
 func Errorf(format string, args ...interface{}) {
 	logrus.Errorf(format, args...)
 }
@@ -152,9 +157,11 @@ func Warnf(format string, args ...interface{}) {
 func Infof(format string, args ...interface{}) {
 	logrus.Infof(format, args...)
 }
+
 func Debugf(format string, args ...interface{}) {
 	logrus.Debugf(format, args...)
 }
+
 func Tracef(format string, args ...interface{}) {
 	logrus.Tracef(format, args...)
 }
