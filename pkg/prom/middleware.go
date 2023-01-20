@@ -96,10 +96,6 @@ func prepareRequest(r *http.Request) (*http.Request, error) {
 
 // HTTPMiddleware http connection metric reader
 func HTTPMiddleware(next http.Handler) http.Handler {
-	if !metrics {
-		return next
-	}
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		r, err := prepareRequest(r)
@@ -109,14 +105,19 @@ func HTTPMiddleware(next http.Handler) http.Handler {
 		}
 		ctx := r.Context()
 		apiMethod := fmt.Sprintf("%s", ctx.Value(log.CtxKeyApiMethod))
-		httpCount.WithLabelValues(apiMethod).Inc()
+
+		if metrics {
+			httpCount.WithLabelValues(apiMethod).Inc()
+		}
+
 		log.Debugx(ctx, "START")
-
 		next.ServeHTTP(w, r)
-
 		duration := time.Now().Sub(start)
 		log.Debugxf(context.WithValue(ctx, log.CtxKeyDuration, duration.Milliseconds()), "END")
-		httpDuration.WithLabelValues(apiMethod).Observe(duration.Seconds())
+
+		if metrics {
+			httpDuration.WithLabelValues(apiMethod).Observe(duration.Seconds())
+		}
 	})
 }
 
