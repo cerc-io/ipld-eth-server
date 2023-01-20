@@ -42,7 +42,7 @@ const TraceLevel = logrus.TraceLevel
 
 type Entry = logrus.Entry
 
-func FieldsFromContext(ctx context.Context) *logrus.Entry {
+func WithFieldsFromContext(ctx context.Context) *logrus.Entry {
 	entry := logrus.WithContext(ctx)
 
 	for _, key := range registeredKeys {
@@ -54,45 +54,45 @@ func FieldsFromContext(ctx context.Context) *logrus.Entry {
 }
 
 func Fatalx(ctx context.Context, args ...interface{}) {
-	FieldsFromContext(ctx).Fatal(args...)
+	WithFieldsFromContext(ctx).Fatal(args...)
 }
 
 func Errorx(ctx context.Context, args ...interface{}) {
-	FieldsFromContext(ctx).Error(args...)
+	WithFieldsFromContext(ctx).Error(args...)
 }
 
 func Warnx(ctx context.Context, args ...interface{}) {
-	FieldsFromContext(ctx).Warn(args...)
+	WithFieldsFromContext(ctx).Warn(args...)
 }
 
 func Infox(ctx context.Context, args ...interface{}) {
-	FieldsFromContext(ctx).Info(args...)
+	WithFieldsFromContext(ctx).Info(args...)
 }
 
 func Debugx(ctx context.Context, args ...interface{}) {
-	FieldsFromContext(ctx).Debug(args...)
+	WithFieldsFromContext(ctx).Debug(args...)
 }
 
 func Tracex(ctx context.Context, args ...interface{}) {
-	FieldsFromContext(ctx).Trace(args...)
+	WithFieldsFromContext(ctx).Trace(args...)
 }
 
 func Errorxf(ctx context.Context, format string, args ...interface{}) {
-	FieldsFromContext(ctx).Errorf(format, args...)
+	WithFieldsFromContext(ctx).Errorf(format, args...)
 }
 
 func Warnxf(ctx context.Context, format string, args ...interface{}) {
-	FieldsFromContext(ctx).Warnf(format, args...)
+	WithFieldsFromContext(ctx).Warnf(format, args...)
 }
 
 func Infoxf(ctx context.Context, format string, args ...interface{}) {
-	FieldsFromContext(ctx).Infof(format, args...)
+	WithFieldsFromContext(ctx).Infof(format, args...)
 }
 func Debugxf(ctx context.Context, format string, args ...interface{}) {
-	FieldsFromContext(ctx).Debugf(format, args...)
+	WithFieldsFromContext(ctx).Debugf(format, args...)
 }
 func Tracexf(ctx context.Context, format string, args ...interface{}) {
-	FieldsFromContext(ctx).Tracef(format, args...)
+	WithFieldsFromContext(ctx).Tracef(format, args...)
 }
 
 func Fatal(args ...interface{}) {
