@@ -43,7 +43,7 @@ const TraceLevel = logrus.TraceLevel
 type Entry = logrus.Entry
 
 func FieldsFromContext(ctx context.Context) *logrus.Entry {
-	entry := logrus.FieldsFromContext(ctx)
+	entry := logrus.WithContext(ctx)
 
 	for _, key := range registeredKeys {
 		if value := ctx.Value(key); value != nil {
