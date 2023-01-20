@@ -18,9 +18,8 @@ package test_config
 
 import (
 	"errors"
-
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -35,7 +34,7 @@ func setTestConfig() {
 	vip.SetConfigName("testing")
 	vip.AddConfigPath("$GOPATH/src/github.com/cerc-io/ipld-eth-server/environments/")
 	if err := vip.ReadInConfig(); err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 	ipc := vip.GetString("client.ipcPath")
 
@@ -45,7 +44,7 @@ func setTestConfig() {
 		ipc = vip.GetString("url")
 	}
 	if ipc == "" {
-		logrus.Fatal(errors.New("testing.toml IPC path or $INFURA_URL env variable need to be set"))
+		log.Fatal(errors.New("testing.toml IPC path or $INFURA_URL env variable need to be set"))
 	}
 
 	hn := vip.GetString("database.hostname")

@@ -33,8 +33,8 @@ const (
 var (
 	metrics bool
 
-	httpCount    prometheus.Counter
-	httpDuration prometheus.Histogram
+	httpCount    *prometheus.CounterVec
+	httpDuration *prometheus.HistogramVec
 	wsCount      prometheus.Gauge
 	ipcCount     prometheus.Gauge
 )
@@ -43,18 +43,19 @@ var (
 func Init() {
 	metrics = true
 
-	httpCount = promauto.NewCounter(prometheus.CounterOpts{
+	httpCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: subsystemHTTP,
 		Name:      "count",
 		Help:      "http request count",
-	})
-	httpDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+	}, []string{"method"})
+
+	httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: subsystemHTTP,
 		Name:      "duration",
 		Help:      "http request duration",
-	})
+	}, []string{"method"})
 
 	wsCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,

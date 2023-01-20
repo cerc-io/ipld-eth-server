@@ -17,12 +17,12 @@
 package shared
 
 import (
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 )
 
 // HandleZeroAddrPointer will return an emtpy string for a nil address pointer
@@ -44,7 +44,7 @@ func HandleZeroAddr(to common.Address) string {
 // Rollback sql transaction and log any error
 func Rollback(tx *sqlx.Tx) {
 	if err := tx.Rollback(); err != nil {
-		logrus.Error(err)
+		log.Error(err)
 	}
 }
 

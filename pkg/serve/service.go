@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,7 +32,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jmoiron/sqlx"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/debug"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"

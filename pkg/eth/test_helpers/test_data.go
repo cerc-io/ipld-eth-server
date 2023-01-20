@@ -23,6 +23,7 @@ import (
 	"crypto/rand"
 	"math/big"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -36,7 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/multiformats/go-multihash"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 )

@@ -18,11 +18,11 @@ package net_test
 
 import (
 	"io/ioutil"
+	"log"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 func TestNetSuite(t *testing.T) {
@@ -31,5 +31,5 @@ func TestNetSuite(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logrus.SetOutput(ioutil.Discard)
+	log.SetOutput(ioutil.Discard)
 })

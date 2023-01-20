@@ -18,15 +18,14 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/joho/godotenv"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/prom"
 )
 
@@ -50,24 +49,7 @@ func Execute() {
 }
 
 func initFuncs(cmd *cobra.Command, args []string) {
-	viper.BindEnv("log.file", "LOGRUS_FILE")
-	logfile := viper.GetString("log.file")
-	if logfile != "" {
-		file, err := os.OpenFile(logfile,
-			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err == nil {
-			log.Infof("Directing output to %s", logfile)
-			log.SetOutput(file)
-		} else {
-			log.SetOutput(os.Stdout)
-			log.Info("Failed to log to file, using default stdout")
-		}
-	} else {
-		log.SetOutput(os.Stdout)
-	}
-	if err := logLevel(); err != nil {
-		log.Fatal("Could not set log level: ", err)
-	}
+	log.Init()
 
 	if viper.GetBool("metrics") {
 		prom.Init()
@@ -84,17 +66,7 @@ func initFuncs(cmd *cobra.Command, args []string) {
 }
 
 func logLevel() error {
-	viper.BindEnv("log.level", "LOGRUS_LEVEL")
-	lvl, err := log.ParseLevel(viper.GetString("log.level"))
-	if err != nil {
-		return err
-	}
-	log.SetLevel(lvl)
-	if lvl > log.InfoLevel {
-		log.SetReportCaller(true)
-	}
-	log.Info("Log level set to ", lvl.String())
-	return nil
+	return log.Init()
 }
 
 func init() {

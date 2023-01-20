@@ -17,11 +17,73 @@
 package prom
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"time"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/google/uuid"
+
 	"github.com/ethereum/go-ethereum/rpc"
 )
+
+const (
+	jsonMethod               = "method"
+	jsonReqId                = "id"
+	headerUserId             = "X-User-Id"
+	headerOriginalRemoteAddr = "X-Original-Remote-Addr"
+)
+
+// Peek at the request and update the Context accordingly (eg, API method, user ID, etc.)
+func prepareRequest(r *http.Request) (*http.Request, error) {
+	// Generate a unique ID for this request.
+	uniqId, err := uuid.NewUUID()
+	if nil != err {
+		log.Error("Error generating ID: ", err)
+		return nil, err
+	}
+
+	// Read the body so that we can peek inside.
+	body, err := io.ReadAll(r.Body)
+	if nil != err {
+		log.Error("Error reading request body: ", err)
+		return nil, err
+	}
+
+	// Replace it with a re-readable copy.
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// All API requests should be JSON.
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if nil != err {
+		log.Error("Error parsing request body: ", err)
+		return nil, err
+	}
+
+	// Pull out the method name, request ID, user ID, and address info.
+	reqMethod := fmt.Sprintf("%v", result[jsonMethod])
+	reqId := fmt.Sprintf("%g", result[jsonReqId])
+	userId := r.Header.Get(headerUserId)
+	conn := r.Header.Get(headerOriginalRemoteAddr)
+	if len(conn) == 0 {
+		conn = r.RemoteAddr
+	}
+
+	// Add it all to the request context.
+	ctx := r.Context()
+	ctx = context.WithValue(ctx, log.CtxKeyUniqId, uniqId.String())
+	ctx = context.WithValue(ctx, log.CtxKeyApiMethod, reqMethod)
+	ctx = context.WithValue(ctx, log.CtxKeyReqId, reqId)
+	ctx = context.WithValue(ctx, log.CtxKeyUserId, userId)
+	ctx = context.WithValue(ctx, log.CtxKeyConn, conn)
+
+	return r.WithContext(ctx), nil
+}
 
 // HTTPMiddleware http connection metric reader
 func HTTPMiddleware(next http.Handler) http.Handler {
@@ -30,12 +92,22 @@ func HTTPMiddleware(next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		httpCount.Inc()
-
 		start := time.Now()
+		r, err := prepareRequest(r)
+		if nil != err {
+			w.WriteHeader(400)
+			return
+		}
+		ctx := r.Context()
+		apiMethod := fmt.Sprintf("%s", ctx.Value(log.CtxKeyApiMethod))
+		httpCount.WithLabelValues(apiMethod).Inc()
+		log.Debugx(ctx, "START")
+
 		next.ServeHTTP(w, r)
+
 		duration := time.Now().Sub(start)
-		httpDuration.Observe(float64(duration.Seconds()))
+		log.Debugxf(context.WithValue(ctx, log.CtxKeyDuration, duration.Milliseconds()), "END")
+		httpDuration.WithLabelValues(apiMethod).Observe(duration.Seconds())
 	})
 }
 

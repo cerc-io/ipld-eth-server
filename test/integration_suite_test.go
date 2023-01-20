@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 func TestIntegration(t *testing.T) {
@@ -15,5 +14,4 @@ func TestIntegration(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logrus.SetOutput(ioutil.Discard)
 })

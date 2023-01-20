@@ -17,12 +17,10 @@
 package eth_test
 
 import (
-	"io/ioutil"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 )
 
 func TestETHSuite(t *testing.T) {
@@ -31,5 +29,4 @@ func TestETHSuite(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logrus.SetOutput(ioutil.Discard)
 })

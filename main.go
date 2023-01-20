@@ -16,9 +16,8 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
-
 	"github.com/cerc-io/ipld-eth-server/v4/cmd"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
