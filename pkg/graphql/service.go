@@ -27,9 +27,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 )
 
 // Service encapsulates a GraphQL service.
@@ -77,7 +77,7 @@ func (s *Service) Start(server *p2p.Server) error {
 		utils.Fatalf("Could not start RPC api: %v", err)
 	}
 	extapiURL := fmt.Sprintf("http://%v/", addr)
-	logrus.Infof("graphQL endpoint opened for url %s", extapiURL)
+	log.Infof("graphQL endpoint opened for url %s", extapiURL)
 	return nil
 }
 
@@ -105,7 +105,7 @@ func (s *Service) Stop() error {
 	if s.listener != nil {
 		s.listener.Close()
 		s.listener = nil
-		logrus.Debugf("graphQL endpoint closed for url %s", fmt.Sprintf("http://%s", s.endpoint))
+		log.Debugf("graphQL endpoint closed for url %s", fmt.Sprintf("http://%s", s.endpoint))
 	}
 	return nil
 }

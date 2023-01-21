@@ -19,9 +19,9 @@ package serve
 import (
 	"context"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/types"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 )

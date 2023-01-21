@@ -16,7 +16,7 @@
 package cmd
 
 import (
-	log "github.com/sirupsen/logrus"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/spf13/cobra"
 
 	v "github.com/cerc-io/ipld-eth-server/v4/version"

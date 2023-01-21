@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"errors"
-	"github.com/mailgun/groupcache/v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,8 +25,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mailgun/groupcache/v2"
+
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/rpc"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vulcanize/gap-filler/pkg/mux"
@@ -255,7 +256,7 @@ func startStateTrieValidator(config *s.Config, server s.Server) {
 
 		block, err := backend.CurrentBlock()
 		if err != nil {
-			log.Errorln("Error fetching current block for state trie validator")
+			log.Error("Error fetching current block for state trie validator")
 			continue
 		}
 

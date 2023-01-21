@@ -22,13 +22,13 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
-	"github.com/sirupsen/logrus"
 )
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
@@ -142,7 +142,7 @@ func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (types.Mes
 		gas = uint64(*arg.Gas)
 	}
 	if globalGasCap != 0 && globalGasCap < gas {
-		logrus.Warn("Caller gas above allowance, capping", "requested", gas, "cap", globalGasCap)
+		log.Warn("Caller gas above allowance, capping", "requested", gas, "cap", globalGasCap)
 		gas = globalGasCap
 	}
 	var (

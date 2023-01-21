@@ -28,6 +28,7 @@ import (
 
 	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
 	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -48,7 +49,6 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )

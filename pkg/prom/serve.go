@@ -20,8 +20,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 )
 
 var errPromHTTP = errors.New("can't start http server for prometheus")
@@ -36,7 +36,7 @@ func Serve(addr string) *http.Server {
 	}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			logrus.
+			log.
 				WithError(err).
 				WithField("module", "prom").
 				WithField("addr", addr).

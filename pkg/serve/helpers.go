@@ -16,7 +16,7 @@
 
 package serve
 
-import log "github.com/sirupsen/logrus"
+import "github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 
 func sendNonBlockingErr(sub Subscription, err error) {
 	log.Error(err)

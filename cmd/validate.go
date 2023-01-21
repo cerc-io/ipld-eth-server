@@ -20,8 +20,8 @@ import (
 
 	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
 	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -65,13 +65,13 @@ func validate() {
 
 	val := validator.NewValidator(nil, ethDB)
 	if err = val.ValidateTrie(stateRoot); err != nil {
-		log.Fatalln("Error validating state root")
+		log.Fatal("Error validating state root")
 	}
 
 	stats := ethDB.(*ipfsethdb.Database).GetCacheStats()
 	log.Debugf("groupcache stats %+v", stats)
 
-	log.Infoln("Successfully validated state root")
+	log.Info("Successfully validated state root")
 }
 
 func init() {

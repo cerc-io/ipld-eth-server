@@ -21,12 +21,12 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 

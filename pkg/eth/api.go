@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -40,7 +42,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
@@ -169,7 +170,6 @@ func (pea *PublicEthAPI) BlockNumber() hexutil.Uint64 {
 // * When fullTx is true all transactions in the block are returned, otherwise
 //   only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
-	logrus.Debug("Received getBlockByNumber request for number ", number.Int64())
 	block, err := pea.B.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)
@@ -188,7 +188,6 @@ func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockN
 // GetBlockByHash returns the requested block. When fullTx is true all transactions in the block are returned in full
 // detail, otherwise only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByHash(ctx context.Context, hash common.Hash, fullTx bool) (map[string]interface{}, error) {
-	logrus.Debug("Received getBlockByHash request for hash ", hash.Hex())
 	block, err := pea.B.BlockByHash(ctx, hash)
 	if block != nil && err == nil {
 		return pea.rpcMarshalBlock(block, true, fullTx)
@@ -231,7 +230,7 @@ func (pea *PublicEthAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, bloc
 	if block != nil && err == nil {
 		uncles := block.Uncles()
 		if index >= hexutil.Uint(len(uncles)) {
-			logrus.Debugf("uncle with index %s request at block number %d was not found", index.String(), blockNr.Int64())
+			log.Debugxf(ctx, "uncle with index %s request at block number %d was not found", index.String(), blockNr.Int64())
 			return nil, nil
 		}
 		block = types.NewBlockWithHeader(uncles[index])
@@ -255,7 +254,7 @@ func (pea *PublicEthAPI) GetUncleByBlockHashAndIndex(ctx context.Context, blockH
 	if block != nil {
 		uncles := block.Uncles()
 		if index >= hexutil.Uint(len(uncles)) {
-			logrus.Debugf("uncle with index %s request at block hash %s was not found", index.String(), blockHash.Hex())
+			log.Debugxf(ctx, "uncle with index %s request at block hash %s was not found", index.String(), blockHash.Hex())
 			return nil, nil
 		}
 		block = types.NewBlockWithHeader(uncles[index])
@@ -752,7 +751,7 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 		return value[:], nil
 	}
 	if pea.config.ProxyOnError {
-		logrus.Warnf("Missing eth_getStorageAt(%s, %s, %s)", address.Hash().String(), key, blockNrOrHash.String())
+		log.Warnxf(ctx, "Missing eth_getStorageAt(%s, %s, %s)", address.Hash().String(), key, blockNrOrHash.String())
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
 			return res, nil
@@ -974,7 +973,7 @@ func (pea *PublicEthAPI) Call(ctx context.Context, args CallArgs, blockNrOrHash 
 
 func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
 	defer func(start time.Time) {
-		logrus.Debugf("Executing EVM call finished %s runtime %s", time.Now().String(), time.Since(start).String())
+		log.Debugxf(ctx, "Executing EVM call finished %s runtime %s", time.Now().String(), time.Since(start).String())
 	}(time.Now())
 
 	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
@@ -1074,9 +1073,9 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 		IncludeTD:                true,
 		IncludeCode:              true,
 	}
-	logrus.Debugf("Calling statediff_writeStateDiffAt(%d)", height)
+	log.Debugf("Calling statediff_writeStateDiffAt(%d)", height)
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffAt", uint64(height), params); err != nil {
-		logrus.Errorf("writeStateDiffAt %d failed with err %s", height, err.Error())
+		log.Errorf("writeStateDiffAt %d failed with err %s", height, err.Error())
 	}
 }
 
@@ -1097,9 +1096,9 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 		IncludeTD:                true,
 		IncludeCode:              true,
 	}
-	logrus.Debugf("Calling statediff_writeStateDiffFor(%s)", blockHash.Hex())
+	log.Debugf("Calling statediff_writeStateDiffFor(%s)", blockHash.Hex())
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffFor", blockHash, params); err != nil {
-		logrus.Errorf("writeStateDiffFor %s failed with err %s", blockHash.Hex(), err.Error())
+		log.Errorf("writeStateDiffFor %s failed with err %s", blockHash.Hex(), err.Error())
 	}
 }
 
@@ -1107,13 +1106,13 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
 	if err != nil {
-		logrus.Errorf("error RPC marshalling block with hash %s: %s", b.Hash().String(), err)
+		log.Errorf("error RPC marshalling block with hash %s: %s", b.Hash().String(), err)
 		return nil, err
 	}
 	if inclTx {
 		td, err := pea.B.GetTd(b.Hash())
 		if err != nil {
-			logrus.Errorf("error getting td for block with hash and number %s, %s: %s", b.Hash().String(), b.Number().String(), err)
+			log.Errorf("error getting td for block with hash and number %s, %s: %s", b.Hash().String(), b.Number().String(), err)
 			return nil, err
 		}
 		fields["totalDifficulty"] = (*hexutil.Big)(td)
