@@ -58,9 +58,11 @@ func preprocessRequest(r *http.Request) (*http.Request, error) {
 
 	// All API requests should be JSON.
 	var result map[string]interface{}
-	err = json.Unmarshal(body, &result)
-	if nil != err {
-		return nil, err
+	if len(body) > 0 {
+		err = json.Unmarshal(body, &result)
+		if nil != err {
+			return nil, err
+		}
 	}
 
 	// Pull out the method name, request ID, user ID, and address info.
