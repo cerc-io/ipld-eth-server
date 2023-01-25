@@ -4,6 +4,9 @@ RUN apk --update --no-cache add make git g++ linux-headers
 # DEBUG
 RUN apk add busybox-extras
 
+# Include dlv
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
 # Build ipld-eth-server
 WORKDIR /go/src/github.com/cerc-io/ipld-eth-server
 
@@ -45,5 +48,8 @@ COPY --chown=5000:5000 --from=builder /go/src/github.com/cerc-io/ipld-eth-server
 COPY --from=builder /go/src/github.com/cerc-io/ipld-eth-server/ipld-eth-server ipld-eth-server
 COPY --from=builder /goose goose
 COPY --from=builder /go/src/github.com/cerc-io/ipld-eth-server/environments environments
+
+# Allow for debugging
+COPY --from=builder  /go/bin/dlv /usr/local/bin/
 
 ENTRYPOINT ["/app/entrypoint.sh"]
