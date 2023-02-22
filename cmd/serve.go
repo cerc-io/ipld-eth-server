@@ -25,15 +25,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mailgun/groupcache/v2"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/mailgun/groupcache/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/vulcanize/gap-filler/pkg/mux"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/graphql"
 	srpc "github.com/cerc-io/ipld-eth-server/v4/pkg/rpc"
 	s "github.com/cerc-io/ipld-eth-server/v4/pkg/serve"
@@ -59,7 +58,6 @@ var serveCmd = &cobra.Command{
 func serve() {
 	logWithCommand.Infof("running ipld-eth-server version: %s", v.VersionWithMeta)
 
-	var forwardPayloadChan chan eth.ConvertedPayload
 	wg := new(sync.WaitGroup)
 	logWithCommand.Debug("loading server configuration variables")
 	serverConfig, err := s.NewConfig()
@@ -74,8 +72,7 @@ func serve() {
 	}
 
 	logWithCommand.Info("starting up server servers")
-	forwardPayloadChan = make(chan eth.ConvertedPayload, s.PayloadChanBufferSize)
-	server.Serve(wg, forwardPayloadChan)
+	server.Serve(wg)
 	if err := startServers(server, serverConfig); err != nil {
 		logWithCommand.Fatal(err)
 	}

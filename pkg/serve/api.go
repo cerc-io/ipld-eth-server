@@ -17,13 +17,8 @@
 package serve
 
 import (
-	"context"
-
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/types"
-
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 )
 
 // APIName is the namespace used for the state diffing service API
@@ -44,45 +39,6 @@ func NewPublicServerAPI(w Server, client *rpc.Client) *PublicServerAPI {
 		w:   w,
 		rpc: client,
 	}
-}
-
-// Stream is the public method to setup a subscription that fires off IPLD payloads as they are processed
-func (api *PublicServerAPI) Stream(ctx context.Context, params eth.SubscriptionSettings) (*rpc.Subscription, error) {
-	// ensure that the RPC connection supports subscriptions
-	notifier, supported := rpc.NotifierFromContext(ctx)
-	if !supported {
-		return nil, rpc.ErrNotificationsUnsupported
-	}
-
-	// create subscription and start waiting for stream events
-	rpcSub := notifier.CreateSubscription()
-
-	go func() {
-		// subscribe to events from the SyncPublishScreenAndServe service
-		payloadChannel := make(chan SubscriptionPayload, PayloadChanBufferSize)
-		quitChan := make(chan bool, 1)
-		go api.w.Subscribe(rpcSub.ID, payloadChannel, quitChan, params)
-
-		// loop and await payloads and relay them to the subscriber using notifier
-		for {
-			select {
-			case packet := <-payloadChannel:
-				if err := notifier.Notify(rpcSub.ID, packet); err != nil {
-					log.Error("Failed to send watcher data packet", "err", err)
-					api.w.Unsubscribe(rpcSub.ID)
-					return
-				}
-			case <-rpcSub.Err():
-				api.w.Unsubscribe(rpcSub.ID)
-				return
-			case <-quitChan:
-				// don't need to unsubscribe from the watcher, the service does so before sending the quit signal this way
-				return
-			}
-		}
-	}()
-
-	return rpcSub, nil
 }
 
 // WatchAddress makes a geth WatchAddress API call with the given operation and args
