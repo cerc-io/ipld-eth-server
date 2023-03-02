@@ -19,6 +19,7 @@ package eth
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
@@ -202,14 +203,14 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 	args := make([]interface{}, 0, 4)
 	id := 1
 	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.header_id as block_hash,
-			eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id, eth.log_cids.address,
+			eth.log_cids.cid, eth.log_cids.index, eth.log_cids.rct_id, eth.log_cids.address,
 			eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, eth.log_cids.log_data,
-			data, eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status, eth.receipt_cids.tx_id AS tx_hash
+			data, eth.receipt_cids.cid, eth.receipt_cids.post_status, eth.receipt_cids.tx_id AS tx_hash
 				FROM eth.log_cids, eth.receipt_cids, ipld.blocks
 				WHERE eth.log_cids.rct_id = receipt_cids.tx_id
 				AND eth.log_cids.header_id = receipt_cids.header_id
 				AND eth.log_cids.block_number = receipt_cids.block_number
-				AND log_cids.leaf_mh_key = blocks.key
+				AND log_cids.cid = blocks.key
 				AND log_cids.block_number = blocks.block_number
 				AND receipt_cids.header_id = $1`
 
@@ -239,10 +240,10 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 func (ecr *CIDRetriever) RetrieveFilteredLog(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
-	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id,
+	pgStr := `SELECT CAST(eth.log_cids.block_number as Text), eth.log_cids.cid, eth.log_cids.index, eth.log_cids.rct_id,
 			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
 			eth.log_cids.log_data, eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index,
-			eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status, header_cids.block_hash
+			eth.receipt_cids.cid as cid, eth.receipt_cids.post_status, header_cids.block_hash
 							FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids
 							WHERE eth.log_cids.rct_id = receipt_cids.tx_id
 							AND eth.log_cids.header_id = eth.receipt_cids.header_id
@@ -285,14 +286,15 @@ func hasTopics(topics [][]string) bool {
 	return false
 }
 
-// RetrieveHeaderCIDByHash returns the header for the given block hash
-func (ecr *CIDRetriever) RetrieveHeaderCIDByHash(tx *sqlx.Tx, blockHash common.Hash) (models.HeaderModel, error) {
-	log.Debug("retrieving header cids for block hash ", blockHash.String())
-	pgStr := `SELECT block_hash, CAST(block_number as Text), parent_hash, cid, mh_key, CAST(td as Text),
-			state_root, uncle_root, tx_root, receipt_root, bloom, timestamp FROM eth.header_cids
-			WHERE block_hash = $1`
-	var headerCID models.HeaderModel
-	return headerCID, tx.Get(&headerCID, pgStr, blockHash.String())
+// RetrieveBlockNumberByHash returns the block number for the given block hash
+func (ecr *CIDRetriever) RetrieveBlockNumberByHash(tx *sqlx.Tx, blockHash common.Hash) (uint64, error) {
+	log.Debug("retrieving block number for block hash ", blockHash.String())
+	pgStr := `SELECT CAST(block_number as TEXT) FROM eth.header_cids WHERE block_hash = $1`
+	var blockNumberStr string
+	if err := tx.Get(&blockNumberStr, pgStr, blockHash.String()); err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(blockNumberStr, 10, 64)
 }
 
 // RetrieveHeaderAndTxCIDsByBlockNumber retrieves header CIDs and their associated tx CIDs by block number

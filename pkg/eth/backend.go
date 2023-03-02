@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
@@ -68,8 +67,8 @@ const (
 									FROM canonical_header_hash($1) AS block_hash
 									WHERE block_hash IS NOT NULL`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
-									INNER JOIN ipld.blocks ON (
-										header_cids.mh_key = blocks.key
+									INNER JOIN public.blocks ON (
+										header_cids.cid = blocks.key
 										AND header_cids.block_number = blocks.block_number
 									)
 									WHERE block_hash = (SELECT canonical_header_hash($1))`
@@ -77,7 +76,7 @@ const (
 			WHERE header_cids.block_hash = $1`
 	RetrieveRPCTransaction = `SELECT blocks.data, header_id, transaction_cids.block_number, index
 			FROM ipld.blocks, eth.transaction_cids
-			WHERE blocks.key = transaction_cids.mh_key
+			WHERE blocks.key = transaction_cids.cid
 			AND blocks.block_number = transaction_cids.block_number
 			AND transaction_cids.tx_hash = $1
 			AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
@@ -94,7 +93,7 @@ const (
 											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 											ORDER BY header_cids.block_number DESC
 											LIMIT 1`
-	RetrieveCodeByMhKey = `SELECT data FROM ipld.blocks WHERE key = $1`
+	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
 
 const (
@@ -582,11 +581,10 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 		}
 	}()
 
-	headerCID, err := b.Retriever.RetrieveHeaderCIDByHash(tx, hash)
+	blockNumber, err := b.Retriever.RetrieveBlockNumberByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
-	blockNumber, _ := strconv.ParseUint(string(headerCID.BlockNumber), 10, 64)
 
 	return b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
 }

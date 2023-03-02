@@ -34,7 +34,7 @@ const (
 	RetrieveHeaderByHashPgStr = `SELECT cid, data
 								FROM eth.header_cids
 									INNER JOIN ipld.blocks ON (
-										header_cids.mh_key = blocks.key
+										header_cids.cid = blocks.key
 										AND header_cids.block_number = blocks.block_number
 									)
 								WHERE block_hash = $1`
@@ -45,7 +45,7 @@ const (
 												AND uncle_cids.block_number = header_cids.block_number
 											)
 											INNER JOIN ipld.blocks ON (
-												uncle_cids.mh_key = blocks.key
+												uncle_cids.cid = blocks.key
 												AND uncle_cids.block_number = blocks.block_number
 											)
 										WHERE header_cids.block_hash = $1
@@ -58,7 +58,7 @@ const (
 												AND uncle_cids.block_number = header_cids.block_number
 											)
 											INNER JOIN ipld.blocks ON (
-												uncle_cids.mh_key = blocks.key
+												uncle_cids.cid = blocks.key
 												AND uncle_cids.block_number = blocks.block_number
 											)
 										WHERE header_cids.block_hash = $1
@@ -70,7 +70,7 @@ const (
 													AND transaction_cids.block_number = header_cids.block_number
 												)
 												INNER JOIN ipld.blocks ON (
-													transaction_cids.mh_key = blocks.key
+													transaction_cids.cid = blocks.key
 													AND transaction_cids.block_number = blocks.block_number
 												)
 											WHERE block_hash = $1
@@ -83,12 +83,12 @@ const (
 													AND transaction_cids.block_number = header_cids.block_number
 												)
 												INNER JOIN ipld.blocks ON (
-													transaction_cids.mh_key = blocks.key
+													transaction_cids.cid = blocks.key
 													AND transaction_cids.block_number = blocks.block_number
 												)
 											WHERE block_hash = $1
 											ORDER BY eth.transaction_cids.index ASC`
-	RetrieveReceiptsPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
+	RetrieveReceiptsPgStr = `SELECT receipt_cids.cid, data, eth.transaction_cids.tx_hash
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (
 												receipt_cids.tx_id = transaction_cids.tx_hash
@@ -100,13 +100,13 @@ const (
 												AND transaction_cids.block_number = header_cids.block_number
 											)
 											INNER JOIN ipld.blocks ON (
-												receipt_cids.leaf_mh_key = blocks.key
+												receipt_cids.cid = blocks.key
 												AND receipt_cids.block_number = blocks.block_number
 											)
 										WHERE block_hash = $1
 										AND header_cids.block_number = $2
 										ORDER BY eth.transaction_cids.index ASC`
-	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.leaf_cid, data, eth.transaction_cids.tx_hash
+	RetrieveReceiptsByBlockHashPgStr = `SELECT receipt_cids.cid, data, eth.transaction_cids.tx_hash
 										FROM eth.receipt_cids
 											INNER JOIN eth.transaction_cids ON (
 												receipt_cids.tx_id = transaction_cids.tx_hash
@@ -118,12 +118,12 @@ const (
 												AND transaction_cids.block_number = header_cids.block_number
 											)
 											INNER JOIN ipld.blocks ON (
-												receipt_cids.leaf_mh_key = blocks.key
+												receipt_cids.cid = blocks.key
 												AND receipt_cids.block_number = blocks.block_number
 											)
 										WHERE block_hash = $1
 										ORDER BY eth.transaction_cids.index ASC`
-	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, state_cids.mh_key, state_cids.block_number, state_cids.node_type
+	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, state_cids.block_number, state_cids.node_type
 												FROM eth.state_cids
 													INNER JOIN eth.header_cids ON (
 														state_cids.header_id = header_cids.block_hash
@@ -136,13 +136,13 @@ const (
 												AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 												ORDER BY header_cids.block_number DESC
 												LIMIT 1`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT cid, mh_key, block_number, node_type, state_leaf_removed FROM get_storage_at_by_hash($1, $2, $3)`
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT cid, block_number, node_type, state_leaf_removed FROM get_storage_at_by_hash($1, $2, $3)`
 )
 
 var EmptyNodeValue = make([]byte, common.HashLength)
 
 type rctIpldResult struct {
-	LeafCID string `db:"leaf_cid"`
+	LeafCID string `db:"cid"`
 	Data    []byte `db:"data"`
 	TxHash  string `db:"tx_hash"`
 }
@@ -296,7 +296,6 @@ func (r *IPLDRetriever) RetrieveReceiptsByBlockHash(tx *sqlx.Tx, hash common.Has
 
 type nodeInfo struct {
 	CID              string `db:"cid"`
-	MhKey            string `db:"mh_key"`
 	BlockNumber      string `db:"block_number"`
 	Data             []byte `db:"data"`
 	NodeType         int    `db:"node_type"`
@@ -320,7 +319,7 @@ func (r *IPLDRetriever) RetrieveAccountByAddressAndBlockHash(address common.Addr
 	if err != nil {
 		return "", nil, err
 	}
-	accountResult.Data, err = shared.FetchIPLD(r.db, accountResult.MhKey, blockNumber)
+	accountResult.Data, err = shared.FetchIPLD(r.db, accountResult.CID, blockNumber)
 	if err != nil {
 		return "", nil, err
 	}
@@ -351,7 +350,7 @@ func (r *IPLDRetriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(add
 	if err != nil {
 		return "", nil, nil, err
 	}
-	storageResult.Data, err = shared.FetchIPLD(r.db, storageResult.MhKey, blockNumber)
+	storageResult.Data, err = shared.FetchIPLD(r.db, storageResult.CID, blockNumber)
 	if err != nil {
 		return "", nil, nil, err
 	}
