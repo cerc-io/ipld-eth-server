@@ -110,7 +110,6 @@ type Backend struct {
 
 	// postgres db interfaces
 	Retriever     *CIDRetriever
-	Fetcher       *IPLDFetcher
 	IPLDRetriever *IPLDRetriever
 
 	// ethereum interfaces
@@ -148,7 +147,6 @@ func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 	return &Backend{
 		DB:            db,
 		Retriever:     r,
-		Fetcher:       NewIPLDFetcher(db),
 		IPLDRetriever: NewIPLDRetriever(db),
 		EthDB:         ethDB,
 		StateDatabase: state.NewDatabase(ethDB),

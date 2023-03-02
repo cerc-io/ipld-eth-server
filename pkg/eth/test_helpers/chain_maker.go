@@ -17,6 +17,7 @@
 package test_helpers
 
 import (
+	"bytes"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,7 +28,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	"github.com/ethereum/go-ethereum/statediff/test_helpers"
+	"github.com/ipfs/go-cid"
 )
 
 // Test variables
@@ -105,4 +109,41 @@ func TestChainGen(i int, block *core.BlockGen) {
 		tx, _ := types.SignTx(types.NewTransaction(block.TxNonce(TestBankAddress), ContractAddr, big.NewInt(0), 100000, nil, data), signer, TestBankKey)
 		block.AddTx(tx)
 	}
+}
+
+// GetRctLeafNodeData converts the receipts to receipt trie and returns the receipt leaf node IPLD data and
+// corresponding CIDs
+func GetRctLeafNodeData(rcts types.Receipts) ([]cid.Cid, [][]byte, error) {
+	receiptTrie := ipld.NewRctTrie()
+	for idx, rct := range rcts {
+		ethRct, err := ipld.NewReceipt(rct)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err = receiptTrie.Add(idx, ethRct.RawData()); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	rctLeafNodes, keys, err := receiptTrie.GetLeafNodes()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ethRctleafNodeCids := make([]cid.Cid, len(rctLeafNodes))
+	ethRctleafNodeData := make([][]byte, len(rctLeafNodes))
+	for i, rln := range rctLeafNodes {
+		var idx uint
+
+		r := bytes.NewReader(keys[i].TrieKey)
+		err = rlp.Decode(r, &idx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ethRctleafNodeCids[idx] = rln.Cid()
+		ethRctleafNodeData[idx] = rln.RawData()
+	}
+
+	return ethRctleafNodeCids, ethRctleafNodeData, nil
 }

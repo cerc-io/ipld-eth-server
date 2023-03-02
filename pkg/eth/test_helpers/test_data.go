@@ -162,7 +162,7 @@ var (
 	Tx3 = GetTxnRlp(2, MockTransactions)
 	Tx4 = GetTxnRlp(3, MockTransactions)
 
-	rctCIDs, rctIPLDData, _ = eth.GetRctLeafNodeData(MockReceipts)
+	rctCIDs, rctIPLDData, _ = GetRctLeafNodeData(MockReceipts)
 	HeaderCID, _            = ipld.RawdataToCid(ipld.MEthHeader, MockHeaderRlp, multihash.KECCAK_256)
 	HeaderMhKey             = shared.MultihashKeyFromCID(HeaderCID)
 	Trx1CID, _              = ipld.RawdataToCid(ipld.MEthTx, Tx1, multihash.KECCAK_256)
