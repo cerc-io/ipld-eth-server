@@ -61,9 +61,6 @@ var (
 	errMultipleHeadersForHash = errors.New("more than one headers for the given hash")
 	errTxHashNotFound         = errors.New("transaction for hash not found")
 	errTxHashInMultipleBlocks = errors.New("transaction for hash found in more than one canonical block")
-
-	// errMissingSignature is returned if a block's extra-data section doesn't seem
-	// to contain a 65 byte secp256k1 signature.
 )
 
 const (
@@ -71,15 +68,15 @@ const (
 									FROM canonical_header_hash($1) AS block_hash
 									WHERE block_hash IS NOT NULL`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
-									INNER JOIN public.blocks ON (
+									INNER JOIN ipld.blocks ON (
 										header_cids.mh_key = blocks.key
 										AND header_cids.block_number = blocks.block_number
 									)
 									WHERE block_hash = (SELECT canonical_header_hash($1))`
-	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
+	RetrieveTD = `SELECT CAST(td as TEXT) FROM eth.header_cids
 			WHERE header_cids.block_hash = $1`
 	RetrieveRPCTransaction = `SELECT blocks.data, header_id, transaction_cids.block_number, index
-			FROM public.blocks, eth.transaction_cids
+			FROM ipld.blocks, eth.transaction_cids
 			WHERE blocks.key = transaction_cids.mh_key
 			AND blocks.block_number = transaction_cids.block_number
 			AND transaction_cids.tx_hash = $1
@@ -97,7 +94,7 @@ const (
 											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 											ORDER BY header_cids.block_number DESC
 											LIMIT 1`
-	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
+	RetrieveCodeByMhKey = `SELECT data FROM ipld.blocks WHERE key = $1`
 )
 
 const (

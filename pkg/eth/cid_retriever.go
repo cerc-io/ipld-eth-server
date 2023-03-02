@@ -41,7 +41,7 @@ type IPLDModelRecord struct {
 
 // TableName overrides the table name used by IPLD
 func (IPLDModelRecord) TableName() string {
-	return "public.blocks"
+	return "ipld.blocks"
 }
 
 type HeaderCIDRecord struct {
@@ -205,7 +205,7 @@ func (ecr *CIDRetriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptF
 			eth.log_cids.leaf_cid, eth.log_cids.index, eth.log_cids.rct_id, eth.log_cids.address,
 			eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3, eth.log_cids.log_data,
 			data, eth.receipt_cids.leaf_cid as cid, eth.receipt_cids.post_status, eth.receipt_cids.tx_id AS tx_hash
-				FROM eth.log_cids, eth.receipt_cids, public.blocks
+				FROM eth.log_cids, eth.receipt_cids, ipld.blocks
 				WHERE eth.log_cids.rct_id = receipt_cids.tx_id
 				AND eth.log_cids.header_id = receipt_cids.header_id
 				AND eth.log_cids.block_number = receipt_cids.block_number

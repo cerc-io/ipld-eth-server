@@ -33,7 +33,7 @@ import (
 const (
 	RetrieveHeaderByHashPgStr = `SELECT cid, data
 								FROM eth.header_cids
-									INNER JOIN public.blocks ON (
+									INNER JOIN ipld.blocks ON (
 										header_cids.mh_key = blocks.key
 										AND header_cids.block_number = blocks.block_number
 									)
@@ -44,7 +44,7 @@ const (
 												uncle_cids.header_id = header_cids.block_hash
 												AND uncle_cids.block_number = header_cids.block_number
 											)
-											INNER JOIN public.blocks ON (
+											INNER JOIN ipld.blocks ON (
 												uncle_cids.mh_key = blocks.key
 												AND uncle_cids.block_number = blocks.block_number
 											)
@@ -57,7 +57,7 @@ const (
 												uncle_cids.header_id = header_cids.block_hash
 												AND uncle_cids.block_number = header_cids.block_number
 											)
-											INNER JOIN public.blocks ON (
+											INNER JOIN ipld.blocks ON (
 												uncle_cids.mh_key = blocks.key
 												AND uncle_cids.block_number = blocks.block_number
 											)
@@ -69,7 +69,7 @@ const (
 													transaction_cids.header_id = header_cids.block_hash
 													AND transaction_cids.block_number = header_cids.block_number
 												)
-												INNER JOIN public.blocks ON (
+												INNER JOIN ipld.blocks ON (
 													transaction_cids.mh_key = blocks.key
 													AND transaction_cids.block_number = blocks.block_number
 												)
@@ -82,7 +82,7 @@ const (
 													transaction_cids.header_id = header_cids.block_hash
 													AND transaction_cids.block_number = header_cids.block_number
 												)
-												INNER JOIN public.blocks ON (
+												INNER JOIN ipld.blocks ON (
 													transaction_cids.mh_key = blocks.key
 													AND transaction_cids.block_number = blocks.block_number
 												)
@@ -99,7 +99,7 @@ const (
 												transaction_cids.header_id = header_cids.block_hash
 												AND transaction_cids.block_number = header_cids.block_number
 											)
-											INNER JOIN public.blocks ON (
+											INNER JOIN ipld.blocks ON (
 												receipt_cids.leaf_mh_key = blocks.key
 												AND receipt_cids.block_number = blocks.block_number
 											)
@@ -117,7 +117,7 @@ const (
 												transaction_cids.header_id = header_cids.block_hash
 												AND transaction_cids.block_number = header_cids.block_number
 											)
-											INNER JOIN public.blocks ON (
+											INNER JOIN ipld.blocks ON (
 												receipt_cids.leaf_mh_key = blocks.key
 												AND receipt_cids.block_number = blocks.block_number
 											)
