@@ -28,6 +28,7 @@ import (
 	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
 	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -48,8 +49,6 @@ import (
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
-
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 )
 
 var (
@@ -105,8 +104,7 @@ type Backend struct {
 	DB *sqlx.DB
 
 	// postgres db interfaces
-	Retriever     *CIDRetriever
-	IPLDRetriever *IPLDRetriever
+	Retriever *Retriever
 
 	// ethereum interfaces
 	EthDB         ethdb.Database
@@ -131,7 +129,7 @@ func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 		groupName = StateDBGroupCacheName
 	}
 
-	r := NewCIDRetriever(db)
+	r := NewRetriever(db)
 	ethDB := ipfsethdb.NewDatabase(db, ipfsethdb.CacheConfig{
 		Name:           groupName,
 		Size:           gcc.StateDB.CacheSizeInMB * 1024 * 1024,
@@ -143,7 +141,6 @@ func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 	return &Backend{
 		DB:            db,
 		Retriever:     r,
-		IPLDRetriever: NewIPLDRetriever(db),
 		EthDB:         ethDB,
 		StateDatabase: state.NewDatabase(ethDB),
 		Config:        c,
@@ -204,7 +201,7 @@ func (b *Backend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.He
 		}
 	}()
 
-	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
+	_, headerRLP, err := b.Retriever.RetrieveHeaderByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +404,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 
 // GetHeaderByBlockHash retrieves header for a provided block hash
 func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.Header, error) {
-	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
+	_, headerRLP, err := b.Retriever.RetrieveHeaderByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +415,7 @@ func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.He
 
 // GetUnclesByBlockHash retrieves uncles for a provided block hash
 func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.Header, error) {
-	_, uncleBytes, err := b.IPLDRetriever.RetrieveUnclesByBlockHash(tx, hash)
+	_, uncleBytes, err := b.Retriever.RetrieveUnclesByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -439,7 +436,7 @@ func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.
 
 // GetUnclesByBlockHashAndNumber retrieves uncles for a provided block hash and number
 func (b *Backend) GetUnclesByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) ([]*types.Header, error) {
-	_, uncleBytes, err := b.IPLDRetriever.RetrieveUncles(tx, hash, number)
+	_, uncleBytes, err := b.Retriever.RetrieveUncles(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +457,7 @@ func (b *Backend) GetUnclesByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, n
 
 // GetTransactionsByBlockHash retrieves transactions for a provided block hash
 func (b *Backend) GetTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Transactions, error) {
-	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactionsByBlockHash(tx, hash)
+	_, transactionBytes, err := b.Retriever.RetrieveTransactionsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -480,7 +477,7 @@ func (b *Backend) GetTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) (typ
 
 // GetTransactionsByBlockHashAndNumber retrieves transactions for a provided block hash and number
 func (b *Backend) GetTransactionsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Transactions, error) {
-	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactions(tx, hash, number)
+	_, transactionBytes, err := b.Retriever.RetrieveTransactions(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
@@ -500,7 +497,7 @@ func (b *Backend) GetTransactionsByBlockHashAndNumber(tx *sqlx.Tx, hash common.H
 
 // GetReceiptsByBlockHash retrieves receipts for a provided block hash
 func (b *Backend) GetReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Receipts, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
+	_, receiptBytes, txs, err := b.Retriever.RetrieveReceiptsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -518,7 +515,7 @@ func (b *Backend) GetReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.R
 
 // GetReceiptsByBlockHashAndNumber retrieves receipts for a provided block hash and number
 func (b *Backend) GetReceiptsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Receipts, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceipts(tx, hash, number)
+	_, receiptBytes, txs, err := b.Retriever.RetrieveReceipts(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
@@ -607,7 +604,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 		}
 	}()
 
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceipts(tx, hash, number)
+	_, receiptBytes, txs, err := b.Retriever.RetrieveReceipts(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
@@ -695,8 +692,8 @@ func (b *Backend) GetCanonicalHeader(number uint64) (string, []byte, error) {
 func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
 	vmError := func() error { return nil }
 	txContext := core.NewEVMTxContext(msg)
-	context := core.NewEVMBlockContext(header, b, nil)
-	return vm.NewEVM(context, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), vmError, nil
+	blockContext := core.NewEVMBlockContext(header, b, nil)
+	return vm.NewEVM(blockContext, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), vmError, nil
 }
 
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash
@@ -748,7 +745,7 @@ func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, 
 		return nil, err
 	}
 
-	_, accountRlp, err := b.IPLDRetriever.RetrieveAccountByAddressAndBlockHash(address, hash)
+	_, accountRlp, err := b.Retriever.RetrieveAccountByAddressAndBlockHash(address, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -879,7 +876,7 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 		return nil, err
 	}
 
-	_, _, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
+	_, _, storageRlp, err := b.Retriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
 	return storageRlp, err
 }
 

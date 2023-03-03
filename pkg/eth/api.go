@@ -720,7 +720,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 
 	// If we have a blockHash to filter on, fire off single retrieval query
 	if crit.BlockHash != nil {
-		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLog(tx, filter, 0, crit.BlockHash)
+		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLogs(tx, filter, 0, crit.BlockHash)
 		if err != nil {
 			return nil, err
 		}
@@ -748,7 +748,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	end := endingBlock.Int64()
 	var logs []*types.Log
 	for i := start; i <= end; i++ {
-		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLog(tx, filter, i, nil)
+		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLogs(tx, filter, i, nil)
 		if err != nil {
 			return nil, err
 		}
