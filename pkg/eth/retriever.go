@@ -445,7 +445,7 @@ func DecodeLeafNode(node []byte) ([]byte, error) {
 // RetrieveReceipts returns the cids and rlp bytes for the receipts corresponding to the provided block hash, number.
 // cid returned corresponds to the leaf node data which contains the receipt.
 func (r *Retriever) RetrieveReceipts(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, []common.Hash, error) {
-	rctResults := make([]rctIpldResult, 0)
+	rctResults := make([]ipldResult, 0)
 	if err := tx.Select(&rctResults, RetrieveReceiptsPgStr, hash.Hex(), number); err != nil {
 		return nil, nil, nil, err
 	}
@@ -454,7 +454,7 @@ func (r *Retriever) RetrieveReceipts(tx *sqlx.Tx, hash common.Hash, number uint6
 	txs := make([]common.Hash, len(rctResults))
 
 	for i, res := range rctResults {
-		cids[i] = res.LeafCID
+		cids[i] = res.CID
 		nodeVal, err := DecodeLeafNode(res.Data)
 		if err != nil {
 			return nil, nil, nil, err
@@ -469,7 +469,7 @@ func (r *Retriever) RetrieveReceipts(tx *sqlx.Tx, hash common.Hash, number uint6
 // RetrieveReceiptsByBlockHash returns the cids and rlp bytes for the receipts corresponding to the provided block hash.
 // cid returned corresponds to the leaf node data which contains the receipt.
 func (r *Retriever) RetrieveReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, []common.Hash, error) {
-	rctResults := make([]rctIpldResult, 0)
+	rctResults := make([]ipldResult, 0)
 	if err := tx.Select(&rctResults, RetrieveReceiptsByBlockHashPgStr, hash.Hex()); err != nil {
 		return nil, nil, nil, err
 	}
@@ -478,7 +478,7 @@ func (r *Retriever) RetrieveReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (
 	txs := make([]common.Hash, len(rctResults))
 
 	for i, res := range rctResults {
-		cids[i] = res.LeafCID
+		cids[i] = res.CID
 		nodeVal, err := DecodeLeafNode(res.Data)
 		if err != nil {
 			return nil, nil, nil, err
@@ -499,7 +499,7 @@ func (r *Retriever) RetrieveAccountByAddressAndBlockHash(address common.Address,
 		return "", nil, err
 	}
 
-	if accountResult.NodeType == sdtypes.Removed.Int() {
+	if accountResult.Removed {
 		return "", EmptyNodeValue, nil
 	}
 
@@ -530,7 +530,7 @@ func (r *Retriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address
 	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
 		return "", nil, nil, err
 	}
-	if storageResult.StateLeafRemoved || storageResult.NodeType == sdtypes.Removed.Int() {
+	if storageResult.StateLeafRemoved || storageResult.Removed {
 		return "", EmptyNodeValue, EmptyNodeValue, nil
 	}
 
