@@ -45,8 +45,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
-	sdtrie "github.com/ethereum/go-ethereum/statediff/trie_helpers"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 )
@@ -953,7 +951,7 @@ func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSlice
 		if depthReached > metaData.maxDepth {
 			metaData.maxDepth = depthReached
 		}
-		if node.NodeType == sdtypes.Leaf {
+		if node.NodeType == Leaf {
 			metaData.leafCount++
 		}
 		leavesFetchTime += leafFetchTime
@@ -995,7 +993,7 @@ func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSlice
 	if depthReached > metaData.maxDepth {
 		metaData.maxDepth = depthReached
 	}
-	if node.NodeType == sdtypes.Leaf {
+	if node.NodeType == Leaf {
 		metaData.leafCount++
 	}
 
@@ -1037,7 +1035,7 @@ func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSlice
 			continue
 		}
 
-		node, nodeElements, err := sdtrie.ResolveNode(it, b.StateDatabase.TrieDB())
+		node, nodeElements, err := ResolveNodeIt(it, b.StateDatabase.TrieDB())
 		if err != nil {
 			return err
 		}
@@ -1052,7 +1050,7 @@ func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSlice
 		if depthReached > metaData.maxDepth {
 			metaData.maxDepth = depthReached
 		}
-		if node.NodeType == sdtypes.Leaf {
+		if node.NodeType == Leaf {
 			metaData.leafCount++
 		}
 		leavesFetchTime += leafFetchTime

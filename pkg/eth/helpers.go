@@ -18,24 +18,7 @@ package eth
 
 import (
 	"time"
-
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 )
-
-func ResolveToNodeType(nodeType int) sdtypes.NodeType {
-	switch nodeType {
-	case 0:
-		return sdtypes.Branch
-	case 1:
-		return sdtypes.Extension
-	case 2:
-		return sdtypes.Leaf
-	case 3:
-		return sdtypes.Removed
-	default:
-		return sdtypes.Unknown
-	}
-}
 
 // Timestamp in milliseconds
 func makeTimestamp() int64 {
