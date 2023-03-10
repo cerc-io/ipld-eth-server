@@ -112,14 +112,14 @@ func NewRetriever(db *sqlx.DB) *Retriever {
 // RetrieveFirstBlockNumber is used to retrieve the first block number in the db
 func (r *Retriever) RetrieveFirstBlockNumber() (int64, error) {
 	var blockNumber int64
-	err := r.db.Get(&blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number ASC LIMIT 1")
+	err := r.db.Get(&blockNumber, "SELECT block_number FROM ipld.blocks ORDER BY block_number ASC LIMIT 1")
 	return blockNumber, err
 }
 
 // RetrieveLastBlockNumber is used to retrieve the latest block number in the db
 func (r *Retriever) RetrieveLastBlockNumber() (int64, error) {
 	var blockNumber int64
-	err := r.db.Get(&blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number DESC LIMIT 1")
+	err := r.db.Get(&blockNumber, "SELECT block_number FROM ipld.blocks ORDER BY block_number DESC LIMIT 1")
 	return blockNumber, err
 }
 
