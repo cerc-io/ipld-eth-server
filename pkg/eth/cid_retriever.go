@@ -117,14 +117,14 @@ func NewCIDRetriever(db *sqlx.DB) *CIDRetriever {
 // RetrieveFirstBlockNumber is used to retrieve the first block number in the db
 func (ecr *CIDRetriever) RetrieveFirstBlockNumber() (int64, error) {
 	var blockNumber int64
-	err := ecr.db.Get(&blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number ASC LIMIT 1")
+	err := ecr.db.Get(&blockNumber, "SELECT block_number FROM public.blocks ORDER BY block_number ASC LIMIT 1")
 	return blockNumber, err
 }
 
 // RetrieveLastBlockNumber is used to retrieve the latest block number in the db
 func (ecr *CIDRetriever) RetrieveLastBlockNumber() (int64, error) {
 	var blockNumber int64
-	err := ecr.db.Get(&blockNumber, "SELECT block_number FROM eth.header_cids ORDER BY block_number DESC LIMIT 1")
+	err := ecr.db.Get(&blockNumber, "SELECT block_number FROM public.blocks ORDER BY block_number DESC LIMIT 1")
 	return blockNumber, err
 }
 
