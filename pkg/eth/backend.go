@@ -25,10 +25,13 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/jackc/pgx/v4/pgxpool"
+
 	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
 	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	ipld_eth_statedb "github.com/cerc-io/ipld-eth-statedb"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -64,7 +67,7 @@ const (
 									FROM canonical_header_hash($1) AS block_hash
 									WHERE block_hash IS NOT NULL`
 	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
-									INNER JOIN public.blocks ON (
+									INNER JOIN ipld.blocks ON (
 										header_cids.cid = blocks.key
 										AND header_cids.block_number = blocks.block_number
 									)
@@ -90,7 +93,7 @@ const (
 											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
 											ORDER BY header_cids.block_number DESC
 											LIMIT 1`
-	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
+	RetrieveCodeByMhKey = `SELECT data FROM ipld.blocks WHERE key = $1`
 )
 
 const (
@@ -107,6 +110,8 @@ type Backend struct {
 	// ethereum interfaces
 	EthDB         ethdb.Database
 	StateDatabase state.Database
+	// We'll use this state.Database for eth_call and any place we don't need trie access
+	IpldStateDatabase ipld_eth_statedb.Database
 
 	Config *Config
 }
@@ -119,7 +124,7 @@ type Config struct {
 	GroupCacheConfig *shared.GroupCacheConfig
 }
 
-func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
+func NewEthBackend(db *sqlx.DB, pgxdb *pgxpool.Pool, c *Config) (*Backend, error) {
 	gcc := c.GroupCacheConfig
 
 	groupName := gcc.StateDB.Name
@@ -135,13 +140,17 @@ func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 	})
 
 	logStateDBStatsOnTimer(ethDB.(*ipfsethdb.Database), gcc)
-
+	ipldStateDB, err := ipld_eth_statedb.NewStateDatabaseWithPool(pgxdb)
+	if err != nil {
+		return nil, err
+	}
 	return &Backend{
-		DB:            db,
-		Retriever:     r,
-		EthDB:         ethDB,
-		StateDatabase: state.NewDatabase(ethDB),
-		Config:        c,
+		DB:                db,
+		Retriever:         r,
+		EthDB:             ethDB,
+		StateDatabase:     state.NewDatabase(ethDB),
+		IpldStateDatabase: ipldStateDB,
+		Config:            c,
 	}, nil
 }
 
@@ -623,6 +632,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 }
 
 // StateAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
+// TODO: this needs to be updated to use the new StateDB implementation
 func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, *types.Header, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
 		return b.StateAndHeaderByNumber(ctx, blockNr)
@@ -646,6 +656,50 @@ func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHas
 		return stateDb, header, err
 	}
 	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
+}
+
+// IPLDStateDBAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
+func (b *Backend) IPLDStateDBAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.StateDB, *types.Header, error) {
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		return b.StateAndHeaderByNumber(ctx, blockNr)
+	}
+	if hash, ok := blockNrOrHash.Hash(); ok {
+		header, err := b.HeaderByHash(ctx, hash)
+		if err != nil {
+			return nil, nil, err
+		}
+		if header == nil {
+			return nil, nil, errors.New("header for hash not found")
+		}
+		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+		if err != nil {
+			return nil, nil, err
+		}
+		if blockNrOrHash.RequireCanonical && canonicalHash != hash {
+			return nil, nil, errors.New("hash is not currently canonical")
+		}
+		stateDB, err := ipld_eth_statedb.New(header.Root, b.IpldStateDatabase)
+		return stateDB, header, err
+	}
+	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
+}
+
+// IPLDStateDBAndHeaderByNumber returns the statedb and header for a provided block number
+func (b *Backend) IPLDStateDBAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.StateDB, *types.Header, error) {
+	// Pending state is only known by the miner
+	if number == rpc.PendingBlockNumber {
+		return nil, nil, errPendingBlockNumber
+	}
+	// Otherwise resolve the block number and return its state
+	header, err := b.HeaderByNumber(ctx, number)
+	if err != nil {
+		return nil, nil, err
+	}
+	if header == nil {
+		return nil, nil, errors.New("header not found")
+	}
+	stateDb, err := ipld_eth_statedb.New(header.Root, b.IpldStateDatabase)
+	return stateDb, header, err
 }
 
 // StateAndHeaderByNumber returns the statedb and header for a provided block number

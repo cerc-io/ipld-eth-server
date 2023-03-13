@@ -93,6 +93,7 @@ const (
 											)
 										WHERE block_hash = $1
 										ORDER BY eth.transaction_cids.index ASC`
+	// TODO: join on ipld.blocks and return IPLD object in this query instead of round tripping back to ipld.blocks
 	RetrieveAccountByLeafKeyAndBlockHashPgStr = `SELECT state_cids.cid, state_cids.block_number, state_cids.removed
 												FROM eth.state_cids
 													INNER JOIN eth.header_cids ON (
@@ -130,8 +131,7 @@ const (
 							AND receipt_cids.block_number = transaction_cids.block_number
 							AND transaction_cids.header_id = header_cids.block_hash
 							AND transaction_cids.block_number = header_cids.block_number`
-	// TODO: replace me with new query now that we have the correct storage index
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT cid, block_number, removed, state_leaf_removed FROM get_storage_at_by_hash($1, $2, $3)`
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `SELECT cid, val, block_number, removed, state_leaf_removed FROM get_storage_at_by_hash($1, $2, $3)`
 )
 
 type ipldResult struct {
@@ -142,6 +142,7 @@ type ipldResult struct {
 
 type nodeInfo struct {
 	CID              string `db:"cid"`
+	Value            []byte `db:"val"`
 	BlockNumber      string `db:"block_number"`
 	Data             []byte `db:"data"`
 	Removed          bool   `db:"removed"`
