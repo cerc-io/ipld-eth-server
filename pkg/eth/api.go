@@ -28,13 +28,13 @@ import (
 	"time"
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	ipld_eth_statedb "github.com/cerc-io/ipld-eth-statedb"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
@@ -875,6 +875,7 @@ func (pea *PublicEthAPI) GetProof(ctx context.Context, address common.Address, s
 	return nil, err
 }
 
+// this continues to use ipfs-ethdb based geth StateDB as it requires trie access
 func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (*AccountResult, error) {
 	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if state == nil || err != nil {
@@ -977,7 +978,7 @@ type OverrideAccount struct {
 type StateOverride map[common.Address]OverrideAccount
 
 // Apply overrides the fields of specified accounts into the given state.
-func (diff *StateOverride) Apply(state *state.StateDB) error {
+func (diff *StateOverride) Apply(state *ipld_eth_statedb.StateDB) error {
 	if diff == nil {
 		return nil
 	}
@@ -1054,7 +1055,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		log.Debugxf(ctx, "Executing EVM call finished %s runtime %s", time.Now().String(), time.Since(start).String())
 	}(time.Now())
 
-	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	state, header, err := b.IPLDStateDBAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if state == nil || err != nil {
 		return nil, err
 	}

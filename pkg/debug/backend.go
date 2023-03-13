@@ -42,6 +42,7 @@ type Backend struct {
 }
 
 // StateAtBlock retrieves the state database associated with a certain block
+// We can't sub in our ipld-eth-statedb here because to match the expected interface we need to return *state.StateDB not vm.StateDB
 func (b *Backend) StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, checkLive, preferDisk bool) (*state.StateDB, error) {
 	rpcBlockNumber := rpc.BlockNumber(block.NumberU64())
 	statedb, _, err := b.StateAndHeaderByNumberOrHash(ctx, rpc.BlockNumberOrHashWithNumber(rpcBlockNumber))

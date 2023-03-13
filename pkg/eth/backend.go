@@ -632,7 +632,6 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 }
 
 // StateAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
-// TODO: this needs to be updated to use the new StateDB implementation
 func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, *types.Header, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
 		return b.StateAndHeaderByNumber(ctx, blockNr)
@@ -659,9 +658,9 @@ func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHas
 }
 
 // IPLDStateDBAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
-func (b *Backend) IPLDStateDBAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.StateDB, *types.Header, error) {
+func (b *Backend) IPLDStateDBAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*ipld_eth_statedb.StateDB, *types.Header, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
-		return b.StateAndHeaderByNumber(ctx, blockNr)
+		return b.IPLDStateDBAndHeaderByNumber(ctx, blockNr)
 	}
 	if hash, ok := blockNrOrHash.Hash(); ok {
 		header, err := b.HeaderByHash(ctx, hash)
@@ -684,24 +683,6 @@ func (b *Backend) IPLDStateDBAndHeaderByNumberOrHash(ctx context.Context, blockN
 	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-// IPLDStateDBAndHeaderByNumber returns the statedb and header for a provided block number
-func (b *Backend) IPLDStateDBAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (vm.StateDB, *types.Header, error) {
-	// Pending state is only known by the miner
-	if number == rpc.PendingBlockNumber {
-		return nil, nil, errPendingBlockNumber
-	}
-	// Otherwise resolve the block number and return its state
-	header, err := b.HeaderByNumber(ctx, number)
-	if err != nil {
-		return nil, nil, err
-	}
-	if header == nil {
-		return nil, nil, errors.New("header not found")
-	}
-	stateDb, err := ipld_eth_statedb.New(header.Root, b.IpldStateDatabase)
-	return stateDb, header, err
-}
-
 // StateAndHeaderByNumber returns the statedb and header for a provided block number
 func (b *Backend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Pending state is only known by the miner
@@ -717,6 +698,24 @@ func (b *Backend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNu
 		return nil, nil, errors.New("header not found")
 	}
 	stateDb, err := state.New(header.Root, b.StateDatabase, nil)
+	return stateDb, header, err
+}
+
+// IPLDStateDBAndHeaderByNumber returns the statedb and header for a provided block number
+func (b *Backend) IPLDStateDBAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*ipld_eth_statedb.StateDB, *types.Header, error) {
+	// Pending state is only known by the miner
+	if number == rpc.PendingBlockNumber {
+		return nil, nil, errPendingBlockNumber
+	}
+	// Otherwise resolve the block number and return its state
+	header, err := b.HeaderByNumber(ctx, number)
+	if err != nil {
+		return nil, nil, err
+	}
+	if header == nil {
+		return nil, nil, errors.New("header not found")
+	}
+	stateDb, err := ipld_eth_statedb.New(header.Root, b.IpldStateDatabase)
 	return stateDb, header, err
 }
 
@@ -741,7 +740,7 @@ func (b *Backend) GetCanonicalHeader(number uint64) (string, []byte, error) {
 }
 
 // GetEVM constructs and returns a vm.EVM
-func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
+func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state vm.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
 	vmError := func() error { return nil }
 	txContext := core.NewEVMTxContext(msg)
 	blockContext := core.NewEVMBlockContext(header, b, nil)

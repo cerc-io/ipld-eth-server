@@ -6,13 +6,14 @@ require (
 	github.com/cerc-io/eth-ipfs-state-validator/v4 v4.0.10-alpha
 	github.com/cerc-io/go-eth-state-node-iterator v1.1.9
 	github.com/cerc-io/ipfs-ethdb/v4 v4.0.10-alpha
-	github.com/cerc-io/ipld-eth-statedb v0.0.1-alpha
+	github.com/cerc-io/ipld-eth-statedb v0.0.2-alpha
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/google/uuid v1.3.0
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/ipfs/go-cid v0.2.0
 	github.com/ipfs/go-ipfs-blockstore v1.2.0
 	github.com/ipfs/go-ipfs-ds-help v1.1.0
+	github.com/jackc/pgx/v4 v4.18.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.6
@@ -145,7 +146,6 @@ require (
 	github.com/jackc/pgproto3/v2 v2.3.2 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgtype v1.14.0 // indirect
-	github.com/jackc/pgx/v4 v4.18.1 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
