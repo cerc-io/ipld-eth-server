@@ -58,7 +58,7 @@ type Service struct {
 	sync.Mutex
 	// Used to signal shutdown of the service
 	QuitChan chan bool
-	// Underlying db
+	// Underlying db connection pool
 	db *sqlx.DB
 	// rpc client for forwarding cache misses
 	client *rpc.Client

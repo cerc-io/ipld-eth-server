@@ -25,8 +25,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jackc/pgx/v4/pgxpool"
-
 	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
 	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
@@ -111,7 +109,7 @@ type Backend struct {
 	EthDB         ethdb.Database
 	StateDatabase state.Database
 	// We'll use this state.Database for eth_call and any place we don't need trie access
-	IpldStateDatabase ipld_eth_statedb.Database
+	IpldStateDatabase ipld_eth_statedb.StateDatabase
 
 	Config *Config
 }
@@ -124,7 +122,7 @@ type Config struct {
 	GroupCacheConfig *shared.GroupCacheConfig
 }
 
-func NewEthBackend(db *sqlx.DB, pgxdb *pgxpool.Pool, c *Config) (*Backend, error) {
+func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 	gcc := c.GroupCacheConfig
 
 	groupName := gcc.StateDB.Name
@@ -140,7 +138,7 @@ func NewEthBackend(db *sqlx.DB, pgxdb *pgxpool.Pool, c *Config) (*Backend, error
 	})
 
 	logStateDBStatsOnTimer(ethDB.(*ipfsethdb.Database), gcc)
-	ipldStateDB, err := ipld_eth_statedb.NewStateDatabaseWithPool(pgxdb)
+	ipldStateDB, err := ipld_eth_statedb.NewStateDatabaseWithSqlxPool(db)
 	if err != nil {
 		return nil, err
 	}
