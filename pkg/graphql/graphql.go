@@ -36,6 +36,7 @@ import (
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	ipld_eth_statedb "github.com/cerc-io/ipld-eth-statedb"
 )
 
 var (

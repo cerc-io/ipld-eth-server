@@ -365,34 +365,22 @@ func (r *Retriever) RetrieveHeaderByHash(tx *sqlx.Tx, hash common.Hash) (string,
 	return headerResult.CID, headerResult.Data, tx.Get(headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
 }
 
-// RetrieveUncles returns the cids and rlp bytes for the uncles corresponding to the provided block hash, number (of non-omner root block)
-func (r *Retriever) RetrieveUncles(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, error) {
-	uncleResults := make([]ipldResult, 0)
-	if err := tx.Select(&uncleResults, RetrieveUnclesPgStr, hash.Hex(), number); err != nil {
-		return nil, nil, err
+// RetrieveUncles returns the cid and rlp bytes for the uncle list corresponding to the provided block hash, number (of non-omner root block)
+func (r *Retriever) RetrieveUncles(tx *sqlx.Tx, hash common.Hash, number uint64) (string, []byte, error) {
+	uncleResult := new(ipldResult)
+	if err := tx.Select(uncleResult, RetrieveUnclesPgStr, hash.Hex(), number); err != nil {
+		return "", nil, err
 	}
-	cids := make([]string, len(uncleResults))
-	uncles := make([][]byte, len(uncleResults))
-	for i, res := range uncleResults {
-		cids[i] = res.CID
-		uncles[i] = res.Data
-	}
-	return cids, uncles, nil
+	return uncleResult.CID, uncleResult.Data, nil
 }
 
-// RetrieveUnclesByBlockHash returns the cids and rlp bytes for the uncles corresponding to the provided block hash (of non-omner root block)
-func (r *Retriever) RetrieveUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]string, [][]byte, error) {
-	uncleResults := make([]ipldResult, 0)
-	if err := tx.Select(&uncleResults, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
-		return nil, nil, err
+// RetrieveUnclesByBlockHash returns the cid and rlp bytes for the uncle list corresponding to the provided block hash (of non-omner root block)
+func (r *Retriever) RetrieveUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) (string, []byte, error) {
+	uncleResult := new(ipldResult)
+	if err := tx.Select(uncleResult, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
+		return "", nil, err
 	}
-	cids := make([]string, len(uncleResults))
-	uncles := make([][]byte, len(uncleResults))
-	for i, res := range uncleResults {
-		cids[i] = res.CID
-		uncles[i] = res.Data
-	}
-	return cids, uncles, nil
+	return uncleResult.CID, uncleResult.Data, nil
 }
 
 // RetrieveTransactions returns the cids and rlp bytes for the transactions corresponding to the provided block hash, number

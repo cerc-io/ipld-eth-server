@@ -20,7 +20,8 @@ const (
 											)
 										WHERE header_cids.block_hash = $1
 										AND header_cids.block_number = $2
-										ORDER BY uncle_cids.parent_hash`
+										ORDER BY uncle_cids.parent_hash
+										LIMIT 1`
 	RetrieveUnclesByBlockHashPgStr = `SELECT uncle_cids.cid, data
 										FROM eth.uncle_cids
 											INNER JOIN eth.header_cids ON (
@@ -32,7 +33,8 @@ const (
 												AND uncle_cids.block_number = blocks.block_number
 											)
 										WHERE header_cids.block_hash = $1
-										ORDER BY uncle_cids.parent_hash`
+										ORDER BY uncle_cids.parent_hash
+										LIMIT 1`
 	RetrieveTransactionsPgStr = `SELECT transaction_cids.cid, data
 											FROM eth.transaction_cids
 												INNER JOIN eth.header_cids ON (
