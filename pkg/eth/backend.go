@@ -61,40 +61,6 @@ var (
 )
 
 const (
-	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash
-									FROM canonical_header_hash($1) AS block_hash
-									WHERE block_hash IS NOT NULL`
-	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
-									INNER JOIN ipld.blocks ON (
-										header_cids.cid = blocks.key
-										AND header_cids.block_number = blocks.block_number
-									)
-									WHERE block_hash = (SELECT canonical_header_hash($1))`
-	RetrieveTD = `SELECT CAST(td as TEXT) FROM eth.header_cids
-			WHERE header_cids.block_hash = $1`
-	RetrieveRPCTransaction = `SELECT blocks.data, header_id, transaction_cids.block_number, index
-			FROM ipld.blocks, eth.transaction_cids
-			WHERE blocks.key = transaction_cids.cid
-			AND blocks.block_number = transaction_cids.block_number
-			AND transaction_cids.tx_hash = $1
-			AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
-	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
-											WHERE state_accounts.header_id = state_cids.header_id
-											AND state_accounts.state_path = state_cids.state_path
-											AND state_accounts.block_number = state_cids.block_number
-											AND state_cids.header_id = header_cids.block_hash
-											AND state_cids.block_number = header_cids.block_number
-											AND state_leaf_key = $1
-											AND header_cids.block_number <= (SELECT block_number
-																FROM eth.header_cids
-																WHERE block_hash = $2)
-											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
-											ORDER BY header_cids.block_number DESC
-											LIMIT 1`
-	RetrieveCodeByMhKey = `SELECT data FROM ipld.blocks WHERE key = $1`
-)
-
-const (
 	StateDBGroupCacheName = "statedb"
 )
 
