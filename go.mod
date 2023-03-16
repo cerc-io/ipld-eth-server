@@ -6,7 +6,7 @@ require (
 	github.com/cerc-io/eth-ipfs-state-validator/v4 v4.0.10-alpha
 	github.com/cerc-io/go-eth-state-node-iterator v1.1.9
 	github.com/cerc-io/ipfs-ethdb/v4 v4.0.10-alpha
-	github.com/cerc-io/ipld-eth-statedb v0.0.2-alpha
+	github.com/cerc-io/ipld-eth-statedb v0.0.3-alpha
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/google/uuid v1.3.0
 	github.com/graph-gophers/graphql-go v1.3.0
@@ -295,5 +295,3 @@ require (
 )
 
 replace github.com/ethereum/go-ethereum v1.10.26 => github.com/cerc-io/go-ethereum v1.10.26-statediff-4.2.2-alpha
-
-replace github.com/cerc-io/ipld-eth-statedb v0.0.2-alpha => /Users/iannorden/go/src/github.com/cerc-io/ipld-eth-statedb
