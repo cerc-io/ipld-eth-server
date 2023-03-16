@@ -65,7 +65,8 @@ func MakeChain(n int, parent *types.Block, chainGen func(int, *core.BlockGen)) (
 	config := params.TestChainConfig
 	config.LondonBlock = big.NewInt(100)
 	blocks, receipts := core.GenerateChain(config, parent, ethash.NewFaker(), Testdb, n, chainGen)
-	chain, _ := core.NewBlockChain(Testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil)
+	chain, _ := core.NewBlockChain(Testdb, nil, nil, nil, ethash.NewFaker(), vm.Config{}, nil, nil)
+
 	return append([]*types.Block{parent}, blocks...), receipts, chain
 }
 

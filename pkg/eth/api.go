@@ -510,7 +510,7 @@ type feeHistoryResult struct {
 }
 
 // FeeHistory returns the fee market history.
-func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
+func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount int, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
 	if pea.rpc != nil {
 		var res *feeHistoryResult
 		if err := pea.rpc.CallContext(ctx, &res, "eth_feeHistory", blockCount, lastBlock, rewardPercentiles); err != nil {
@@ -881,7 +881,10 @@ func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Addre
 		return nil, err
 	}
 
-	storageTrie := state.StorageTrie(address)
+	storageTrie, _ := state.StorageTrie(address)
+	if storageTrie == nil || err != nil {
+		return nil, err
+	}
 	storageHash := types.EmptyRootHash
 	codeHash := state.GetCodeHash(address)
 	storageProof := make([]StorageResult, len(storageKeys))

@@ -272,6 +272,26 @@ func (b *Backend) CurrentBlock() (*types.Block, error) {
 	return block, err
 }
 
+// CurrentHeader returns the current block's header
+func (b *Backend) CurrentHeader() *types.Header {
+	block, err := b.BlockByNumber(context.Background(), rpc.LatestBlockNumber)
+	if err != nil {
+		return nil
+	}
+	return block.Header()
+}
+
+func (b *Backend) GetBody(ctx context.Context, hash common.Hash, number rpc.BlockNumber) (*types.Body, error) {
+	if number < 0 || hash == (common.Hash{}) {
+		return nil, errors.New("invalid arguments; expect hash and no special block numbers")
+	}
+	block, bErr := b.BlockByHash(ctx, hash)
+	if block != nil && bErr == nil {
+		return block.Body(), nil
+	}
+	return nil, errors.New("block body not found")
+}
+
 // BlockByNumberOrHash returns block by number or hash
 func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
