@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
@@ -125,10 +126,10 @@ func (arg *CallArgs) data() []byte {
 // ToMessage converts the transaction arguments to the Message type used by the
 // core evm. This method is used in calls and traces that do not require a real
 // live transaction.
-func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (types.Message, error) {
+func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (*core.Message, error) {
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if arg.GasPrice != nil && (arg.MaxFeePerGas != nil || arg.MaxPriorityFeePerGas != nil) {
-		return types.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+		return &core.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	}
 	// Set sender address or use zero address if none specified.
 	addr := arg.from()
@@ -189,7 +190,20 @@ func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (types.Mes
 	if arg.AccessList != nil {
 		accessList = *arg.AccessList
 	}
-	msg := types.NewMessage(addr, arg.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, true)
+	msg := &core.Message{
+		Nonce:             0,
+		GasLimit:          gas,
+		GasPrice:          new(big.Int).Set(gasPrice),
+		GasFeeCap:         new(big.Int).Set(gasFeeCap),
+		GasTipCap:         new(big.Int).Set(gasTipCap),
+		To:                arg.To,
+		Value:             value,
+		Data:              data,
+		AccessList:        accessList,
+		SkipAccountChecks: true,
+		From:              addr,
+	}
+
 	return msg, nil
 }
 

@@ -165,10 +165,10 @@ func (pea *PublicEthAPI) BlockNumber() hexutil.Uint64 {
 }
 
 // GetBlockByNumber returns the requested canonical block.
-// * When blockNr is -1 the chain head is returned.
-// * We cannot support pending block calls since we do not have an active miner
-// * When fullTx is true all transactions in the block are returned, otherwise
-//   only the transaction hash is returned.
+//   - When blockNr is -1 the chain head is returned.
+//   - We cannot support pending block calls since we do not have an active miner
+//   - When fullTx is true all transactions in the block are returned, otherwise
+//     only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
 	block, err := pea.B.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
@@ -596,7 +596,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	if err != nil {
 		return nil, err
 	}
-	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.Transactions())
+	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.BaseFee(), block.Transactions())
 	if err != nil {
 		return nil, err
 	}
@@ -1108,7 +1108,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		return nil, fmt.Errorf("execution aborted (timeout = %v)", timeout)
 	}
 	if err != nil {
-		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.Gas())
+		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.GasPrice)
 	}
 	return result, nil
 }

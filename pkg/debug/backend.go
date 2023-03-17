@@ -52,6 +52,6 @@ func (b *Backend) StateAtBlock(ctx context.Context, block *types.Block, reexec u
 }
 
 // StateAtTransaction returns the execution environment of a certain transaction
-func (b *Backend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, tracers.StateReleaseFunc, error) {
+func (b *Backend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, *state.StateDB, tracers.StateReleaseFunc, error) {
 	return nil, vm.BlockContext{}, nil, nil, errMethodNotSupported
 }
