@@ -29,7 +29,7 @@ jobs:
       BUILD_KEY: ${{ secrets.BUILD_KEY }}
     with:
       STACK_ORCHESTRATOR_REF: "e62830c982d4dfc5f3c1c2b12c1754a7e9b538f1"
-      GO_ETHEREUM_REF: "67fc4acaf1ed2a3c95c411ceb095107dda85f471"
+      GO_ETHEREUM_REF: "e90c51632d3e3dadd704f14d03679663f12179ec"
       IPLD_ETH_DB_REF: "6c00c38cc4e1db6f7c4cecbb62fdfd540fba50d6"
   build:
     name: Run docker build
