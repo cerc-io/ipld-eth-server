@@ -32,7 +32,7 @@ services:
       context: ./
       cache_from:
        - alpine:latest
-       - golang:1.13-alpine
+       - golang:1.19-alpine
     environment:
       IPLD_SERVER_GRAPHQL: "true"
       IPLD_POSTGRAPHILEPATH: http://graphql:5000
