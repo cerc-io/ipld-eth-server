@@ -17,28 +17,22 @@
 package test_helpers
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"math/big"
 
+	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/indexer/shared"
 	testhelpers "github.com/ethereum/go-ethereum/statediff/test_helpers"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
-	blocks "github.com/ipfs/go-block-format"
-	"github.com/multiformats/go-multihash"
-
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 )
 
 // Test variables
@@ -75,10 +69,8 @@ var (
 			Extra:       []byte{},
 		},
 	}
-	ReceiptsRlp, _   = rlp.EncodeToBytes(MockReceipts)
-	MockBlock        = createNewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts, new(trie.Trie))
-	MockHeaderRlp, _ = rlp.EncodeToBytes(MockBlock.Header())
-	MockChildHeader  = types.Header{
+	MockBlock       = createNewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts, new(trie.Trie))
+	MockChildHeader = types.Header{
 		Time:        0,
 		Number:      new(big.Int).Add(BlockNumber, common.Big1),
 		Root:        common.HexToHash("0x0"),
@@ -89,7 +81,6 @@ var (
 		ParentHash:  MockBlock.Header().Hash(),
 	}
 	MockChild            = types.NewBlock(&MockChildHeader, MockTransactions, MockUncles, MockReceipts, new(trie.Trie))
-	MockChildRlp, _      = rlp.EncodeToBytes(MockChild.Header())
 	Address              = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476592")
 	AnotherAddress       = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476593")
 	AnotherAddress1      = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476594")
@@ -157,41 +148,10 @@ var (
 		Index:       5,
 	}
 
-	Tx1 = GetTxnRlp(0, MockTransactions)
-	Tx2 = GetTxnRlp(1, MockTransactions)
-	Tx3 = GetTxnRlp(2, MockTransactions)
-	Tx4 = GetTxnRlp(3, MockTransactions)
-
-	rctCIDs, rctIPLDData, _ = GetRctLeafNodeData(MockReceipts)
-	HeaderCID, _            = ipld.RawdataToCid(ipld.MEthHeader, MockHeaderRlp, multihash.KECCAK_256)
-	HeaderMhKey             = shared.MultihashKeyFromCID(HeaderCID)
-	Trx1CID, _              = ipld.RawdataToCid(ipld.MEthTx, Tx1, multihash.KECCAK_256)
-	Trx1MhKey               = shared.MultihashKeyFromCID(Trx1CID)
-	Trx2CID, _              = ipld.RawdataToCid(ipld.MEthTx, Tx2, multihash.KECCAK_256)
-	Trx2MhKey               = shared.MultihashKeyFromCID(Trx2CID)
-	Trx3CID, _              = ipld.RawdataToCid(ipld.MEthTx, Tx3, multihash.KECCAK_256)
-	Trx3MhKey               = shared.MultihashKeyFromCID(Trx3CID)
-	Trx4CID, _              = ipld.RawdataToCid(ipld.MEthTx, Tx4, multihash.KECCAK_256)
-	Trx4MhKey               = shared.MultihashKeyFromCID(Trx4CID)
-	Rct1CID                 = rctCIDs[0]
-	Rct1MhKey               = shared.MultihashKeyFromCID(Rct1CID)
-	Rct2CID                 = rctCIDs[1]
-	Rct2MhKey               = shared.MultihashKeyFromCID(Rct2CID)
-	Rct3CID                 = rctCIDs[2]
-	Rct3MhKey               = shared.MultihashKeyFromCID(Rct3CID)
-	Rct4CID                 = rctCIDs[3]
-	Rct4MhKey               = shared.MultihashKeyFromCID(Rct4CID)
-	State1CID, _            = ipld.RawdataToCid(ipld.MEthStateTrie, ContractLeafNode, multihash.KECCAK_256)
-	State1MhKey             = shared.MultihashKeyFromCID(State1CID)
-	State2CID, _            = ipld.RawdataToCid(ipld.MEthStateTrie, AccountLeafNode, multihash.KECCAK_256)
-	State2MhKey             = shared.MultihashKeyFromCID(State2CID)
-	StorageCID, _           = ipld.RawdataToCid(ipld.MEthStorageTrie, StorageLeafNode, multihash.KECCAK_256)
-	StorageMhKey            = shared.MultihashKeyFromCID(StorageCID)
-	Rct1IPLD                = rctIPLDData[0]
-	Rct2IPLD                = rctIPLDData[1]
-	Rct3IPLD                = rctIPLDData[2]
-	Rct4IPLD                = rctIPLDData[3]
-	MockTrxMeta             = []models.TxModel{
+	rctCIDs, _, _ = GetRctLeafNodeData(MockReceipts)
+	Rct1CID       = rctCIDs[0]
+	Rct4CID       = rctCIDs[3]
+	MockTrxMeta   = []models.TxModel{
 		{
 			CID:    "", // This is empty until we go to publish to ipfs
 			MhKey:  "",
@@ -229,48 +189,6 @@ var (
 			Data:   []byte{},
 		},
 	}
-	MockTrxMetaPostPublsh = []models.TxModel{
-		{
-			BlockNumber: "1",
-			CID:         Trx1CID.String(), // This is empty until we go to publish to ipfs
-			MhKey:       Trx1MhKey,
-			Src:         SenderAddr.Hex(),
-			Dst:         Address.String(),
-			Index:       0,
-			TxHash:      MockTransactions[0].Hash().String(),
-			Data:        []byte{},
-		},
-		{
-			BlockNumber: "1",
-			CID:         Trx2CID.String(),
-			MhKey:       Trx2MhKey,
-			Src:         SenderAddr.Hex(),
-			Dst:         AnotherAddress.String(),
-			Index:       1,
-			TxHash:      MockTransactions[1].Hash().String(),
-			Data:        []byte{},
-		},
-		{
-			BlockNumber: "1",
-			CID:         Trx3CID.String(),
-			MhKey:       Trx3MhKey,
-			Src:         SenderAddr.Hex(),
-			Dst:         "",
-			Index:       2,
-			TxHash:      MockTransactions[2].Hash().String(),
-			Data:        MockContractByteCode,
-		},
-		{
-			BlockNumber: "1",
-			CID:         Trx4CID.String(),
-			MhKey:       Trx4MhKey,
-			Src:         SenderAddr.Hex(),
-			Dst:         AnotherAddress1.String(),
-			Index:       3,
-			TxHash:      MockTransactions[3].Hash().String(),
-			Data:        []byte{},
-		},
-	}
 	MockRctMeta = []models.ReceiptModel{
 		{
 			LeafCID:      "",
@@ -293,41 +211,6 @@ var (
 		{
 			LeafCID:      "",
 			LeafMhKey:    "",
-			Contract:     "",
-			ContractHash: "",
-		},
-	}
-
-	MockRctMetaPostPublish = []models.ReceiptModel{
-		{
-			BlockNumber:  "1",
-			HeaderID:     MockBlock.Hash().String(),
-			LeafCID:      Rct1CID.String(),
-			LeafMhKey:    Rct1MhKey,
-			Contract:     "",
-			ContractHash: "",
-		},
-		{
-			BlockNumber:  "1",
-			HeaderID:     MockBlock.Hash().String(),
-			LeafCID:      Rct2CID.String(),
-			LeafMhKey:    Rct2MhKey,
-			Contract:     "",
-			ContractHash: "",
-		},
-		{
-			BlockNumber:  "1",
-			HeaderID:     MockBlock.Hash().String(),
-			LeafCID:      Rct3CID.String(),
-			LeafMhKey:    Rct3MhKey,
-			Contract:     ContractAddress.String(),
-			ContractHash: ContractHash,
-		},
-		{
-			BlockNumber:  "1",
-			HeaderID:     MockBlock.Hash().String(),
-			LeafCID:      Rct4CID.String(),
-			LeafMhKey:    Rct4MhKey,
 			Contract:     "",
 			ContractHash: "",
 		},
@@ -401,24 +284,6 @@ var (
 			StorageNodes: []sdtypes.StorageNode{},
 		},
 	}
-	MockStateMetaPostPublish = []models.StateNodeModel{
-		{
-			BlockNumber: "1",
-			CID:         State1CID.String(),
-			MhKey:       State1MhKey,
-			Path:        []byte{'\x06'},
-			NodeType:    2,
-			StateKey:    common.BytesToHash(ContractLeafKey).Hex(),
-		},
-		{
-			BlockNumber: "1",
-			CID:         State2CID.String(),
-			MhKey:       State2MhKey,
-			Path:        []byte{'\x0c'},
-			NodeType:    2,
-			StateKey:    common.BytesToHash(AccountLeafKey).Hex(),
-		},
-	}
 	MockStorageNodes = map[string][]sdtypes.StorageNode{
 		contractPath: {
 			{
@@ -438,149 +303,6 @@ var (
 		ReceiptMetaData: MockRctMeta,
 		StorageNodes:    MockStorageNodes,
 		StateNodes:      MockStateNodes,
-	}
-	MockConvertedPayloadForChild = eth.ConvertedPayload{
-		TotalDifficulty: MockChild.Difficulty(),
-		Block:           MockChild,
-		Receipts:        MockReceipts,
-		TxMetaData:      MockTrxMeta,
-		ReceiptMetaData: MockRctMeta,
-		StorageNodes:    MockStorageNodes,
-		StateNodes:      MockStateNodes,
-	}
-
-	Reward         = shared.CalcEthBlockReward(MockBlock.Header(), MockBlock.Uncles(), MockBlock.Transactions(), MockReceipts)
-	MockCIDWrapper = &eth.CIDWrapper{
-		BlockNumber: new(big.Int).Set(BlockNumber),
-		Header: models.HeaderModel{
-			BlockNumber:     "1",
-			BlockHash:       MockBlock.Hash().String(),
-			ParentHash:      "0x0000000000000000000000000000000000000000000000000000000000000000",
-			CID:             HeaderCID.String(),
-			MhKey:           HeaderMhKey,
-			TotalDifficulty: MockBlock.Difficulty().String(),
-			Reward:          Reward.String(),
-			StateRoot:       MockBlock.Root().String(),
-			RctRoot:         MockBlock.ReceiptHash().String(),
-			TxRoot:          MockBlock.TxHash().String(),
-			UncleRoot:       MockBlock.UncleHash().String(),
-			Bloom:           MockBlock.Bloom().Bytes(),
-			Timestamp:       MockBlock.Time(),
-			TimesValidated:  1,
-			Coinbase:        "0x0000000000000000000000000000000000000000",
-		},
-		Transactions: MockTrxMetaPostPublsh,
-		Receipts:     MockRctMetaPostPublish,
-		Uncles:       []models.UncleModel{},
-		StateNodes:   MockStateMetaPostPublish,
-		StorageNodes: []models.StorageNodeWithStateKeyModel{
-			{
-				BlockNumber: "1",
-				Path:        []byte{},
-				CID:         StorageCID.String(),
-				MhKey:       StorageMhKey,
-				NodeType:    2,
-				StateKey:    common.BytesToHash(ContractLeafKey).Hex(),
-				StorageKey:  common.BytesToHash(StorageLeafKey).Hex(),
-			},
-		},
-	}
-
-	HeaderIPLD, _  = blocks.NewBlockWithCid(MockHeaderRlp, HeaderCID)
-	Trx1IPLD, _    = blocks.NewBlockWithCid(Tx1, Trx1CID)
-	Trx2IPLD, _    = blocks.NewBlockWithCid(Tx2, Trx2CID)
-	Trx3IPLD, _    = blocks.NewBlockWithCid(Tx3, Trx3CID)
-	Trx4IPLD, _    = blocks.NewBlockWithCid(Tx4, Trx4CID)
-	State1IPLD, _  = blocks.NewBlockWithCid(ContractLeafNode, State1CID)
-	State2IPLD, _  = blocks.NewBlockWithCid(AccountLeafNode, State2CID)
-	StorageIPLD, _ = blocks.NewBlockWithCid(StorageLeafNode, StorageCID)
-
-	MockIPLDs = eth.IPLDs{
-		BlockNumber: new(big.Int).Set(BlockNumber),
-		Header: models.IPLDModel{
-			BlockNumber: BlockNumber.String(),
-			Data:        HeaderIPLD.RawData(),
-			Key:         HeaderIPLD.Cid().String(),
-		},
-		Transactions: []models.IPLDModel{
-			{
-				BlockNumber: BlockNumber.String(),
-				Data:        Trx1IPLD.RawData(),
-				Key:         Trx1IPLD.Cid().String(),
-			},
-			{
-				BlockNumber: BlockNumber.String(),
-				Data:        Trx2IPLD.RawData(),
-				Key:         Trx2IPLD.Cid().String(),
-			},
-			{
-				BlockNumber: BlockNumber.String(),
-				Data:        Trx3IPLD.RawData(),
-				Key:         Trx3IPLD.Cid().String(),
-			},
-			{
-				BlockNumber: BlockNumber.String(),
-				Data:        Trx4IPLD.RawData(),
-				Key:         Trx4IPLD.Cid().String(),
-			},
-		},
-		Receipts: []models.IPLDModel{
-			{
-				BlockNumber: BlockNumber.String(),
-				Data:        Rct1IPLD,
-				Key:         Rct1CID.String(),
-			},
-			{
-				BlockNumber: BlockNumber.String(),
-				Data:        Rct2IPLD,
-				Key:         Rct2CID.String(),
-			},
-			{
-				BlockNumber: BlockNumber.String(),
-				Data:        Rct3IPLD,
-				Key:         Rct3CID.String(),
-			},
-			{
-				BlockNumber: BlockNumber.String(),
-				Data:        Rct4IPLD,
-				Key:         Rct4CID.String(),
-			},
-		},
-		StateNodes: []eth.StateNode{
-			{
-				StateLeafKey: common.BytesToHash(ContractLeafKey),
-				Type:         sdtypes.Leaf,
-				IPLD: models.IPLDModel{
-					BlockNumber: BlockNumber.String(),
-					Data:        State1IPLD.RawData(),
-					Key:         State1IPLD.Cid().String(),
-				},
-				Path: []byte{'\x06'},
-			},
-			{
-				StateLeafKey: common.BytesToHash(AccountLeafKey),
-				Type:         sdtypes.Leaf,
-				IPLD: models.IPLDModel{
-					BlockNumber: BlockNumber.String(),
-					Data:        State2IPLD.RawData(),
-					Key:         State2IPLD.Cid().String(),
-				},
-				Path: []byte{'\x0c'},
-			},
-		},
-		StorageNodes: []eth.StorageNode{
-			{
-				StateLeafKey:   common.BytesToHash(ContractLeafKey),
-				StorageLeafKey: common.BytesToHash(StorageLeafKey),
-				Type:           sdtypes.Leaf,
-				IPLD: models.IPLDModel{
-					BlockNumber: BlockNumber.String(),
-					Data:        StorageIPLD.RawData(),
-					Key:         StorageIPLD.Cid().String(),
-				},
-				Path: []byte{},
-			},
-		},
 	}
 
 	LondonBlockNum   = new(big.Int).Add(BlockNumber, big.NewInt(2))
@@ -740,22 +462,4 @@ func createLegacyTransactionsAndReceipts() (types.Transactions, types.Receipts, 
 	mockReceipt4.GasUsed = mockReceipt4.CumulativeGasUsed - mockReceipt3.CumulativeGasUsed
 
 	return types.Transactions{signedTrx1, signedTrx2, signedTrx3, signedTrx4}, types.Receipts{mockReceipt1, mockReceipt2, mockReceipt3, mockReceipt4}, SenderAddr
-}
-
-func GetTxnRlp(num int, txs types.Transactions) []byte {
-	buf := new(bytes.Buffer)
-	txs.EncodeIndex(num, buf)
-	tx := make([]byte, buf.Len())
-	copy(tx, buf.Bytes())
-	buf.Reset()
-	return tx
-}
-
-func GetRctRlp(num int, rcts types.Receipts) []byte {
-	buf := new(bytes.Buffer)
-	rcts.EncodeIndex(num, buf)
-	rct := make([]byte, buf.Len())
-	copy(rct, buf.Bytes())
-	buf.Reset()
-	return rct
 }

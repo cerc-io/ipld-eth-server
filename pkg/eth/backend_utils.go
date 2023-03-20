@@ -35,8 +35,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	sdtrie "github.com/ethereum/go-ethereum/statediff/trie_helpers"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/ethereum/go-ethereum/trie"
 )
 
@@ -334,7 +332,7 @@ func fillSliceNodeData(
 	ethDB ethdb.KeyValueReader,
 	nodesMap map[string]string,
 	leavesMap map[string]GetSliceResponseAccount,
-	node sdtypes.StateNode,
+	node StateNode,
 	nodeElements []interface{},
 	storage bool,
 ) (int64, error) {
@@ -344,7 +342,7 @@ func fillSliceNodeData(
 
 	// Extract account data if it's a Leaf node
 	leafStartTime := makeTimestamp()
-	if node.NodeType == sdtypes.Leaf && !storage {
+	if node.NodeType == Leaf && !storage {
 		stateLeafKey, storageRoot, code, err := extractContractAccountInfo(ethDB, node, nodeElements)
 		if err != nil {
 			return 0, fmt.Errorf("GetSlice account lookup error: %s", err.Error())
@@ -362,7 +360,7 @@ func fillSliceNodeData(
 	return makeTimestamp() - leafStartTime, nil
 }
 
-func extractContractAccountInfo(ethDB ethdb.KeyValueReader, node sdtypes.StateNode, nodeElements []interface{}) (string, string, []byte, error) {
+func extractContractAccountInfo(ethDB ethdb.KeyValueReader, node StateNode, nodeElements []interface{}) (string, string, []byte, error) {
 	var account types.StateAccount
 	if err := rlp.DecodeBytes(nodeElements[1].([]byte), &account); err != nil {
 		return "", "", nil, fmt.Errorf("error decoding account for leaf node at path %x nerror: %v", node.Path, err)
@@ -386,24 +384,4 @@ func extractContractAccountInfo(ethDB ethdb.KeyValueReader, node sdtypes.StateNo
 	codeBytes := rawdb.ReadCode(ethDB, codeHash)
 
 	return stateLeafKeyString, storageRootString, codeBytes, nil
-}
-
-func ResolveNode(path []byte, node []byte, trieDB *trie.Database) (sdtypes.StateNode, []interface{}, error) {
-	nodePath := make([]byte, len(path))
-	copy(nodePath, path)
-
-	var nodeElements []interface{}
-	if err := rlp.DecodeBytes(node, &nodeElements); err != nil {
-		return sdtypes.StateNode{}, nil, err
-	}
-
-	ty, err := sdtrie.CheckKeyType(nodeElements)
-	if err != nil {
-		return sdtypes.StateNode{}, nil, err
-	}
-	return sdtypes.StateNode{
-		NodeType:  ty,
-		Path:      nodePath,
-		NodeValue: node,
-	}, nodeElements, nil
 }

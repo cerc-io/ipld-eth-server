@@ -193,47 +193,6 @@ func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (types.Mes
 	return msg, nil
 }
 
-// IPLDs is used to package raw IPLD block data fetched from IPFS and returned by the server
-// Returned by IPLDFetcher and ResponseFilterer
-type IPLDs struct {
-	BlockNumber     *big.Int
-	TotalDifficulty *big.Int
-	Header          models.IPLDModel
-	Uncles          []models.IPLDModel
-	Transactions    []models.IPLDModel
-	Receipts        []models.IPLDModel
-	StateNodes      []StateNode
-	StorageNodes    []StorageNode
-}
-
-type StateNode struct {
-	Type         sdtypes.NodeType
-	StateLeafKey common.Hash
-	Path         []byte
-	IPLD         models.IPLDModel
-}
-
-type StorageNode struct {
-	Type           sdtypes.NodeType
-	StateLeafKey   common.Hash
-	StorageLeafKey common.Hash
-	Path           []byte
-	IPLD           models.IPLDModel
-}
-
-// CIDWrapper is used to direct fetching of IPLDs from IPFS
-// Returned by CIDRetriever
-// Passed to IPLDFetcher
-type CIDWrapper struct {
-	BlockNumber  *big.Int
-	Header       models.HeaderModel
-	Uncles       []models.UncleModel
-	Transactions []models.TxModel
-	Receipts     []models.ReceiptModel
-	StateNodes   []models.StateNodeModel
-	StorageNodes []models.StorageNodeWithStateKeyModel
-}
-
 // ConvertedPayload is a custom type which packages raw ETH data for publishing to IPFS and filtering to subscribers
 // Returned by PayloadConverter
 // Passed to IPLDPublisher and ResponseFilterer
@@ -249,7 +208,7 @@ type ConvertedPayload struct {
 
 // LogResult represent a log.
 type LogResult struct {
-	LeafCID     string `db:"leaf_cid"`
+	LeafCID     string `db:"cid"`
 	ReceiptID   string `db:"rct_id"`
 	Address     string `db:"address"`
 	Index       int64  `db:"index"`

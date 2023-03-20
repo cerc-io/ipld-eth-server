@@ -25,7 +25,6 @@ import (
 	"sync"
 	"time"
 
-
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/mailgun/groupcache/v2"

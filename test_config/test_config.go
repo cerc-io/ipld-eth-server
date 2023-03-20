@@ -18,6 +18,7 @@ package test_config
 
 import (
 	"errors"
+
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
 	"github.com/spf13/viper"

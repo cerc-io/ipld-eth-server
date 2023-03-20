@@ -33,13 +33,13 @@ var _ = Describe("Retriever", func() {
 	var (
 		db          *sqlx.DB
 		diffIndexer interfaces.StateDiffIndexer
-		retriever   *eth.CIDRetriever
+		retriever   *eth.Retriever
 	)
 	BeforeEach(func() {
 		db = shared.SetupDB()
 		diffIndexer = shared.SetupTestStateDiffIndexer(ctx, params.TestChainConfig, test_helpers.Genesis.Hash())
 
-		retriever = eth.NewCIDRetriever(db)
+		retriever = eth.NewRetriever(db)
 	})
 	AfterEach(func() {
 		shared.TearDownDB(db)

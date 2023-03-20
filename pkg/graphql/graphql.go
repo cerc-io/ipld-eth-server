@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -37,6 +36,7 @@ import (
 
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	ipld_eth_statedb "github.com/cerc-io/ipld-eth-statedb"
 )
 
 var (
@@ -51,8 +51,8 @@ type Account struct {
 }
 
 // getState fetches the StateDB object for an account.
-func (a *Account) getState(ctx context.Context) (*state.StateDB, error) {
-	state, _, err := a.backend.StateAndHeaderByNumberOrHash(ctx, a.blockNrOrHash)
+func (a *Account) getState(ctx context.Context) (*ipld_eth_statedb.StateDB, error) {
+	state, _, err := a.backend.IPLDStateDBAndHeaderByNumberOrHash(ctx, a.blockNrOrHash)
 	return state, err
 }
 
@@ -1009,7 +1009,7 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 	Contract  common.Address
 	Slot      common.Hash
 }) (*StorageResult, error) {
-	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(args.Contract, args.Slot, args.BlockHash)
+	cid, ipldBlock, rlpValue, err := r.backend.Retriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(args.Contract, args.Slot, args.BlockHash)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

@@ -81,7 +81,7 @@ func (s *Service) Start(server *p2p.Server) error {
 	return nil
 }
 
-// newHandler returns a new `http.Handler` that will answer GraphQL queries.
+// NewHandler returns a new `http.Handler` that will answer GraphQL queries.
 // It additionally exports an interactive query browser on the / endpoint.
 func NewHandler(backend *eth.Backend) (http.Handler, error) {
 	q := Resolver{backend}
