@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"math/big"
 
-	nodeiter "github.com/cerc-io/go-eth-state-node-iterator"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -36,6 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
+	nodeiter "github.com/ethereum/go-ethereum/trie/concurrent_iterator"
 )
 
 var nullHashBytes = common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000000")
