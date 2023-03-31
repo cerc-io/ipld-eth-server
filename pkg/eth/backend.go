@@ -374,6 +374,27 @@ func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.He
 	return header, rlp.DecodeBytes(headerRLP, header)
 }
 
+// CurrentHeader returns the current block's header
+func (b *Backend) CurrentHeader() *types.Header {
+	block, err := b.BlockByNumber(context.Background(), rpc.LatestBlockNumber)
+	if err != nil {
+		return nil
+	}
+	return block.Header()
+}
+
+// GetBody returns the the body for the provided block hash and number
+func (b *Backend) GetBody(ctx context.Context, hash common.Hash, number rpc.BlockNumber) (*types.Body, error) {
+	if number < 0 || hash == (common.Hash{}) {
+		return nil, errors.New("invalid arguments; expect hash and no special block numbers")
+	}
+	block, bErr := b.BlockByHash(ctx, hash)
+	if block != nil && bErr == nil {
+		return block.Body(), nil
+	}
+	return nil, errors.New("block body not found")
+}
+
 // GetUnclesByBlockHash retrieves uncles for a provided block hash
 func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.Header, error) {
 	_, uncleBytes, err := b.Retriever.RetrieveUnclesByBlockHash(tx, hash)
@@ -682,11 +703,11 @@ func (b *Backend) GetCanonicalHeader(number uint64) (string, []byte, error) {
 }
 
 // GetEVM constructs and returns a vm.EVM
-func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state vm.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
+func (b *Backend) GetEVM(ctx context.Context, msg *core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
 	vmError := func() error { return nil }
 	txContext := core.NewEVMTxContext(msg)
-	blockContext := core.NewEVMBlockContext(header, b, nil)
-	return vm.NewEVM(blockContext, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), vmError, nil
+	evmCtx := core.NewEVMBlockContext(header, b, nil)
+	return vm.NewEVM(evmCtx, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), vmError, nil
 }
 
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash

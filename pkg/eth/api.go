@@ -510,7 +510,7 @@ type feeHistoryResult struct {
 }
 
 // FeeHistory returns the fee market history.
-func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
+func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount int, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
 	if pea.rpc != nil {
 		var res *feeHistoryResult
 		if err := pea.rpc.CallContext(ctx, &res, "eth_feeHistory", blockCount, lastBlock, rewardPercentiles); err != nil {
@@ -596,7 +596,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	if err != nil {
 		return nil, err
 	}
-	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.Transactions())
+	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.BaseFee(), block.Transactions())
 	if err != nil {
 		return nil, err
 	}
@@ -882,7 +882,10 @@ func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Addre
 		return nil, err
 	}
 
-	storageTrie := state.StorageTrie(address)
+	storageTrie, err := state.StorageTrie(address)
+	if storageTrie == nil || err != nil {
+		return nil, err
+	}
 	storageHash := types.EmptyRootHash
 	codeHash := state.GetCodeHash(address)
 	storageProof := make([]StorageResult, len(storageKeys))
@@ -1106,7 +1109,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		return nil, fmt.Errorf("execution aborted (timeout = %v)", timeout)
 	}
 	if err != nil {
-		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.Gas())
+		return result, fmt.Errorf("err: %w (supplied gas %d)", err, args.Gas)
 	}
 	return result, nil
 }

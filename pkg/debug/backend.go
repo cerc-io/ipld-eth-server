@@ -42,14 +42,13 @@ type Backend struct {
 }
 
 // StateAtBlock retrieves the state database associated with a certain block
-// We can't sub in our ipld-eth-statedb here because to match the expected interface we need to return *state.StateDB not vm.StateDB
-func (b *Backend) StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, checkLive, preferDisk bool) (*state.StateDB, error) {
+func (b *Backend) StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, checkLive, preferDisk bool) (*state.StateDB, tracers.StateReleaseFunc, error) {
 	rpcBlockNumber := rpc.BlockNumber(block.NumberU64())
 	statedb, _, err := b.StateAndHeaderByNumberOrHash(ctx, rpc.BlockNumberOrHashWithNumber(rpcBlockNumber))
-	return statedb, err
+	return statedb, func() {}, err
 }
 
 // StateAtTransaction returns the execution environment of a certain transaction
-func (b *Backend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, error) {
-	return nil, vm.BlockContext{}, nil, errMethodNotSupported
+func (b *Backend) StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, *state.StateDB, tracers.StateReleaseFunc, error) {
+	return nil, vm.BlockContext{}, nil, func() {}, errMethodNotSupported
 }
