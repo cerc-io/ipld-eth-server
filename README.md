@@ -22,7 +22,7 @@ Additional, unique endpoints are exposed which utilize the new indexes and state
 
 ## Dependencies
 Minimal build dependencies
-* Go (1.18)
+* Go (1.19)
 * Git
 * GCC compiler
 * This repository

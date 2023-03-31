@@ -1,6 +1,6 @@
 module github.com/cerc-io/ipld-eth-server/v4
 
-go 1.18
+go 1.19
 
 require (
 	github.com/cerc-io/eth-ipfs-state-validator/v4 v4.0.15-alpha
