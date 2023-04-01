@@ -150,6 +150,7 @@ var (
 		"logs":              test_helpers.MockReceipts[0].Logs,
 		"logsBloom":         test_helpers.MockReceipts[0].Bloom,
 		"status":            hexutil.Uint(test_helpers.MockReceipts[0].Status),
+		"effectiveGasPrice": (*hexutil.Big)(big.NewInt(100)),
 	}
 	expectedReceipt2 = map[string]interface{}{
 		"blockHash":         blockHash,
@@ -164,6 +165,7 @@ var (
 		"logs":              test_helpers.MockReceipts[1].Logs,
 		"logsBloom":         test_helpers.MockReceipts[1].Bloom,
 		"root":              hexutil.Bytes(test_helpers.MockReceipts[1].PostState),
+		"effectiveGasPrice": (*hexutil.Big)(big.NewInt(200)),
 	}
 	expectedReceipt3 = map[string]interface{}{
 		"blockHash":         blockHash,
@@ -178,6 +180,7 @@ var (
 		"logs":              test_helpers.MockReceipts[2].Logs,
 		"logsBloom":         test_helpers.MockReceipts[2].Bloom,
 		"root":              hexutil.Bytes(test_helpers.MockReceipts[2].PostState),
+		"effectiveGasPrice": (*hexutil.Big)(big.NewInt(150)),
 	}
 )
 
