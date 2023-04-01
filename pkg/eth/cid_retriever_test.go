@@ -535,5 +535,5 @@ var _ = Describe("Retriever", func() {
 func newMockBlock(blockNumber uint64) *types.Block {
 	header := test_helpers.MockHeader
 	header.Number.SetUint64(blockNumber)
-	return types.NewBlock(&test_helpers.MockHeader, test_helpers.MockTransactions, nil, test_helpers.MockReceipts, new(trie.Trie))
+	return types.NewBlock(&test_helpers.MockHeader, test_helpers.MockTransactions, nil, test_helpers.MockReceipts, trie.NewEmpty(nil))
 }

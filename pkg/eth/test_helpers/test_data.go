@@ -76,7 +76,7 @@ var (
 		},
 	}
 	ReceiptsRlp, _   = rlp.EncodeToBytes(MockReceipts)
-	MockBlock        = createNewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts, new(trie.Trie))
+	MockBlock        = createNewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts, trie.NewEmpty(nil))
 	MockHeaderRlp, _ = rlp.EncodeToBytes(MockBlock.Header())
 	MockChildHeader  = types.Header{
 		Time:        0,
@@ -88,7 +88,7 @@ var (
 		Extra:       []byte{},
 		ParentHash:  MockBlock.Header().Hash(),
 	}
-	MockChild            = types.NewBlock(&MockChildHeader, MockTransactions, MockUncles, MockReceipts, new(trie.Trie))
+	MockChild            = types.NewBlock(&MockChildHeader, MockTransactions, MockUncles, MockReceipts, trie.NewEmpty(nil))
 	MockChildRlp, _      = rlp.EncodeToBytes(MockChild.Header())
 	Address              = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476592")
 	AnotherAddress       = common.HexToAddress("0xaE9BEa628c4Ce503DcFD7E305CaB4e29E7476593")
@@ -616,7 +616,7 @@ var (
 			Extra:       []byte{},
 		},
 	}
-	MockLondonBlock = createNewBlock(&MockLondonHeader, MockLondonTransactions, MockLondonUncles, MockLondonReceipts, new(trie.Trie))
+	MockLondonBlock = createNewBlock(&MockLondonHeader, MockLondonTransactions, MockLondonUncles, MockLondonReceipts, trie.NewEmpty(nil))
 )
 
 func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, hasher types.TrieHasher) *types.Block {

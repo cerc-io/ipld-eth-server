@@ -408,7 +408,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	}
 
 	// Compose everything together into a complete block
-	return types.NewBlock(header, transactions, uncles, receipts, new(trie.Trie)), err
+	return types.NewBlock(header, transactions, uncles, receipts, trie.NewEmpty(nil)), err
 }
 
 // GetHeaderByBlockHash retrieves header for a provided block hash
