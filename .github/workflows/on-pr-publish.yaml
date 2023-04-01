@@ -24,7 +24,7 @@ jobs:
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     needs: pre_job
     with:
-      STACK_ORCHESTRATOR_REF: "f2fd766f5400fcb9eb47b50675d2e3b1f2753702"
+      STACK_ORCHESTRATOR_REF: "e62830c982d4dfc5f3c1c2b12c1754a7e9b538f1"
       GO_ETHEREUM_REF: "c339429ff6550d8012d65977fc79f73bba2616e3"
       IPLD_ETH_DB_REF: "be345e0733d2c025e4082c5154e441317ae94cf7"
   build:
