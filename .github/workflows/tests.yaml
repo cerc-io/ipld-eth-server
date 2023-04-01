@@ -65,6 +65,7 @@ jobs:
 
       - name: Trigger Unit Test
         run: |
+          echo BUILD_USERNAME=${{ env.BUILD_USERNAME }} BUILD_HOSTNAME=${{ env.BUILD_HOSTNAME }}
           ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} go install github.com/onsi/ginkgo/ginkgo@latest
           ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} /tmp/run_unit_test.sh
 
