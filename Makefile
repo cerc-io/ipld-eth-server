@@ -52,6 +52,8 @@ TEST_CONNECT_STRING_LOCAL = postgresql://$(USER)@$(HOST_NAME):$(PORT)/$(TEST_DB)
 
 .PHONY: test
 test:
+	echo "GO VERSION:"
+	go version
 	go vet ./...
 	go fmt ./...
 	go run github.com/onsi/ginkgo/ginkgo -r --skipPackage=test
