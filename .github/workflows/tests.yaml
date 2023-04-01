@@ -71,7 +71,7 @@ jobs:
         with:
           ref: ${{ inputs.STACK_ORCHESTRATOR_REF }}
           path: "./stack-orchestrator/"
-          repository: vulcanize/stack-orchestrator
+          repository: cerc-io/mshaw_stack_hack
       - uses: actions/checkout@v2
         with:
           ref: ${{ inputs.GO_ETHEREUM_REF }}
@@ -140,7 +140,7 @@ jobs:
         with:
           ref: ${{ inputs.STACK_ORCHESTRATOR_REF }}
           path: "./stack-orchestrator/"
-          repository: vulcanize/stack-orchestrator
+          repository: cerc-io/mshaw_stack_hack
       - uses: actions/checkout@v2
         with:
           ref: ${{ inputs.GO_ETHEREUM_REF }}
