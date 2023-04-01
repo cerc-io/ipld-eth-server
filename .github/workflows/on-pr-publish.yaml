@@ -23,10 +23,6 @@ jobs:
     uses: ./.github/workflows/tests.yaml
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     needs: pre_job
-    secrets:
-      BUILD_HOSTNAME: ${{ secrets.BUILD_HOSTNAME }}
-      BUILD_USERNAME: ${{ secrets.BUILD_USERNAME }}
-      BUILD_KEY: ${{ secrets.BUILD_KEY }}
     with:
       STACK_ORCHESTRATOR_REF: "f2fd766f5400fcb9eb47b50675d2e3b1f2753702"
       GO_ETHEREUM_REF: "c339429ff6550d8012d65977fc79f73bba2616e3"
