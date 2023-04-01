@@ -1,13 +1,6 @@
 name: Test the stack.
 on:
   workflow_call:
-    secrets:
-      BUILD_HOSTNAME:
-        required: true
-      BUILD_USERNAME:
-        required: true
-      BUILD_KEY:
-        required: true
     inputs:
       STACK_ORCHESTRATOR_REF:
         required: true
@@ -31,10 +24,6 @@ jobs:
     name: Run unit tests
     env:
       GOPATH: /tmp/go
-      # To run the unit tests you need to add secrets to your repository.
-      BUILD_HOSTNAME: ${{ secrets.BUILD_HOSTNAME }}
-      BUILD_USERNAME: ${{ secrets.BUILD_USERNAME }}
-      BUILD_KEY: ${{ secrets.BUILD_KEY }}
 
     runs-on: ubuntu-latest
     steps:
@@ -45,38 +34,18 @@ jobs:
         with:
           go-version: 1.19.7
 
-      # Passed experience with GHA has taught me to store variables in files instead of passing them as variables.
-      - name: Output variables to files
-        run: |
-          echo $GITHUB_REPOSITORY > /tmp/git_repository
-          [ -z "$GITHUB_HEAD_REF" ] && echo $GITHUB_REF_NAME > /tmp/git_head_ref || echo $GITHUB_HEAD_REF > /tmp/git_head_ref
-          echo "-----BEGIN OPENSSH PRIVATE KEY-----" >> /tmp/key
-          echo ${{ env.BUILD_KEY }} >> /tmp/key
-          echo "-----END OPENSSH PRIVATE KEY-----" >> /tmp/key
-          chmod 400 /tmp/key
-          cat /tmp/git_repository
-          cat /tmp/git_head_ref
+      - name: Bring up docker timescaledb container
+        run: docker compose up -d ipld-eth-db
 
-      - name: Raw SCP
+      - name: Run db migrations
         run: |
-          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key /tmp/git_repository ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_repository
-          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key /tmp/git_head_ref ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/git_head_ref
-          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q -i /tmp/key .github/workflows/run_unit_test.sh ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/run_unit_test.sh
+          sleep 30;
+          docker compose up -d migrations
 
-      - name: Trigger Unit Test
+      - name: Run test
         run: |
-          ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} go install github.com/onsi/ginkgo/ginkgo@latest
-          ssh -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }} /tmp/run_unit_test.sh
-
-      - name: Get the logs and cat them
-        run: |
-          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/test.log .
-          cat ./test.log
-
-      - name: Check Error Code
-        run: |
-          scp -o 'StrictHostKeyChecking no' -o UserKnownHostsFile=/dev/null -q  -i /tmp/key ${{ env.BUILD_USERNAME }}@${{ env.BUILD_HOSTNAME }}:/tmp/return_test.txt .
-          [ $(cat ./return_test.txt) -eq 0 ]
+          sleep 30;
+          PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=password DATABASE_HOSTNAME=127.0.0.1 DATABASE_NAME=vulcanize_testing make test
 
   integrationtest:
     name: Run integration tests
