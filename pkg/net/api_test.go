@@ -17,10 +17,10 @@
 package net_test
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/net"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/net"
 )
 
 var _ = Describe("API", func() {

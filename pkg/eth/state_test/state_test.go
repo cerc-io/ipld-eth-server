@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package eth_test
+package eth_state_test
 
 import (
 	"bytes"
@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -30,21 +29,26 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	"github.com/ethereum/go-ethereum/statediff"
+	// "github.com/ethereum/go-ethereum/statediff/test_helpers"
+
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth/test_helpers"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
 )
 
 var (
-	parsedABI abi.ABI
+	parsedABI     abi.ABI
+	randomAddress = common.HexToAddress("0x9F4203bd7a11aCB94882050E6f1C3ab14BBaD3D9")
+	randomHash    = crypto.Keccak256Hash(randomAddress.Bytes())
+	number        = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
 
 	block1StateRoot    = common.HexToHash("0xa1f614839ebdd58677df2c9d66a3e0acc9462acc49fad6006d0b6e5d2b98ed21")
 	rootDataHashBlock1 = "a1f614839ebdd58677df2c9d66a3e0acc9462acc49fad6006d0b6e5d2b98ed21"
@@ -83,7 +87,7 @@ var (
 
 func init() {
 	// load abi
-	abiBytes, err := ioutil.ReadFile("./test_helpers/abi.json")
+	abiBytes, err := ioutil.ReadFile("../test_helpers/abi.json")
 	if err != nil {
 		panic(err)
 	}
@@ -93,132 +97,133 @@ func init() {
 	}
 }
 
-var _ = Describe("eth state reading tests", func() {
-	const chainLength = 5
-	var (
-		blocks                  []*types.Block
-		receipts                []types.Receipts
-		chain                   *core.BlockChain
-		db                      *sqlx.DB
-		api                     *eth.PublicEthAPI
-		backend                 *eth.Backend
-		chainConfig             = params.TestChainConfig
-		mockTD                  = big.NewInt(1337)
-		expectedCanonicalHeader map[string]interface{}
-	)
-	It("test init", func() {
-		// db and type initializations
-		var err error
-		db = shared.SetupDB()
-		transformer := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+const chainLength = 5
 
-		backend, err = eth.NewEthBackend(db, &eth.Config{
-			ChainConfig: chainConfig,
-			VMConfig:    vm.Config{},
-			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
-			GroupCacheConfig: &shared.GroupCacheConfig{
-				StateDB: shared.GroupConfig{
-					Name:                   "eth_state_test",
-					CacheSizeInMB:          8,
-					CacheExpiryInMins:      60,
-					LogStatsIntervalInSecs: 0,
-				},
+var (
+	blocks                  []*types.Block
+	receipts                []types.Receipts
+	chain                   *core.BlockChain
+	db                      *sqlx.DB
+	api                     *eth.PublicEthAPI
+	backend                 *eth.Backend
+	chainConfig             = &*params.TestChainConfig
+	mockTD                  = big.NewInt(1337)
+	expectedCanonicalHeader map[string]interface{}
+	ctx                     = context.Background()
+)
+
+var _ = BeforeSuite(func() {
+	chainConfig.LondonBlock = big.NewInt(100)
+
+	// db and type initializations
+	var err error
+	db = shared.SetupDB()
+
+	backend, err = eth.NewEthBackend(db, &eth.Config{
+		ChainConfig: chainConfig,
+		VMConfig:    vm.Config{},
+		RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
+		GroupCacheConfig: &shared.GroupCacheConfig{
+			StateDB: shared.GroupConfig{
+				Name:                   "eth_state_test",
+				CacheSizeInMB:          8,
+				CacheExpiryInMins:      60,
+				LogStatsIntervalInSecs: 0,
 			},
-		})
-		Expect(err).ToNot(HaveOccurred())
-		api, _ = eth.NewPublicEthAPI(backend, nil, eth.APIConfig{false, false, false, false, shared.DefaultStateDiffTimeout})
+		},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	api, _ = eth.NewPublicEthAPI(backend, nil, eth.APIConfig{StateDiffTimeout: shared.DefaultStateDiffTimeout})
 
-		// make the test blockchain (and state)
-		blocks, receipts, chain = test_helpers.MakeChain(chainLength, test_helpers.Genesis, test_helpers.TestChainGen)
-		params := statediff.Params{
-			IntermediateStateNodes:   true,
-			IntermediateStorageNodes: true,
-		}
-		canonicalHeader := blocks[1].Header()
-		expectedCanonicalHeader = map[string]interface{}{
-			"number":           (*hexutil.Big)(canonicalHeader.Number),
-			"hash":             canonicalHeader.Hash(),
-			"parentHash":       canonicalHeader.ParentHash,
-			"nonce":            canonicalHeader.Nonce,
-			"mixHash":          canonicalHeader.MixDigest,
-			"sha3Uncles":       canonicalHeader.UncleHash,
-			"logsBloom":        canonicalHeader.Bloom,
-			"stateRoot":        canonicalHeader.Root,
-			"miner":            canonicalHeader.Coinbase,
-			"difficulty":       (*hexutil.Big)(canonicalHeader.Difficulty),
-			"extraData":        hexutil.Bytes([]byte{}),
-			"size":             hexutil.Uint64(canonicalHeader.Size()),
-			"gasLimit":         hexutil.Uint64(canonicalHeader.GasLimit),
-			"gasUsed":          hexutil.Uint64(canonicalHeader.GasUsed),
-			"timestamp":        hexutil.Uint64(canonicalHeader.Time),
-			"transactionsRoot": canonicalHeader.TxHash,
-			"receiptsRoot":     canonicalHeader.ReceiptHash,
-			"totalDifficulty":  (*hexutil.Big)(mockTD),
-		}
-		// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
-		builder := statediff.NewBuilder(chain.StateCache())
-		for i, block := range blocks {
-			var args statediff.Args
-			var rcts types.Receipts
-			if i == 0 {
-				args = statediff.Args{
-					OldStateRoot: common.Hash{},
-					NewStateRoot: block.Root(),
-					BlockNumber:  block.Number(),
-					BlockHash:    block.Hash(),
-				}
-			} else {
-				args = statediff.Args{
-					OldStateRoot: blocks[i-1].Root(),
-					NewStateRoot: block.Root(),
-					BlockNumber:  block.Number(),
-					BlockHash:    block.Hash(),
-				}
-				rcts = receipts[i-1]
+	// make the test blockchain (and state)
+	blocks, receipts, chain = test_helpers.MakeChain(chainLength, test_helpers.Genesis, test_helpers.TestChainGen, chainConfig)
+
+	transformer := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+	params := statediff.Params{}
+	canonicalHeader := blocks[1].Header()
+	expectedCanonicalHeader = map[string]interface{}{
+		"number":           (*hexutil.Big)(canonicalHeader.Number),
+		"hash":             canonicalHeader.Hash(),
+		"parentHash":       canonicalHeader.ParentHash,
+		"nonce":            canonicalHeader.Nonce,
+		"mixHash":          canonicalHeader.MixDigest,
+		"sha3Uncles":       canonicalHeader.UncleHash,
+		"logsBloom":        canonicalHeader.Bloom,
+		"stateRoot":        canonicalHeader.Root,
+		"miner":            canonicalHeader.Coinbase,
+		"difficulty":       (*hexutil.Big)(canonicalHeader.Difficulty),
+		"extraData":        hexutil.Bytes([]byte{}),
+		"size":             hexutil.Uint64(canonicalHeader.Size()),
+		"gasLimit":         hexutil.Uint64(canonicalHeader.GasLimit),
+		"gasUsed":          hexutil.Uint64(canonicalHeader.GasUsed),
+		"timestamp":        hexutil.Uint64(canonicalHeader.Time),
+		"transactionsRoot": canonicalHeader.TxHash,
+		"receiptsRoot":     canonicalHeader.ReceiptHash,
+		"totalDifficulty":  (*hexutil.Big)(mockTD),
+	}
+	// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
+	builder := statediff.NewBuilder(chain.StateCache())
+	for i, block := range blocks {
+		var args statediff.Args
+		var rcts types.Receipts
+		if i == 0 {
+			args = statediff.Args{
+				OldStateRoot: common.Hash{},
+				NewStateRoot: block.Root(),
+				BlockNumber:  block.Number(),
+				BlockHash:    block.Hash(),
 			}
-			diff, err := builder.BuildStateDiffObject(args, params)
-			Expect(err).ToNot(HaveOccurred())
-			tx, err := transformer.PushBlock(block, rcts, mockTD)
-			Expect(err).ToNot(HaveOccurred())
-
-			for _, node := range diff.Nodes {
-				err = transformer.PushStateNode(tx, node, block.Hash().String())
-				Expect(err).ToNot(HaveOccurred())
+		} else {
+			args = statediff.Args{
+				OldStateRoot: blocks[i-1].Root(),
+				NewStateRoot: block.Root(),
+				BlockNumber:  block.Number(),
+				BlockHash:    block.Hash(),
 			}
-			err = tx.Submit(err)
+			rcts = receipts[i-1]
+		}
+		diff, err := builder.BuildStateDiffObject(args, params)
+		Expect(err).ToNot(HaveOccurred())
+		tx, err := transformer.PushBlock(block, rcts, mockTD)
+		Expect(err).ToNot(HaveOccurred())
+
+		for _, node := range diff.Nodes {
+			err = transformer.PushStateNode(tx, node, block.Hash().String())
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-		indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
-
-		tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
-		Expect(err).ToNot(HaveOccurred())
+		for _, ipld := range diff.IPLDs {
+			err = transformer.PushIPLD(tx, ipld)
+			Expect(err).ToNot(HaveOccurred())
+		}
 
 		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
+	}
 
-		// The non-canonical header has a child
-		tx, err = indexAndPublisher.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
-		Expect(err).ToNot(HaveOccurred())
+	// Insert some non-canonical data into the database so that we test our ability to discern canonicity
+	indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
 
-		hash := sdtypes.CodeAndCodeHash{
-			Hash: test_helpers.CodeHash,
-			Code: test_helpers.ContractCode,
-		}
+	tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+	Expect(err).ToNot(HaveOccurred())
 
-		err = indexAndPublisher.PushCodeAndCodeHash(tx, hash)
-		Expect(err).ToNot(HaveOccurred())
+	err = tx.Submit(err)
+	Expect(err).ToNot(HaveOccurred())
 
-		// wait for tx batch process to complete.
-		time.Sleep(10000 * time.Millisecond)
-		err = tx.Submit(err)
-		Expect(err).ToNot(HaveOccurred())
-	})
-	defer It("test teardown", func() {
-		shared.TearDownDB(db)
-		chain.Stop()
-	})
+	// The non-canonical header has a child
+	tx, err = indexAndPublisher.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
+	Expect(err).ToNot(HaveOccurred())
+
+	err = tx.Submit(err)
+	Expect(err).ToNot(HaveOccurred())
+})
+
+var _ = AfterSuite(func() {
+	shared.TearDownDB(db)
+	chain.Stop()
+})
+
+var _ = Describe("eth state reading tests", func() {
 
 	Describe("eth_call", func() {
 		It("Applies call args (tx data) on top of state, returning the result (e.g. a Getter method call)", func() {
@@ -229,6 +234,7 @@ var _ = Describe("eth state reading tests", func() {
 				To:   &test_helpers.ContractAddr,
 				Data: &bdata,
 			}
+
 			// Before contract deployment, returns nil
 			res, err := api.Call(context.Background(), callArgs, rpc.BlockNumberOrHashWithNumber(0), nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -261,25 +267,25 @@ var _ = Describe("eth state reading tests", func() {
 		})
 	})
 
-	var (
-		expectedContractBalance   = (*hexutil.Big)(common.Big0)
-		expectedBankBalanceBlock0 = (*hexutil.Big)(test_helpers.TestBankFunds)
-
-		expectedAcct1BalanceBlock1 = (*hexutil.Big)(big.NewInt(10000))
-		expectedBankBalanceBlock1  = (*hexutil.Big)(new(big.Int).Sub(test_helpers.TestBankFunds, big.NewInt(10000)))
-
-		expectedAcct2BalanceBlock2 = (*hexutil.Big)(big.NewInt(1000))
-		expectedBankBalanceBlock2  = (*hexutil.Big)(new(big.Int).Sub(expectedBankBalanceBlock1.ToInt(), big.NewInt(1000)))
-
-		expectedAcct2BalanceBlock3 = (*hexutil.Big)(new(big.Int).Add(expectedAcct2BalanceBlock2.ToInt(), test_helpers.MiningReward))
-
-		expectedAcct2BalanceBlock4 = (*hexutil.Big)(new(big.Int).Add(expectedAcct2BalanceBlock3.ToInt(), test_helpers.MiningReward))
-
-		expectedAcct1BalanceBlock5 = (*hexutil.Big)(new(big.Int).Add(expectedAcct1BalanceBlock1.ToInt(), test_helpers.MiningReward))
-	)
-
 	Describe("eth_getBalance", func() {
-		It("Retrieves the eth balance for the provided account address at the block with the provided number", func() {
+		var (
+			expectedContractBalance   = (*hexutil.Big)(common.Big0)
+			expectedBankBalanceBlock0 = (*hexutil.Big)(test_helpers.TestBankFunds)
+
+			expectedAcct1BalanceBlock1 = (*hexutil.Big)(big.NewInt(10000))
+			expectedBankBalanceBlock1  = (*hexutil.Big)(new(big.Int).Sub(test_helpers.TestBankFunds, big.NewInt(10000)))
+
+			expectedAcct2BalanceBlock2 = (*hexutil.Big)(big.NewInt(1000))
+			expectedBankBalanceBlock2  = (*hexutil.Big)(new(big.Int).Sub(expectedBankBalanceBlock1.ToInt(), big.NewInt(1000)))
+
+			expectedAcct2BalanceBlock3 = (*hexutil.Big)(new(big.Int).Add(expectedAcct2BalanceBlock2.ToInt(), test_helpers.MiningReward))
+
+			expectedAcct2BalanceBlock4 = (*hexutil.Big)(new(big.Int).Add(expectedAcct2BalanceBlock3.ToInt(), test_helpers.MiningReward))
+
+			expectedAcct1BalanceBlock5 = (*hexutil.Big)(new(big.Int).Add(expectedAcct1BalanceBlock1.ToInt(), test_helpers.MiningReward))
+		)
+
+		It("Retrieves account balance by block number", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(0))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal(expectedBankBalanceBlock0))
@@ -364,7 +370,7 @@ var _ = Describe("eth state reading tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal(expectedBankBalanceBlock2))
 		})
-		It("Retrieves the eth balance for the provided account address at the block with the provided hash", func() {
+		It("Retrieves account balance by block hash", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal(expectedBankBalanceBlock0))
@@ -449,7 +455,7 @@ var _ = Describe("eth state reading tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal(expectedBankBalanceBlock2))
 		})
-		It("Returns `0` for an account it cannot find the balance for an account at the provided block number", func() {
+		It("Returns 0 if account balance not found by block number", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(0))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
@@ -462,7 +468,7 @@ var _ = Describe("eth state reading tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
 		})
-		It("Returns `0` for an error for an account it cannot find the balance for an account at the provided block hash", func() {
+		It("Returns 0 if account balance not found by block hash", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
@@ -474,7 +480,6 @@ var _ = Describe("eth state reading tests", func() {
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
-
 		})
 	})
 
@@ -498,7 +503,7 @@ var _ = Describe("eth state reading tests", func() {
 			Expect(code).To(Equal((hexutil.Bytes)(test_helpers.ContractCode)))
 		})
 		It("Returns `nil` for an account it cannot find the code for", func() {
-			code, err := api.GetCode(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
+			code, err := api.GetCode(ctx, randomAddress, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(code).To(BeEmpty())
 		})
@@ -604,7 +609,7 @@ var _ = Describe("eth state reading tests", func() {
 				},
 			}
 
-			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+			CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 		It("Retrieves the state slice for root path with 0 depth", func() {
 			path := "0x"
@@ -633,7 +638,7 @@ var _ = Describe("eth state reading tests", func() {
 				Leaves: map[string]eth.GetSliceResponseAccount{},
 			}
 
-			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+			CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 		It("Retrieves the state slice for a path to an account", func() {
 			path := "0x06"
@@ -669,7 +674,7 @@ var _ = Describe("eth state reading tests", func() {
 				},
 			}
 
-			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+			CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 		It("Retrieves the state slice for a path to a non-existing account", func() {
 			path := "0x06"
@@ -698,7 +703,7 @@ var _ = Describe("eth state reading tests", func() {
 				Leaves: map[string]eth.GetSliceResponseAccount{},
 			}
 
-			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+			CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 
 		It("Retrieves the storage slice for root path", func() {
@@ -731,7 +736,7 @@ var _ = Describe("eth state reading tests", func() {
 				Leaves: map[string]eth.GetSliceResponseAccount{},
 			}
 
-			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+			CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 		It("Retrieves the storage slice for root path with 0 depth", func() {
 			path := "0x"
@@ -760,7 +765,7 @@ var _ = Describe("eth state reading tests", func() {
 				Leaves: map[string]eth.GetSliceResponseAccount{},
 			}
 
-			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+			CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 		It("Retrieves the storage slice for root path with deleted nodes", func() {
 			path := "0x"
@@ -789,7 +794,7 @@ var _ = Describe("eth state reading tests", func() {
 				Leaves: map[string]eth.GetSliceResponseAccount{},
 			}
 
-			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+			CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 		It("Retrieves the storage slice for a path to a storage node", func() {
 			path := "0x0b"
@@ -820,7 +825,7 @@ var _ = Describe("eth state reading tests", func() {
 				Leaves: map[string]eth.GetSliceResponseAccount{},
 			}
 
-			eth.CheckGetSliceResponse(*sliceResponse, expectedResponse)
+			CheckGetSliceResponse(*sliceResponse, expectedResponse)
 		})
 	})
 })

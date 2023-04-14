@@ -22,12 +22,11 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/core"
-
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
@@ -194,9 +193,9 @@ func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (*core.Mes
 	msg := &core.Message{
 		Nonce:             0,
 		GasLimit:          gas,
-		GasPrice:          new(big.Int).Set(gasPrice),
-		GasFeeCap:         new(big.Int).Set(gasFeeCap),
-		GasTipCap:         new(big.Int).Set(gasTipCap),
+		GasPrice:          gasPrice,
+		GasFeeCap:         gasFeeCap,
+		GasTipCap:         gasTipCap,
 		To:                arg.To,
 		Value:             value,
 		Data:              data,
@@ -216,8 +215,8 @@ type ConvertedPayload struct {
 	TxMetaData      []models.TxModel
 	Receipts        types.Receipts
 	ReceiptMetaData []models.ReceiptModel
-	StateNodes      []sdtypes.StateNode
-	StorageNodes    map[string][]sdtypes.StorageNode
+	StateNodes      []sdtypes.StateLeafNode
+	StorageNodes    map[string][]sdtypes.StorageLeafNode
 }
 
 // LogResult represent a log.
@@ -232,7 +231,7 @@ type LogResult struct {
 	Topic2      string `db:"topic2"`
 	Topic3      string `db:"topic3"`
 	LogLeafData []byte `db:"data"`
-	RctCID      string `db:"cid"`
+	RctCID      string `db:"rct_cid"`
 	RctStatus   uint64 `db:"post_status"`
 	BlockNumber string `db:"block_number"`
 	BlockHash   string `db:"block_hash"`

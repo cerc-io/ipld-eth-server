@@ -16,19 +16,17 @@
 package cmd
 
 import (
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/spf13/cobra"
 
-	v "github.com/cerc-io/ipld-eth-server/v4/version"
+	v "github.com/cerc-io/ipld-eth-server/v5/version"
 )
 
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Prints the version of ipld-eth-server",
-	Long: `Use this command to fetch the version of ipld-eth-server
-
-Usage: ./ipld-eth-server version`,
+	Long:  `Use this command to fetch the version of ipld-eth-server`,
 	Run: func(cmd *cobra.Command, args []string) {
 		subCommand = cmd.CalledAs()
 		logWithCommand = *log.WithField("SubCommand", subCommand)

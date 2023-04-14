@@ -1,186 +1,94 @@
 name: Test the stack.
 on:
   workflow_call:
-    inputs:
-      STACK_ORCHESTRATOR_REF:
-        required: true
-        type: string
-      GO_ETHEREUM_REF:
-        required: true
-        type: string
-      IPLD_ETH_DB_REF:
-        required: true
-        type: string
 
 jobs:
-  build:
-    name: Run docker build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run docker build
-        run: make docker-build
   test:
-    name: Run unit tests
-    env:
-      GOPATH: /tmp/go
-
+    name: "Run unit tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: 1.19.7
-
-      - name: Bring up docker timescaledb container
-        run: docker compose up -d ipld-eth-db
-
-      - name: Run db migrations
+          go-version-file: 'go.mod'
+          check-latest: true
+      - name: "Run DB container"
+        run: docker compose -f test/compose-db.yml up --wait
+      - name: "Build and run tests"
         run: |
-          sleep 30;
-          docker compose up -d migrations
+          go install github.com/onsi/ginkgo/v2/ginkgo
+          ginkgo -v -r --skipPackage=./test
 
-      - name: Run test
-        run: |
-          sleep 30;
-          PGPASSWORD=password DATABASE_USER=vdbm DATABASE_PORT=8077 DATABASE_PASSWORD=password DATABASE_HOSTNAME=127.0.0.1 DATABASE_NAME=vulcanize_testing make test
-
-  integrationtest:
-    name: Run integration tests
-    env:
-      GOPATH: /tmp/go
-      DB_WRITE: true
-      ETH_FORWARD_ETH_CALLS: false
-      ETH_PROXY_ON_ERROR: false
-      ETH_HTTP_PATH: "go-ethereum:8545"
+  integration-test:
+    name: "Run integration tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: 1.19.7
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-      - uses: actions/checkout@v2
+          go-version-file: 'go.mod'
+          check-latest: true
+      - name: "Install stack-orchestrator"
+        # FIXME: using my dev branch for v5 migration changes until a release has them
+        # run: |
+        #   curl -L -O https://github.com/cerc-io/stack-orchestrator/releases/latest/download/laconic-so
+        uses: actions/checkout@v3
         with:
-          path: "./ipld-eth-server"
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ inputs.STACK_ORCHESTRATOR_REF }}
-          path: "./stack-orchestrator/"
-          repository: cerc-io/mshaw_stack_hack
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ inputs.GO_ETHEREUM_REF }}
-          repository: cerc-io/go-ethereum
-          path: "./go-ethereum/"
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ inputs.IPLD_ETH_DB_REF }}
-          repository: cerc-io/ipld-eth-db
-          path: "./ipld-eth-db/"
-      - name: Create config file
+          repository: cerc-io/stack-orchestrator
+          ref: roy/for-ci
+          path: ./stack-orchestrator
+      - run: pip install ./stack-orchestrator
+      - name: "Run testnet stack"
+        env:
+          LACONIC_SO: laconic-so
+        run: ./scripts/integration-setup.sh
+      - name: "Build and run server"
+        env:
+          ETH_FORWARD_ETH_CALLS: false
+          ETH_CHAIN_ID: "${{ env.ETH_CHAIN_ID }}"
+          ETH_CHAIN_CONFIG: "${{ env.ETH_CHAIN_CONFIG }}"
+          DEPLOYER_PRIVATE_KEY: "${{ env.DEPLOYER_PRIVATE_KEY }}"
+        run: docker compose -f test/compose-server.yml up --wait
+      - name: "Run tests"
+        env:
+          ETH_CHAIN_ID: "${{ env.ETH_CHAIN_ID }}"
+          ETH_HTTP_PATH: "${{ env.ETH_HTTP_PATH }}"
         run: |
-          echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
-          echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
-          echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
-          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-server/test/contract >> ./config.sh
-          echo genesis_file_path=start-up-files/go-ethereum/genesis.json >> ./config.sh
-          echo db_write=$DB_WRITE >> ./config.sh
-          echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
-          echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
-          echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
-          cat ./config.sh
-      - name: Build geth
-        run: |
-          cd $GITHUB_WORKSPACE/stack-orchestrator/helper-scripts
-          ./compile-geth.sh \
-          -p "$GITHUB_WORKSPACE/config.sh" \
-          -e docker
-      - name: Run docker compose
-        run: |
-          docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-sharding.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-contract.yml" \
-          --env-file "$GITHUB_WORKSPACE/config.sh" \
-          up -d --build
-      - name: Test
-        run: |
-          cd $GITHUB_WORKSPACE/ipld-eth-server
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
-          make integrationtest
+          go install github.com/onsi/ginkgo/v2/ginkgo
+          ginkgo -v --label-filter '!proxy' -r ./test
 
-  integrationtest_forwardethcalls:
-    name: Run integration tests for direct proxy fall-through of eth_calls
-    env:
-      GOPATH: /tmp/go
-      DB_WRITE: false
-      ETH_FORWARD_ETH_CALLS: true
-      ETH_PROXY_ON_ERROR: false
-      ETH_HTTP_PATH: "go-ethereum:8545"
+  integration-test-eth-proxy:
+    name: "Run direct-proxy integration tests"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
         with:
-          go-version: 1.19.7
-      - name: Create GOPATH
-        run: mkdir -p /tmp/go
-      - uses: actions/checkout@v2
+          go-version-file: 'go.mod'
+          check-latest: true
+      - name: "Install stack-orchestrator"
+        uses: actions/checkout@v3
         with:
-          path: "./ipld-eth-server"
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ inputs.STACK_ORCHESTRATOR_REF }}
-          path: "./stack-orchestrator/"
-          repository: cerc-io/mshaw_stack_hack
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ inputs.GO_ETHEREUM_REF }}
-          repository: cerc-io/go-ethereum
-          path: "./go-ethereum/"
-      - uses: actions/checkout@v2
-        with:
-          ref: ${{ inputs.IPLD_ETH_DB_REF }}
-          repository: cerc-io/ipld-eth-db
-          path: "./ipld-eth-db/"
-      - name: Create config file
+          repository: cerc-io/stack-orchestrator
+          ref: roy/for-ci
+          path: ./stack-orchestrator
+      - run: pip install ./stack-orchestrator
+      - name: "Run testnet stack"
+        env:
+          LACONIC_SO: laconic-so
+          CERC_RUN_STATEDIFF: false
+        run: ./scripts/integration-setup.sh
+      - name: "Build and run server"
+        env:
+          ETH_FORWARD_ETH_CALLS: true
+          ETH_CHAIN_ID: "${{ env.ETH_CHAIN_ID }}"
+          ETH_CHAIN_CONFIG: "${{ env.ETH_CHAIN_CONFIG }}"
+          DEPLOYER_PRIVATE_KEY: "${{ env.DEPLOYER_PRIVATE_KEY }}"
+        run: docker compose -f test/compose-server.yml up --wait
+      - name: "Run tests"
+        env:
+          ETH_CHAIN_ID: "${{ env.ETH_CHAIN_ID }}"
+          ETH_HTTP_PATH: "${{ env.ETH_HTTP_PATH }}"
         run: |
-          echo vulcanize_go_ethereum=$GITHUB_WORKSPACE/go-ethereum/ > ./config.sh
-          echo vulcanize_ipld_eth_db=$GITHUB_WORKSPACE/ipld-eth-db/ >> ./config.sh
-          echo vulcanize_ipld_eth_server=$GITHUB_WORKSPACE/ipld-eth-server/ >> ./config.sh
-          echo vulcanize_test_contract=$GITHUB_WORKSPACE/ipld-eth-server/test/contract >>./config.sh
-          echo genesis_file_path=start-up-files/go-ethereum/genesis.json >> ./config.sh
-          echo db_write=$DB_WRITE >> ./config.sh
-          echo eth_forward_eth_calls=$ETH_FORWARD_ETH_CALLS >> ./config.sh
-          echo eth_proxy_on_error=$ETH_PROXY_ON_ERROR >> ./config.sh
-          echo eth_http_path=$ETH_HTTP_PATH >> ./config.sh
-          cat ./config.sh
-      - name: Build geth
-        run: |
-          cd $GITHUB_WORKSPACE/stack-orchestrator/helper-scripts
-          ./compile-geth.sh \
-          -p "$GITHUB_WORKSPACE/config.sh" \
-          -e docker
-      - name: Run docker compose
-        run: |
-          docker-compose  \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-db-sharding.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-go-ethereum.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-ipld-eth-server.yml" \
-          -f "$GITHUB_WORKSPACE/stack-orchestrator/docker/local/docker-compose-contract.yml" \
-          --env-file "$GITHUB_WORKSPACE/config.sh" \
-          up -d --build
-      - name: Test
-        run: |
-          cd $GITHUB_WORKSPACE/ipld-eth-server
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8081)" != "200" ]; do echo "waiting for ipld-eth-server..." && sleep 5; done && \
-          while [ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8545)" != "200" ]; do echo "waiting for geth-statediff..." && sleep 5; done && \
-          make integrationtest
+          go install github.com/onsi/ginkgo/v2/ginkgo
+          ginkgo -v --label-filter 'proxy' -r ./test

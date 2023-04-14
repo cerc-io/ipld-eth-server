@@ -27,9 +27,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
-	ipld_eth_statedb "github.com/cerc-io/ipld-eth-statedb"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -43,7 +40,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
+	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
 )
 
 const (
@@ -165,10 +164,10 @@ func (pea *PublicEthAPI) BlockNumber() hexutil.Uint64 {
 }
 
 // GetBlockByNumber returns the requested canonical block.
-// * When blockNr is -1 the chain head is returned.
-// * We cannot support pending block calls since we do not have an active miner
-// * When fullTx is true all transactions in the block are returned, otherwise
-//   only the transaction hash is returned.
+//   - When blockNr is -1 the chain head is returned.
+//   - We cannot support pending block calls since we do not have an active miner
+//   - When fullTx is true all transactions in the block are returned, otherwise
+//     only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
 	block, err := pea.B.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
@@ -612,6 +611,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	from, _ := types.Sender(signer, tx)
 
 	fields := map[string]interface{}{
+		"type":              hexutil.Uint64(receipt.Type),
 		"blockHash":         blockHash,
 		"blockNumber":       hexutil.Uint64(blockNumber),
 		"transactionHash":   hash,
@@ -780,7 +780,9 @@ State and Storage
 // block numbers are also allowed.
 func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Big, error) {
 	bal, err := pea.localGetBalance(ctx, address, blockNrOrHash)
-	if bal != nil && err == nil {
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	} else if bal != nil {
 		return bal, nil
 	}
 	if pea.config.ProxyOnError {
@@ -878,7 +880,7 @@ func (pea *PublicEthAPI) GetProof(ctx context.Context, address common.Address, s
 
 // this continues to use ipfs-ethdb based geth StateDB as it requires trie access
 func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (*AccountResult, error) {
-	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	state, _, err := pea.B.IPLDTrieStateDBAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if state == nil || err != nil {
 		return nil, err
 	}
@@ -982,7 +984,7 @@ type OverrideAccount struct {
 type StateOverride map[common.Address]OverrideAccount
 
 // Apply overrides the fields of specified accounts into the given state.
-func (diff *StateOverride) Apply(state *ipld_eth_statedb.StateDB) error {
+func (diff *StateOverride) Apply(state *ipld_direct_state.StateDB) error {
 	if diff == nil {
 		return nil
 	}
@@ -1059,7 +1061,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		log.Debugxf(ctx, "Executing EVM call finished %s runtime %s", time.Now().String(), time.Since(start).String())
 	}(time.Now())
 
-	state, header, err := b.IPLDStateDBAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	state, header, err := b.IPLDDirectStateDBAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if state == nil || err != nil {
 		return nil, err
 	}
@@ -1110,7 +1112,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		return nil, fmt.Errorf("execution aborted (timeout = %v)", timeout)
 	}
 	if err != nil {
-		return result, fmt.Errorf("err: %w (supplied gas %d)", err, args.Gas)
+		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.GasLimit)
 	}
 	return result, nil
 }
@@ -1149,12 +1151,10 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
-		IntermediateStateNodes:   true,
-		IntermediateStorageNodes: true,
-		IncludeBlock:             true,
-		IncludeReceipts:          true,
-		IncludeTD:                true,
-		IncludeCode:              true,
+		IncludeBlock:    true,
+		IncludeReceipts: true,
+		IncludeTD:       true,
+		IncludeCode:     true,
 	}
 	log.Debugf("Calling statediff_writeStateDiffAt(%d)", height)
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffAt", uint64(height), params); err != nil {
@@ -1172,12 +1172,10 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
-		IntermediateStateNodes:   true,
-		IntermediateStorageNodes: true,
-		IncludeBlock:             true,
-		IncludeReceipts:          true,
-		IncludeTD:                true,
-		IncludeCode:              true,
+		IncludeBlock:    true,
+		IncludeReceipts: true,
+		IncludeTD:       true,
+		IncludeCode:     true,
 	}
 	log.Debugf("Calling statediff_writeStateDiffFor(%s)", blockHash.Hex())
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffFor", blockHash, params); err != nil {

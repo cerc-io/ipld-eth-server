@@ -17,16 +17,19 @@
 package eth_test
 
 import (
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	"context"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth/test_helpers"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
 )
 
 var _ = Describe("Retriever", func() {
@@ -34,6 +37,7 @@ var _ = Describe("Retriever", func() {
 		db          *sqlx.DB
 		diffIndexer interfaces.StateDiffIndexer
 		retriever   *eth.Retriever
+		ctx         = context.Background()
 	)
 	BeforeEach(func() {
 		db = shared.SetupDB()
@@ -43,20 +47,19 @@ var _ = Describe("Retriever", func() {
 	})
 	AfterEach(func() {
 		shared.TearDownDB(db)
+		db.Close()
 	})
 
-	Describe("Retrieve", func() {
-		BeforeEach(func() {
-			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+	It("Retrieve", func() {
+		tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+		Expect(err).ToNot(HaveOccurred())
+		for _, node := range test_helpers.MockStateNodes {
+			err = diffIndexer.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
 			Expect(err).ToNot(HaveOccurred())
-			for _, node := range test_helpers.MockStateNodes {
-				err = diffIndexer.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
-				Expect(err).ToNot(HaveOccurred())
-			}
+		}
 
-			err = tx.Submit(err)
-			Expect(err).ToNot(HaveOccurred())
-		})
+		err = tx.Submit(err)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Describe("RetrieveFirstBlockNumber", func() {
@@ -166,5 +169,5 @@ var _ = Describe("Retriever", func() {
 func newMockBlock(blockNumber uint64) *types.Block {
 	header := test_helpers.MockHeader
 	header.Number.SetUint64(blockNumber)
-	return types.NewBlock(&test_helpers.MockHeader, test_helpers.MockTransactions, nil, test_helpers.MockReceipts, new(trie.Trie))
+	return types.NewBlock(&test_helpers.MockHeader, test_helpers.MockTransactions, nil, test_helpers.MockReceipts, trie.NewEmpty(nil))
 }

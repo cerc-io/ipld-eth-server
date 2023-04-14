@@ -20,8 +20,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
-	. "github.com/onsi/ginkgo"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 

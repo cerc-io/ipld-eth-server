@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package eth_test
+package eth_api_test
 
 import (
 	"context"
@@ -31,14 +31,15 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth/test_helpers"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth/test_helpers"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
 )
 
 var (
@@ -50,7 +51,8 @@ var (
 	blockHash      = test_helpers.MockBlock.Header().Hash()
 	baseFee        = test_helpers.MockLondonBlock.BaseFee()
 	ctx            = context.Background()
-	expectedBlock  = map[string]interface{}{
+
+	expectedBlock = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
 		"hash":             test_helpers.MockBlock.Hash(),
 		"parentHash":       test_helpers.MockBlock.ParentHash(),
@@ -151,6 +153,7 @@ var (
 		"logsBloom":         test_helpers.MockReceipts[0].Bloom,
 		"status":            hexutil.Uint(test_helpers.MockReceipts[0].Status),
 		"effectiveGasPrice": (*hexutil.Big)(big.NewInt(100)),
+		"type":              hexutil.Uint64(types.LegacyTxType),
 	}
 	expectedReceipt2 = map[string]interface{}{
 		"blockHash":         blockHash,
@@ -166,6 +169,7 @@ var (
 		"logsBloom":         test_helpers.MockReceipts[1].Bloom,
 		"root":              hexutil.Bytes(test_helpers.MockReceipts[1].PostState),
 		"effectiveGasPrice": (*hexutil.Big)(big.NewInt(200)),
+		"type":              hexutil.Uint64(types.LegacyTxType),
 	}
 	expectedReceipt3 = map[string]interface{}{
 		"blockHash":         blockHash,
@@ -181,80 +185,78 @@ var (
 		"logsBloom":         test_helpers.MockReceipts[2].Bloom,
 		"root":              hexutil.Bytes(test_helpers.MockReceipts[2].PostState),
 		"effectiveGasPrice": (*hexutil.Big)(big.NewInt(150)),
+		"type":              hexutil.Uint64(types.LegacyTxType),
 	}
 )
+var (
+	db          *sqlx.DB
+	api         *eth.PublicEthAPI
+	chainConfig = params.TestChainConfig
+)
+
+var _ = BeforeSuite(func() {
+	var (
+		err error
+		tx  interfaces.Batch
+	)
+
+	db = shared.SetupDB()
+	indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+
+	backend, err := eth.NewEthBackend(db, &eth.Config{
+		ChainConfig: chainConfig,
+		VMConfig:    vm.Config{},
+		RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
+		GroupCacheConfig: &shared.GroupCacheConfig{
+			StateDB: shared.GroupConfig{
+				Name:                   "api_test",
+				CacheSizeInMB:          8,
+				CacheExpiryInMins:      60,
+				LogStatsIntervalInSecs: 0,
+			},
+		},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	api, _ = eth.NewPublicEthAPI(backend, nil, eth.APIConfig{StateDiffTimeout: shared.DefaultStateDiffTimeout})
+	tx, err = indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+	Expect(err).ToNot(HaveOccurred())
+
+	ipld := sdtypes.IPLD{
+		CID:     ipld.Keccak256ToCid(ipld.RawBinary, test_helpers.CodeHash.Bytes()).String(),
+		Content: test_helpers.ContractCode,
+	}
+	err = indexAndPublisher.PushIPLD(tx, ipld)
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, node := range test_helpers.MockStateNodes {
+		err = indexAndPublisher.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	err = tx.Submit(err)
+	Expect(err).ToNot(HaveOccurred())
+
+	uncles := test_helpers.MockBlock.Uncles()
+	uncleHashes := make([]common.Hash, len(uncles))
+	for i, uncle := range uncles {
+		uncleHashes[i] = uncle.Hash()
+	}
+	expectedBlock["uncles"] = uncleHashes
+
+	// setting chain config to for london block
+	chainConfig.LondonBlock = big.NewInt(2)
+	indexAndPublisher = shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+
+	tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
+	Expect(err).ToNot(HaveOccurred())
+
+	err = tx.Submit(err)
+	Expect(err).ToNot(HaveOccurred())
+})
+
+var _ = AfterSuite(func() { shared.TearDownDB(db) })
 
 var _ = Describe("API", func() {
-	var (
-		db          *sqlx.DB
-		api         *eth.PublicEthAPI
-		chainConfig = params.TestChainConfig
-	)
-	// Test db setup, rather than using BeforeEach we only need to setup once since the tests do not mutate the database
-	// Note: if you focus one of the tests be sure to focus this and the defered It()
-	It("test init", func() {
-		var (
-			err error
-			tx  interfaces.Batch
-		)
-
-		db = shared.SetupDB()
-		indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
-
-		backend, err := eth.NewEthBackend(db, &eth.Config{
-			ChainConfig: chainConfig,
-			VMConfig:    vm.Config{},
-			RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
-			GroupCacheConfig: &shared.GroupCacheConfig{
-				StateDB: shared.GroupConfig{
-					Name:                   "api_test",
-					CacheSizeInMB:          8,
-					CacheExpiryInMins:      60,
-					LogStatsIntervalInSecs: 0,
-				},
-			},
-		})
-		Expect(err).ToNot(HaveOccurred())
-		api, _ = eth.NewPublicEthAPI(backend, nil, eth.APIConfig{false, false, false, false, shared.DefaultStateDiffTimeout})
-		tx, err = indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
-		Expect(err).ToNot(HaveOccurred())
-
-		ccHash := sdtypes.CodeAndCodeHash{
-			Hash: test_helpers.ContractCodeHash,
-			Code: test_helpers.ContractCode,
-		}
-
-		err = indexAndPublisher.PushCodeAndCodeHash(tx, ccHash)
-		Expect(err).ToNot(HaveOccurred())
-
-		for _, node := range test_helpers.MockStateNodes {
-			err = indexAndPublisher.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		err = tx.Submit(err)
-		Expect(err).ToNot(HaveOccurred())
-
-		uncles := test_helpers.MockBlock.Uncles()
-		uncleHashes := make([]common.Hash, len(uncles))
-		for i, uncle := range uncles {
-			uncleHashes[i] = uncle.Hash()
-		}
-		expectedBlock["uncles"] = uncleHashes
-
-		// setting chain config to for london block
-		chainConfig.LondonBlock = big.NewInt(2)
-		indexAndPublisher = shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
-
-		tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
-		Expect(err).ToNot(HaveOccurred())
-
-		err = tx.Submit(err)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	// Single test db tear down at end of all tests
-	defer It("test teardown", func() { shared.TearDownDB(db) })
 	/*
 
 	   Headers and blocks
@@ -329,12 +331,12 @@ var _ = Describe("API", func() {
 		It("Fetch BaseFee from london block by block number, returns `nil` for legacy block", func() {
 			block, err := api.GetBlockByNumber(ctx, number, false)
 			Expect(err).ToNot(HaveOccurred())
-			_, ok := block["baseFee"]
+			_, ok := block["baseFeePerGas"]
 			Expect(ok).To(Equal(false))
 
 			block, err = api.GetBlockByNumber(ctx, londonBlockNum, false)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
+			Expect(block["baseFeePerGas"]).To(Equal((*hexutil.Big)(baseFee)))
 		})
 		It("Retrieves a block by number with uncles in correct order", func() {
 			block, err := api.GetBlockByNumber(ctx, londonBlockNum, false)
@@ -383,11 +385,11 @@ var _ = Describe("API", func() {
 		It("Fetch BaseFee from london block by block hash, returns `nil` for legacy block", func() {
 			block, err := api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), true)
 			Expect(err).ToNot(HaveOccurred())
-			_, ok := block["baseFee"]
+			_, ok := block["baseFeePerGas"]
 			Expect(ok).To(Equal(false))
 			block, err = api.GetBlockByHash(ctx, test_helpers.MockLondonBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(block["baseFee"].(*big.Int)).To(Equal(baseFee))
+			Expect(block["baseFeePerGas"]).To(Equal((*hexutil.Big)(baseFee)))
 		})
 		It("Retrieves a block by hash with uncles in correct order", func() {
 			block, err := api.GetBlockByHash(ctx, test_helpers.MockLondonBlock.Hash(), false)

@@ -188,8 +188,7 @@ func WithField(field string, value interface{}) *Entry {
 
 func Init() error {
 	// Set the output.
-	viper.BindEnv("logrus.file", "LOGRUS_FILE")
-	logFile := viper.GetString("logrus.file")
+	logFile := viper.GetString("log.file")
 	if logFile != "" {
 		file, err := os.OpenFile(logFile,
 			os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0640)
@@ -205,8 +204,7 @@ func Init() error {
 	}
 
 	// Set the level.
-	viper.BindEnv("logrus.level", "LOGRUS_LEVEL")
-	lvl, err := logrus.ParseLevel(viper.GetString("logrus.level"))
+	lvl, err := logrus.ParseLevel(viper.GetString("log.level"))
 	if err != nil {
 		return err
 	}
@@ -230,7 +228,7 @@ func Init() error {
 			for next, again := frames.Next(); again; next, again = frames.Next() {
 				if !strings.Contains(next.File, "sirupsen/logrus.us") &&
 					!strings.HasPrefix(next.Function, "runtime.") &&
-					!strings.Contains(next.File, "ipld-eth-server/pkg/logrus") {
+					!strings.Contains(next.File, "ipld-eth-server/pkg/log") {
 					return next.Function, fmt.Sprintf("%s:%d", next.File, next.Line)
 				}
 			}

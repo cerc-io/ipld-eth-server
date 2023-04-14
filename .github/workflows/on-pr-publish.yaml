@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
-      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+      # should_skip: ${{ steps.skip_check.outputs.should_skip }}
+      should_skip: false # XXX dev
     steps:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v4
@@ -23,10 +24,6 @@ jobs:
     uses: ./.github/workflows/tests.yaml
     if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     needs: pre_job
-    with:
-      STACK_ORCHESTRATOR_REF: "e62830c982d4dfc5f3c1c2b12c1754a7e9b538f1"
-      GO_ETHEREUM_REF: "c339429ff6550d8012d65977fc79f73bba2616e3"
-      IPLD_ETH_DB_REF: "6c00c38cc4e1db6f7c4cecbb62fdfd540fba50d6"
   build:
     name: Run docker build
     runs-on: ubuntu-latest
@@ -36,21 +33,20 @@ jobs:
       (needs.run-tests.result == 'success' || needs.run-tests.result == 'skipped') &&
       github.event_name == 'release'
     steps:
-      - uses: actions/checkout@v2
-      - name: Get the version
-        id: vars
+      - uses: actions/checkout@v3
+      - id: vars
+        name: Output SHA and version tag
         run: |
-          echo ::set-output name=sha::$(echo ${GITHUB_SHA:0:7})
-          echo ::set-output name=tag::$(echo ${GITHUB_REF#refs/tags/})
-      - name: Run docker build
-        run: make docker-build
-      - name: Tag docker image SHA
-        run: docker tag cerc-io/ipld-eth-server git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
-      - name: Tag docker image TAG
-        run: docker tag git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}} git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
-      - name: Docker Login
-        run: echo ${{ secrets.GITEA_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
-      - name: Docker Push SHA
-        run: docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
-      - name: Docker Push TAG
-        run: docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
+          echo sha=$(echo ${GITHUB_SHA:0:7}) >> "$GITHUB_OUTPUT"
+          echo tag=$(echo ${GITHUB_REF#refs/tags/}) >> "$GITHUB_OUTPUT""
+      - name: Build and tag Docker image
+        run: |
+          docker build . \
+          -t cerc-io/ipld-eth-server \
+          -t git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}} \
+          -t git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
+      - name: Push Docker tags
+        run: |
+          echo ${{ secrets.GITEA_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
+          docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
+          docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}

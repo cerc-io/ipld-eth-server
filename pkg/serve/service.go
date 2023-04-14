@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	ethnode "github.com/ethereum/go-ethereum/node"
@@ -29,9 +29,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/debug"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/net"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/debug"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/net"
 )
 
 const (
@@ -94,7 +94,6 @@ func NewServer(settings *Config) (Server, error) {
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:      settings.ChainConfig,
 		VMConfig:         vm.Config{NoBaseFee: true},
-		DefaultSender:    settings.DefaultSender,
 		RPCGasCap:        settings.RPCGasCap,
 		GroupCacheConfig: settings.GroupCache,
 	})
@@ -159,7 +158,7 @@ func (sap *Service) Serve(wg *sync.WaitGroup) {
 		<-sap.QuitChan
 		log.Info("quiting eth ipld server process")
 	}()
-	log.Info("eth ipld server process successfully spun up")
+	log.Debug("eth ipld server process successfully spun up")
 }
 
 // Start is used to begin the service
@@ -174,7 +173,7 @@ func (sap *Service) Start() error {
 // Stop is used to close down the service
 // This is mostly just to satisfy the node.Service interface
 func (sap *Service) Stop() error {
-	log.Infof("stopping eth ipld server")
+	log.Info("stopping eth ipld server")
 	sap.Lock()
 	close(sap.QuitChan)
 	sap.Unlock()

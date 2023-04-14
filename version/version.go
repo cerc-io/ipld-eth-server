@@ -19,9 +19,9 @@ package version
 import "fmt"
 
 const (
-	Major = 4       // Major version component of the current release
-	Minor = 2       // Minor version component of the current release
-	Patch = 0       // Patch version component of the current release
+	Major = 5       // Major version component of the current release
+	Minor = 0       // Minor version component of the current release
+	Patch = 1       // Patch version component of the current release
 	Meta  = "alpha" // Version metadata to append to the version string
 )
 

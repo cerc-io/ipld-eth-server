@@ -292,7 +292,7 @@ const schema string = `
         index: Int!
         src: String!
         dst: String!
-        blockByMhKey: IPFSBlock!
+        blockByCid: IPFSBlock!
     }
 
     type EthTransactionCidsConnection {
@@ -317,7 +317,7 @@ const schema string = `
         uncleRoot: String!
         bloom: String!
         ethTransactionCidsByHeaderId: EthTransactionCidsConnection!
-        blockByMhKey: IPFSBlock!
+        blockByCid: IPFSBlock!
     }
 
     type EthHeaderCidsConnection {

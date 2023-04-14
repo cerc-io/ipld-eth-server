@@ -27,15 +27,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
 	nodeiter "github.com/ethereum/go-ethereum/trie/concurrent_iterator"
+
+	"github.com/cerc-io/ipld-eth-statedb/trie_by_cid/state"
 )
 
 var nullHashBytes = common.Hex2Bytes("0000000000000000000000000000000000000000000000000000000000000000")
@@ -65,7 +64,7 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	}
 
 	if head.BaseFee != nil {
-		headerMap["baseFee"] = head.BaseFee
+		headerMap["baseFeePerGas"] = (*hexutil.Big)(head.BaseFee)
 	}
 	return headerMap
 }
@@ -329,7 +328,7 @@ func getIteratorAtPath(t state.Trie, startKey []byte) (trie.NodeIterator, int64)
 }
 
 func fillSliceNodeData(
-	ethDB ethdb.KeyValueReader,
+	sdb state.Database,
 	nodesMap map[string]string,
 	leavesMap map[string]GetSliceResponseAccount,
 	node StateNode,
@@ -343,7 +342,7 @@ func fillSliceNodeData(
 	// Extract account data if it's a Leaf node
 	leafStartTime := makeTimestamp()
 	if node.NodeType == Leaf && !storage {
-		stateLeafKey, storageRoot, code, err := extractContractAccountInfo(ethDB, node, nodeElements)
+		stateLeafKey, storageRoot, code, err := extractContractAccountInfo(sdb, node, nodeElements)
 		if err != nil {
 			return 0, fmt.Errorf("GetSlice account lookup error: %s", err.Error())
 		}
@@ -360,7 +359,7 @@ func fillSliceNodeData(
 	return makeTimestamp() - leafStartTime, nil
 }
 
-func extractContractAccountInfo(ethDB ethdb.KeyValueReader, node StateNode, nodeElements []interface{}) (string, string, []byte, error) {
+func extractContractAccountInfo(sdb state.Database, node StateNode, nodeElements []interface{}) (string, string, []byte, error) {
 	var account types.StateAccount
 	if err := rlp.DecodeBytes(nodeElements[1].([]byte), &account); err != nil {
 		return "", "", nil, fmt.Errorf("error decoding account for leaf node at path %x nerror: %v", node.Path, err)
@@ -381,7 +380,32 @@ func extractContractAccountInfo(ethDB ethdb.KeyValueReader, node StateNode, node
 
 	// Extract codeHash and get code
 	codeHash := common.BytesToHash(account.CodeHash)
-	codeBytes := rawdb.ReadCode(ethDB, codeHash)
+	codeBytes, err := sdb.ContractCode(codeHash)
+	if err != nil {
+		return "", "", nil, err
+	}
 
 	return stateLeafKeyString, storageRootString, codeBytes, nil
+}
+
+// IsLeaf checks if the node we are at is a leaf
+func IsLeaf(elements []interface{}) (bool, error) {
+	if len(elements) > 2 {
+		return false, nil
+	}
+	if len(elements) < 2 {
+		return false, fmt.Errorf("node cannot be less than two elements in length")
+	}
+	switch elements[0].([]byte)[0] / 16 {
+	case '\x00':
+		return false, nil
+	case '\x01':
+		return false, nil
+	case '\x02':
+		return true, nil
+	case '\x03':
+		return true, nil
+	default:
+		return false, fmt.Errorf("unknown hex prefix")
+	}
 }

@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/trie"
+
+	"github.com/cerc-io/ipld-eth-statedb/trie_by_cid/trie"
 )
 
 // NodeType for explicitly setting type of node
@@ -73,18 +74,17 @@ type StorageNode struct {
 }
 
 func ResolveNode(path []byte, node []byte, trieDB *trie.Database) (StateNode, []interface{}, error) {
-	nodePath := make([]byte, len(path))
-	copy(nodePath, path)
-
 	var nodeElements []interface{}
 	if err := rlp.DecodeBytes(node, &nodeElements); err != nil {
 		return StateNode{}, nil, err
 	}
-
 	ty, err := CheckKeyType(nodeElements)
 	if err != nil {
 		return StateNode{}, nil, err
 	}
+
+	nodePath := make([]byte, len(path))
+	copy(nodePath, path)
 	return StateNode{
 		NodeType:  ty,
 		Path:      nodePath,
@@ -94,23 +94,9 @@ func ResolveNode(path []byte, node []byte, trieDB *trie.Database) (StateNode, []
 
 // ResolveNodeIt return the state diff node pointed by the iterator.
 func ResolveNodeIt(it trie.NodeIterator, trieDB *trie.Database) (StateNode, []interface{}, error) {
-	nodePath := make([]byte, len(it.Path()))
-	copy(nodePath, it.Path())
-	node, err := trieDB.Node(it.Hash())
+	node, err := it.NodeBlob(), it.Error()
 	if err != nil {
 		return StateNode{}, nil, err
 	}
-	var nodeElements []interface{}
-	if err = rlp.DecodeBytes(node, &nodeElements); err != nil {
-		return StateNode{}, nil, err
-	}
-	ty, err := CheckKeyType(nodeElements)
-	if err != nil {
-		return StateNode{}, nil, err
-	}
-	return StateNode{
-		NodeType:  ty,
-		Path:      nodePath,
-		NodeValue: node,
-	}, nodeElements, nil
+	return ResolveNode(it.Path(), node, trieDB)
 }

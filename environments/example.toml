@@ -1,5 +1,5 @@
 [database]
-    name     = "vulcanize_public" # $DATABASE_NAME
+    name     = "cerc_testing" # $DATABASE_NAME
     hostname = "localhost" # $DATABASE_HOSTNAME
     port     = 5432 # $DATABASE_PORT
     user     = "postgres" # $DATABASE_USER
@@ -9,16 +9,18 @@
     level = "info" # $LOGRUS_LEVEL
 
 [server]
+    ipc = false
     ipcPath = "~/.vulcanize/vulcanize.ipc" # $SERVER_IPC_PATH
-    wsPath = "127.0.0.1:8081" # $SERVER_WS_PATH
-    httpPath = "127.0.0.1:8082" # $SERVER_HTTP_PATH
+    ws = true
+    wsPath = "127.0.0.1:8080" # $SERVER_WS_PATH
+    http = true
+    httpPath = "127.0.0.1:8081" # $SERVER_HTTP_PATH
     graphql = true # $SERVER_GRAPHQL
-    graphqlEndpoint = "127.0.0.1:8083" # $SERVER_GRAPHQL_ENDPOINT
+    graphqlPath = "127.0.0.1:8082" # $SERVER_GRAPHQL_PATH
 
 [ethereum]
     chainConfig = "./chain.json" # ETH_CHAIN_CONFIG
     chainID = "1" # $ETH_CHAIN_ID
-    defaultSender = "" # $ETH_DEFAULT_SENDER_ADDR
     rpcGasCap = "1000000000000" # $ETH_RPC_GAS_CAP
     httpPath = "127.0.0.1:8545" # $ETH_HTTP_PATH
     supportsStateDiff = true # $ETH_SUPPORTS_STATEDIFF

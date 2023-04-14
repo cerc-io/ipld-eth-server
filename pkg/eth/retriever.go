@@ -17,22 +17,21 @@
 package eth
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"strconv"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
-	"github.com/ethereum/go-ethereum/statediff/trie_helpers"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 )
 
 // Retriever is used for fetching
@@ -60,14 +59,13 @@ type HeaderCIDRecord struct {
 	TotalDifficulty string `gorm:"column:td"`
 	TxRoot          string
 	RctRoot         string `gorm:"column:receipt_root"`
-	UncleRoot       string
+	UnclesHash      string
 	Bloom           []byte
-	MhKey           string
 
 	// gorm doesn't check if foreign key exists in database.
 	// It is required to eager load relations using preload.
 	TransactionCIDs []TransactionCIDRecord `gorm:"foreignKey:HeaderID,BlockNumber;references:BlockHash,BlockNumber"`
-	IPLD            IPLDModelRecord        `gorm:"foreignKey:MhKey,BlockNumber;references:Key,BlockNumber"`
+	IPLD            IPLDModelRecord        `gorm:"foreignKey:CID,BlockNumber;references:Key,BlockNumber"`
 }
 
 // TableName overrides the table name used by HeaderCIDRecord
@@ -83,8 +81,15 @@ type TransactionCIDRecord struct {
 	Index       int64
 	Src         string
 	Dst         string
-	MhKey       string
-	IPLD        IPLDModelRecord `gorm:"foreignKey:MhKey,BlockNumber;references:Key,BlockNumber"`
+	IPLD        IPLDModelRecord `gorm:"foreignKey:CID,BlockNumber;references:Key,BlockNumber"`
+}
+
+type StateAccountRecord struct {
+	Nonce    uint64 `db:"nonce"`
+	Balance  string `db:"balance"`
+	Root     string `db:"storage_root"`
+	CodeHash []byte `db:"code_hash"`
+	Removed  bool   `db:"removed"`
 }
 
 // TableName overrides the table name used by TransactionCIDRecord
@@ -220,13 +225,13 @@ func (r *Retriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY log_cids.index`
 
-	logCIDs := make([]LogResult, 0)
-	err := tx.Select(&logCIDs, pgStr, args...)
+	logs := make([]LogResult, 0)
+	err := tx.Select(&logs, pgStr, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	return logCIDs, nil
+	return logs, nil
 }
 
 // RetrieveFilteredLogs retrieves and returns all the log CIDs provided blockHeight or blockHash that conform to the provided
@@ -250,13 +255,22 @@ func (r *Retriever) RetrieveFilteredLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, b
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY log_cids.index`
 
-	logCIDs := make([]LogResult, 0)
-	err := tx.Select(&logCIDs, pgStr, args...)
+	logs := make([]LogResult, 0)
+	err := tx.Select(&logs, pgStr, args...)
 	if err != nil {
 		return nil, err
 	}
+	// decode logs and extract original contract Data
+	for i, log := range logs {
+		var buf []interface{}
+		r := bytes.NewReader(log.LogLeafData)
+		if err := rlp.Decode(r, &buf); err != nil {
+			return nil, err
+		}
+		logs[i].Data = buf[2].([]byte)
+	}
 
-	return logCIDs, nil
+	return logs, nil
 }
 
 func hasTopics(topics [][]string) bool {
@@ -360,7 +374,14 @@ func (r *Retriever) RetrieveTxCIDByHash(txHash string, blockNumber *big.Int) (Tr
 var EmptyNodeValue = make([]byte, common.HashLength)
 
 // RetrieveHeaderByHash returns the cid and rlp bytes for the header corresponding to the provided block hash
-func (r *Retriever) RetrieveHeaderByHash(tx *sqlx.Tx, hash common.Hash) (string, []byte, error) {
+func (r *Retriever) RetrieveHeaderByHash(hash common.Hash) (string, []byte, error) {
+	headerResult := new(ipldResult)
+	return headerResult.CID, headerResult.Data, r.db.Get(headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
+}
+
+// RetrieveHeaderByHash2 returns the cid and rlp bytes for the header corresponding to the provided block hash
+// using a sqlx.Tx
+func (r *Retriever) RetrieveHeaderByHash2(tx *sqlx.Tx, hash common.Hash) (string, []byte, error) {
 	headerResult := new(ipldResult)
 	return headerResult.CID, headerResult.Data, tx.Get(headerResult, RetrieveHeaderByHashPgStr, hash.Hex())
 }
@@ -368,7 +389,7 @@ func (r *Retriever) RetrieveHeaderByHash(tx *sqlx.Tx, hash common.Hash) (string,
 // RetrieveUncles returns the cid and rlp bytes for the uncle list corresponding to the provided block hash, number (of non-omner root block)
 func (r *Retriever) RetrieveUncles(tx *sqlx.Tx, hash common.Hash, number uint64) (string, []byte, error) {
 	uncleResult := new(ipldResult)
-	if err := tx.Select(uncleResult, RetrieveUnclesPgStr, hash.Hex(), number); err != nil {
+	if err := tx.Get(uncleResult, RetrieveUnclesPgStr, hash.Hex(), number); err != nil {
 		return "", nil, err
 	}
 	return uncleResult.CID, uncleResult.Data, nil
@@ -377,7 +398,7 @@ func (r *Retriever) RetrieveUncles(tx *sqlx.Tx, hash common.Hash, number uint64)
 // RetrieveUnclesByBlockHash returns the cid and rlp bytes for the uncle list corresponding to the provided block hash (of non-omner root block)
 func (r *Retriever) RetrieveUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) (string, []byte, error) {
 	uncleResult := new(ipldResult)
-	if err := tx.Select(uncleResult, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
+	if err := tx.Get(uncleResult, RetrieveUnclesByBlockHashPgStr, hash.Hex()); err != nil {
 		return "", nil, err
 	}
 	return uncleResult.CID, uncleResult.Data, nil
@@ -419,13 +440,12 @@ func DecodeLeafNode(node []byte) ([]byte, error) {
 	if err := rlp.DecodeBytes(node, &nodeElements); err != nil {
 		return nil, err
 	}
-	ty, err := trie_helpers.CheckKeyType(nodeElements)
+	ok, err := IsLeaf(nodeElements)
 	if err != nil {
 		return nil, err
 	}
-
-	if ty != sdtypes.Leaf {
-		return nil, fmt.Errorf("expected leaf node but found %s", ty)
+	if !ok {
+		return nil, fmt.Errorf("expected leaf node but found %v", nodeElements)
 	}
 	return nodeElements[1].([]byte), nil
 }
@@ -443,11 +463,7 @@ func (r *Retriever) RetrieveReceipts(tx *sqlx.Tx, hash common.Hash, number uint6
 
 	for i, res := range rctResults {
 		cids[i] = res.CID
-		nodeVal, err := DecodeLeafNode(res.Data)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		rcts[i] = nodeVal
+		rcts[i] = res.Data
 		txs[i] = common.HexToHash(res.TxHash)
 	}
 
@@ -480,64 +496,48 @@ func (r *Retriever) RetrieveReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (
 
 // RetrieveAccountByAddressAndBlockHash returns the cid and rlp bytes for the account corresponding to the provided address and block hash
 // TODO: ensure this handles deleted accounts appropriately
-func (r *Retriever) RetrieveAccountByAddressAndBlockHash(address common.Address, hash common.Hash) (string, []byte, error) {
-	accountResult := new(nodeInfo)
+func (r *Retriever) RetrieveAccountByAddressAndBlockHash(address common.Address, hash common.Hash) (StateAccountRecord, error) {
+	var accountResult StateAccountRecord
 	leafKey := crypto.Keccak256Hash(address.Bytes())
-	if err := r.db.Get(accountResult, RetrieveAccountByLeafKeyAndBlockHashPgStr, leafKey.Hex(), hash.Hex()); err != nil {
-		return "", nil, err
+	if err := r.db.Get(&accountResult, RetrieveAccountByLeafKeyAndBlockHashPgStr, leafKey.Hex(), hash.Hex()); err != nil {
+		return StateAccountRecord{}, err
 	}
 
 	if accountResult.Removed {
-		return "", EmptyNodeValue, nil
+		return StateAccountRecord{}, nil
 	}
-
-	blockNumber, err := strconv.ParseUint(accountResult.BlockNumber, 10, 64)
-	if err != nil {
-		return "", nil, err
-	}
-	accountResult.Data, err = shared.FetchIPLD(r.db, accountResult.CID, blockNumber)
-	if err != nil {
-		return "", nil, err
-	}
-
-	var i []interface{}
-	if err := rlp.DecodeBytes(accountResult.Data, &i); err != nil {
-		return "", nil, fmt.Errorf("error decoding state leaf node rlp: %s", err.Error())
-	}
-	if len(i) != 2 {
-		return "", nil, fmt.Errorf("eth Retriever expected state leaf node rlp to decode into two elements")
-	}
-	return accountResult.CID, i[1].([]byte), nil
+	return accountResult, nil
 }
 
 // RetrieveStorageAtByAddressAndStorageSlotAndBlockHash returns the cid and rlp bytes for the storage value corresponding to the provided address, storage slot, and block hash
-func (r *Retriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address common.Address, key, hash common.Hash) (string, []byte, []byte, error) {
-	storageResult := new(nodeInfo)
+func (r *Retriever) RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address common.Address, key, hash common.Hash) ([]byte, error) {
+	var storageResult nodeInfo
 	stateLeafKey := crypto.Keccak256Hash(address.Bytes())
 	storageHash := crypto.Keccak256Hash(key.Bytes())
-	if err := r.db.Get(storageResult, RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr, stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
-		return "", nil, nil, err
+	if err := r.db.Get(&storageResult,
+		RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr,
+		stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
+		return nil, err
 	}
 	if storageResult.StateLeafRemoved || storageResult.Removed {
-		return "", EmptyNodeValue, EmptyNodeValue, nil
+		return EmptyNodeValue, nil
 	}
+	return storageResult.Value, nil
+}
 
-	blockNumber, err := strconv.ParseUint(storageResult.BlockNumber, 10, 64)
-	if err != nil {
-		return "", nil, nil, err
+// RetrieveStorageAndRLP returns the cid and rlp bytes for the storage value corresponding to the
+// provided address, storage slot, and block hash
+func (r *Retriever) RetrieveStorageAndRLP(address common.Address, key, hash common.Hash) (string, []byte, error) {
+	var storageResult nodeInfo
+	stateLeafKey := crypto.Keccak256Hash(address.Bytes())
+	storageHash := crypto.Keccak256Hash(key.Bytes())
+	if err := r.db.Get(&storageResult,
+		RetrieveStorageAndRLPByAddressHashAndLeafKeyAndBlockHashPgStr,
+		stateLeafKey.Hex(), storageHash.Hex(), hash.Hex()); err != nil {
+		return "", nil, err
 	}
-	storageResult.Data, err = shared.FetchIPLD(r.db, storageResult.CID, blockNumber)
-	if err != nil {
-		return "", nil, nil, err
+	if storageResult.StateLeafRemoved || storageResult.Removed {
+		return "", EmptyNodeValue, nil
 	}
-
-	var i []interface{}
-	if err := rlp.DecodeBytes(storageResult.Data, &i); err != nil {
-		err = fmt.Errorf("error decoding storage leaf node rlp: %s", err.Error())
-		return "", nil, nil, err
-	}
-	if len(i) != 2 {
-		return "", nil, nil, fmt.Errorf("eth Retriever expected storage leaf node rlp to decode into two elements")
-	}
-	return storageResult.CID, storageResult.Data, i[1].([]byte), nil
+	return storageResult.CID, storageResult.Data, nil
 }

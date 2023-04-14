@@ -25,9 +25,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
-	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
 )
 
 var _ tracers.Backend = &Backend{}
@@ -43,9 +42,7 @@ type Backend struct {
 
 // StateAtBlock retrieves the state database associated with a certain block
 func (b *Backend) StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, checkLive, preferDisk bool) (*state.StateDB, tracers.StateReleaseFunc, error) {
-	rpcBlockNumber := rpc.BlockNumber(block.NumberU64())
-	statedb, _, err := b.StateAndHeaderByNumberOrHash(ctx, rpc.BlockNumberOrHashWithNumber(rpcBlockNumber))
-	return statedb, func() {}, err
+	return nil, func() {}, errMethodNotSupported
 }
 
 // StateAtTransaction returns the execution environment of a certain transaction

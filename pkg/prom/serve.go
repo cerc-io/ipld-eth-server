@@ -20,7 +20,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

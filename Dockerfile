@@ -1,6 +1,6 @@
 FROM golang:1.19-alpine as builder
 
-RUN apk --update --no-cache add make git g++ linux-headers
+RUN apk --update --no-cache add gcc musl-dev
 # DEBUG
 RUN apk add busybox-extras
 
@@ -19,12 +19,12 @@ RUN go mod download
 COPY . .
 
 # Build the binary
-RUN GCO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o ipld-eth-server .
+RUN GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o ipld-eth-server .
 
-# Copy migration tool
+# Get migration tool
 WORKDIR /
-ARG GOOSE_VER="v2.6.0"
-ADD https://github.com/pressly/goose/releases/download/${GOOSE_VER}/goose-linux64 ./goose
+ARG GOOSE_VER="v3.6.1"
+ADD https://github.com/pressly/goose/releases/download/${GOOSE_VER}/goose_linux_x86_64 ./goose
 RUN chmod +x ./goose
 
 # app container
