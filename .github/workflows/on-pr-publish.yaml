@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     # Map a step output to a job output
     outputs:
-      # should_skip: ${{ steps.skip_check.outputs.should_skip }}
-      should_skip: false # XXX dev
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
     steps:
       - id: skip_check
         uses: fkirc/skip-duplicate-actions@v4
