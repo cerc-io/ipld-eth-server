@@ -1,4 +1,4 @@
-# Container to run the IPLD server as part of integration tests
+# Runs the IPLD server and contract deployment server
 
 services:
   ipld-eth-server:

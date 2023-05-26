@@ -13,7 +13,7 @@ jobs:
           go-version-file: 'go.mod'
           check-latest: true
       - name: "Run DB container"
-        run: docker compose -f test/compose-db.yml up --wait
+        run: docker compose -f test/compose-db.yml up --wait --quiet-pull
       - name: "Build and run tests"
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
@@ -39,20 +39,18 @@ jobs:
           path: ./stack-orchestrator
       - run: pip install ./stack-orchestrator
       - name: "Run testnet stack"
-        env:
-          LACONIC_SO: laconic-so
         run: ./scripts/integration-setup.sh
       - name: "Build and run server"
         env:
           ETH_FORWARD_ETH_CALLS: false
-          ETH_CHAIN_ID: "${{ env.ETH_CHAIN_ID }}"
-          ETH_CHAIN_CONFIG: "${{ env.ETH_CHAIN_CONFIG }}"
-          DEPLOYER_PRIVATE_KEY: "${{ env.DEPLOYER_PRIVATE_KEY }}"
-        run: docker compose -f test/compose-server.yml up --wait
+          ETH_CHAIN_ID: ${{ env.ETH_CHAIN_ID }}
+          ETH_CHAIN_CONFIG: ${{ env.ETH_CHAIN_CONFIG }}
+          DEPLOYER_PRIVATE_KEY: ${{ env.DEPLOYER_PRIVATE_KEY }}
+        run: docker compose -f test/compose-server.yml up --wait --quiet-pull
       - name: "Run tests"
         env:
-          ETH_CHAIN_ID: "${{ env.ETH_CHAIN_ID }}"
-          ETH_HTTP_PATH: "${{ env.ETH_HTTP_PATH }}"
+          ETH_CHAIN_ID: ${{ env.ETH_CHAIN_ID }}
+          ETH_HTTP_PATH: ${{ env.ETH_HTTP_PATH }}
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
           ginkgo -v --label-filter '!proxy' -r ./integration
@@ -75,20 +73,19 @@ jobs:
       - run: pip install ./stack-orchestrator
       - name: "Run testnet stack"
         env:
-          LACONIC_SO: laconic-so
           CERC_RUN_STATEDIFF: false
         run: ./scripts/integration-setup.sh
       - name: "Build and run server"
         env:
           ETH_FORWARD_ETH_CALLS: true
-          ETH_CHAIN_ID: "${{ env.ETH_CHAIN_ID }}"
-          ETH_CHAIN_CONFIG: "${{ env.ETH_CHAIN_CONFIG }}"
-          DEPLOYER_PRIVATE_KEY: "${{ env.DEPLOYER_PRIVATE_KEY }}"
-        run: docker compose -f test/compose-server.yml up --wait
+          ETH_CHAIN_ID: ${{ env.ETH_CHAIN_ID }}
+          ETH_CHAIN_CONFIG: ${{ env.ETH_CHAIN_CONFIG }}
+          DEPLOYER_PRIVATE_KEY: ${{ env.DEPLOYER_PRIVATE_KEY }}
+        run: docker compose -f test/compose-server.yml up --wait --quiet-pull
       - name: "Run tests"
         env:
-          ETH_CHAIN_ID: "${{ env.ETH_CHAIN_ID }}"
-          ETH_HTTP_PATH: "${{ env.ETH_HTTP_PATH }}"
+          ETH_CHAIN_ID: ${{ env.ETH_CHAIN_ID }}
+          ETH_HTTP_PATH: ${{ env.ETH_HTTP_PATH }}
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
           ginkgo -v --label-filter 'proxy' -r ./integration
