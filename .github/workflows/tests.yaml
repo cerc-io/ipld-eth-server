@@ -17,7 +17,7 @@ jobs:
       - name: "Build and run tests"
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
-          ginkgo -v -r --skipPackage=./test
+          ginkgo -v -r --skipPackage=./integration
 
   integration-test:
     name: "Run integration tests"
@@ -55,7 +55,7 @@ jobs:
           ETH_HTTP_PATH: "${{ env.ETH_HTTP_PATH }}"
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
-          ginkgo -v --label-filter '!proxy' -r ./test
+          ginkgo -v --label-filter '!proxy' -r ./integration
 
   integration-test-eth-proxy:
     name: "Run direct-proxy integration tests"
@@ -91,4 +91,4 @@ jobs:
           ETH_HTTP_PATH: "${{ env.ETH_HTTP_PATH }}"
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
-          ginkgo -v --label-filter 'proxy' -r ./test
+          ginkgo -v --label-filter 'proxy' -r ./integration

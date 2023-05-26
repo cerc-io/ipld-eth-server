@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	integration "github.com/cerc-io/ipld-eth-server/v5/integration"
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
-	integration "github.com/cerc-io/ipld-eth-server/v5/test"
 )
 
 var (
