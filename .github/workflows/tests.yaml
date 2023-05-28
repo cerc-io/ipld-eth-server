@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: cerc-io/stack-orchestrator
-          ref: roy/for-ci
+          ref: roy/ipld-eth-ci
           path: ./stack-orchestrator
       - run: pip install ./stack-orchestrator
       - name: "Run testnet stack"
@@ -68,7 +68,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: cerc-io/stack-orchestrator
-          ref: roy/for-ci
+          ref: roy/ipld-eth-ci
           path: ./stack-orchestrator
       - run: pip install ./stack-orchestrator
       - name: "Run testnet stack"

@@ -6,22 +6,23 @@ export DOCKER_BUILDKIT=1
 # Prevent conflicting tty output
 export BUILDKIT_PROGRESS=plain
 
-# By default assume we are running in the project root
-export CERC_REPO_BASE_DIR="${CERC_REPO_BASE_DIR:-..}"
-
 CONFIG_DIR=$(readlink -f "${CONFIG_DIR:-$(mktemp -d)}")
 
+# By default assume we are running in the project root
+export CERC_REPO_BASE_DIR="${CERC_REPO_BASE_DIR:-..}"
+# v5 migrations only go up to version 18
+echo CERC_STATEDIFF_DB_GOOSE_MIN_VER=18 >> $CONFIG_DIR/stack.env
 # Pass this in so we can run eth_call forwarding tests, which expect no IPLD DB
-echo "CERC_RUN_STATEDIFF=${CERC_RUN_STATEDIFF:-true}" >> $CONFIG_DIR/stack.env
+echo CERC_RUN_STATEDIFF=${CERC_RUN_STATEDIFF:-true} >> $CONFIG_DIR/stack.env
 
-laconic_so="${LACONIC_SO:-laconic-so} --verbose --stack fixturenet-eth-loaded"
+laconic_so="${LACONIC_SO:-laconic-so} --stack fixturenet-eth-loaded --quiet"
 
 set -x
 
 # Build and deploy a cluster with only what we need from the stack
 $laconic_so setup-repositories \
-    --exclude cerc-io/ipld-eth-server,cerc-io/tx-spammer \
-    --branches-file ./test/stack-refs.yml
+    --exclude github.com/cerc-io/ipld-eth-server,github.com/cerc-io/tx-spammer \
+    --branches-file ./test/stack-refs.txt
 
 $laconic_so build-containers \
     --exclude cerc/ipld-eth-server,cerc/keycloak,cerc/tx-spammer
