@@ -43,8 +43,8 @@ curl -s $bootnode_endpoint/geth.json | jq '.config' > $CONFIG_DIR/chain.json
 # Output vars if we are running on Github
 if [[ -n "$GITHUB_ENV" ]]; then
     echo ETH_CHAIN_ID="$(jq '.chainId' $CONFIG_DIR/chain.json)" >> "$GITHUB_ENV"
-    echo ETH_CHAIN_CONFIG="'$CONFIG_DIR/chain.json'" >> "$GITHUB_ENV"
-    echo ETH_HTTP_PATH="$(docker port test-fixturenet-eth-geth-1-1 8545 | head -1)" >> "$GITHUB_ENV"
+    echo ETH_CHAIN_CONFIG="$CONFIG_DIR/chain.json" >> "$GITHUB_ENV"
+    echo ETH_HTTP_PATH=$(docker port test-fixturenet-eth-geth-1-1 8545 | head -1) >> "$GITHUB_ENV"
     # Read a private key so we can send from a funded account
-    echo DEPLOYER_PRIVATE_KEY="$(curl -s $bootnode_endpoint/accounts.csv | head -1 | cut -d',' -f3)" >> "$GITHUB_ENV"
+    echo DEPLOYER_PRIVATE_KEY=$(curl -s $bootnode_endpoint/accounts.csv | head -1 | cut -d',' -f3) >> "$GITHUB_ENV"
 fi
