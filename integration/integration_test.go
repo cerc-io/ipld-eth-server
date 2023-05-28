@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"math/rand"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,8 +25,6 @@ var (
 
 	erc20TotalSupply, _ = new(big.Int).SetString("1000000000000000000000", 10)
 	ercTotalSupplyIndex = common.HexToHash("0x2")
-
-	delayInterval = time.Second * 1
 )
 
 var _ = Describe("Basic integration test", func() {
@@ -43,7 +40,8 @@ var _ = Describe("Basic integration test", func() {
 			contract, contractErr = integration.DeployContract()
 			Expect(contractErr).ToNot(HaveOccurred())
 
-			time.Sleep(delayInterval)
+			err := waitForBlock(ctx, ipldClient, contract.BlockNumber)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("get not existing block by number", func() {
@@ -298,6 +296,9 @@ var _ = Describe("Basic integration test", func() {
 			Expect(contract.BlockNumber).ToNot(BeZero())
 
 			contractSalt = common.Bytes2Hex(contract.BlockHash[:10])
+
+			err := waitForBlock(ctx, ipldClient, contract.BlockNumber)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("gets ERC20 total supply (with block number)", func() {

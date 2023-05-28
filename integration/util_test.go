@@ -22,6 +22,7 @@ func waitForBlock(ctx context.Context, client *ethclient.Client, target int64) e
 			if uint64(target) <= latest {
 				return nil
 			}
+			time.Sleep(time.Second)
 		}
 	}
 
