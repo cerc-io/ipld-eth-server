@@ -288,6 +288,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -300,7 +301,8 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	}()
 
 	// Fetch header
-	header, err := b.GetHeaderByBlockHash(tx, hash)
+	var header *types.Header
+	header, err = b.GetHeaderByBlockHash(tx, hash)
 	if err != nil {
 		log.Error("error fetching header: ", err)
 		if err == sql.ErrNoRows {
@@ -312,7 +314,8 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	blockNumber := header.Number.Uint64()
 
 	// Fetch uncles
-	uncles, err := b.GetUnclesByBlockHashAndNumber(tx, hash, blockNumber)
+	var uncles []*types.Header
+	uncles, err = b.GetUnclesByBlockHashAndNumber(tx, hash, blockNumber)
 	if err != nil && err != sql.ErrNoRows {
 		log.Error("error fetching uncles: ", err)
 		return nil, err
@@ -323,17 +326,21 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	// Check if uncle hash matches expected hash
 	if uncleHash != header.UncleHash {
 		log.Error("uncle hash mismatch for block hash: ", hash.Hex())
+		err = fmt.Errorf("uncle hash mismatch for block hash: %s", hash.Hex())
+		return nil, err
 	}
 
 	// Fetch transactions
-	transactions, err := b.GetTransactionsByBlockHashAndNumber(tx, hash, blockNumber)
+	var transactions types.Transactions
+	transactions, err = b.GetTransactionsByBlockHashAndNumber(tx, hash, blockNumber)
 	if err != nil && err != sql.ErrNoRows {
 		log.Error("error fetching transactions: ", err)
 		return nil, err
 	}
 
 	// Fetch receipts
-	receipts, err := b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
+	var receipts types.Receipts
+	receipts, err = b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
 	if err != nil && err != sql.ErrNoRows {
 		log.Error("error fetching receipts: ", err)
 		return nil, err
@@ -520,6 +527,7 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -531,12 +539,15 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 		}
 	}()
 
-	blockNumber, err := b.Retriever.RetrieveBlockNumberByHash(tx, hash)
+	var blockNumber uint64
+	blockNumber, err = b.Retriever.RetrieveBlockNumberByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	return b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
+	var receipts types.Receipts
+	receipts, err = b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
+	return receipts, err
 }
 
 // GetLogs returns all the logs for the given block hash
@@ -546,6 +557,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -557,14 +569,16 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 		}
 	}()
 
-	_, receiptBytes, txs, err := b.Retriever.RetrieveReceipts(tx, hash, number)
+	var receiptBytes [][]byte
+	var txs []common.Hash
+	_, receiptBytes, txs, err = b.Retriever.RetrieveReceipts(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
 	logs := make([][]*types.Log, len(receiptBytes))
 	for i, rctBytes := range receiptBytes {
 		var rct types.Receipt
-		if err := rlp.DecodeBytes(rctBytes, &rct); err != nil {
+		if err = rlp.DecodeBytes(rctBytes, &rct); err != nil {
 			return nil, err
 		}
 
@@ -574,7 +588,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 
 		logs[i] = rct.Logs
 	}
-	return logs, nil
+	return logs, err
 }
 
 // IPLDStateDBAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
@@ -817,6 +831,7 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
