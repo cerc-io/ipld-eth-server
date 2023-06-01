@@ -19,12 +19,12 @@ package rpc
 import (
 	"fmt"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/prom"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/prom"
 )
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules.
@@ -42,8 +42,8 @@ func StartHTTPEndpoint(endpoint string, apis []rpc.API, modules []string, cors [
 	if err != nil {
 		utils.Fatalf("Could not start RPC api: %v", err)
 	}
-	extapiURL := fmt.Sprintf("http://%v/", addr)
-	log.Infof("HTTP endpoint opened %s", extapiURL)
+	extapiURL := fmt.Sprintf("http://%s", addr)
+	log.Infof("HTTP endpoint opened at %s", extapiURL)
 
 	return srv, err
 }

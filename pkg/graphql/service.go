@@ -28,8 +28,8 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 )
 
 // Service encapsulates a GraphQL service.
@@ -76,12 +76,12 @@ func (s *Service) Start(server *p2p.Server) error {
 	if err != nil {
 		utils.Fatalf("Could not start RPC api: %v", err)
 	}
-	extapiURL := fmt.Sprintf("http://%v/", addr)
-	log.Infof("graphQL endpoint opened for url %s", extapiURL)
+	extapiURL := fmt.Sprintf("http://%v", addr)
+	log.Infof("GraphQL endpoint opened at %s", extapiURL)
 	return nil
 }
 
-// newHandler returns a new `http.Handler` that will answer GraphQL queries.
+// NewHandler returns a new `http.Handler` that will answer GraphQL queries.
 // It additionally exports an interactive query browser on the / endpoint.
 func NewHandler(backend *eth.Backend) (http.Handler, error) {
 	q := Resolver{backend}

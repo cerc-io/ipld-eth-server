@@ -29,18 +29,20 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
+	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/viper"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/prom"
-	ethServerShared "github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/prom"
+	ethServerShared "github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
 )
 
 // Env variables
 const (
-	SERVER_WS_PATH   = "SERVER_WS_PATH"
-	SERVER_IPC_PATH  = "SERVER_IPC_PATH"
-	SERVER_HTTP_PATH = "SERVER_HTTP_PATH"
+	SERVER_WS_PATH      = "SERVER_WS_PATH"
+	SERVER_IPC_PATH     = "SERVER_IPC_PATH"
+	SERVER_HTTP_PATH    = "SERVER_HTTP_PATH"
+	SERVER_GRAPHQL_PATH = "SERVER_GRAPHQL_PATH"
 
 	SERVER_MAX_IDLE_CONNECTIONS = "SERVER_MAX_IDLE_CONNECTIONS"
 	SERVER_MAX_OPEN_CONNECTIONS = "SERVER_MAX_OPEN_CONNECTIONS"
@@ -57,6 +59,25 @@ const (
 
 	VALIDATOR_ENABLED         = "VALIDATOR_ENABLED"
 	VALIDATOR_EVERY_NTH_BLOCK = "VALIDATOR_EVERY_NTH_BLOCK"
+
+	HTTP_TIMEOUT = "HTTP_TIMEOUT"
+
+	ETH_WS_PATH       = "ETH_WS_PATH"
+	ETH_HTTP_PATH     = "ETH_HTTP_PATH"
+	ETH_NODE_ID       = "ETH_NODE_ID"
+	ETH_CLIENT_NAME   = "ETH_CLIENT_NAME"
+	ETH_GENESIS_BLOCK = "ETH_GENESIS_BLOCK"
+	ETH_NETWORK_ID    = "ETH_NETWORK_ID"
+	ETH_CHAIN_ID      = "ETH_CHAIN_ID"
+
+	DATABASE_NAME                 = "DATABASE_NAME"
+	DATABASE_HOSTNAME             = "DATABASE_HOSTNAME"
+	DATABASE_PORT                 = "DATABASE_PORT"
+	DATABASE_USER                 = "DATABASE_USER"
+	DATABASE_PASSWORD             = "DATABASE_PASSWORD"
+	DATABASE_MAX_IDLE_CONNECTIONS = "DATABASE_MAX_IDLE_CONNECTIONS"
+	DATABASE_MAX_OPEN_CONNECTIONS = "DATABASE_MAX_OPEN_CONNECTIONS"
+	DATABASE_MAX_CONN_LIFETIME    = "DATABASE_MAX_CONN_LIFETIME"
 )
 
 // Config struct
@@ -75,12 +96,6 @@ type Config struct {
 
 	EthGraphqlEnabled  bool
 	EthGraphqlEndpoint string
-
-	IpldGraphqlEnabled          bool
-	IpldGraphqlEndpoint         string
-	IpldPostgraphileEndpoint    string
-	TracingHttpEndpoint         string
-	TracingPostgraphileEndpoint string
 
 	ChainConfig         *params.ChainConfig
 	DefaultSender       *common.Address
@@ -106,8 +121,12 @@ type Config struct {
 func NewConfig() (*Config, error) {
 	c := new(Config)
 
+	viper.BindEnv("server.httpPath", SERVER_HTTP_PATH)
+	viper.BindEnv("server.wsPath", SERVER_WS_PATH)
+	viper.BindEnv("server.ipcPath", SERVER_IPC_PATH)
+	viper.BindEnv("server.graphqlPath", SERVER_GRAPHQL_PATH)
+
 	viper.BindEnv("ethereum.httpPath", ETH_HTTP_PATH)
-	viper.BindEnv("ethereum.defaultSender", ETH_DEFAULT_SENDER_ADDR)
 	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
 	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
 	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
@@ -115,6 +134,8 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.forwardEthCalls", ETH_FORWARD_ETH_CALLS)
 	viper.BindEnv("ethereum.forwardGetStorageAt", ETH_FORWARD_GET_STORAGE_AT)
 	viper.BindEnv("ethereum.proxyOnError", ETH_PROXY_ON_ERROR)
+	viper.BindEnv("log.file", "LOG_FILE")
+	viper.BindEnv("log.level", "LOG_LEVEL")
 
 	c.dbInit()
 	ethHTTP := viper.GetString("ethereum.httpPath")
@@ -132,9 +153,9 @@ func NewConfig() (*Config, error) {
 	c.EthHttpEndpoint = ethHTTPEndpoint
 
 	// websocket server
-	wsEnabled := viper.GetBool("eth.server.ws")
+	wsEnabled := viper.GetBool("server.ws")
 	if wsEnabled {
-		wsPath := viper.GetString("eth.server.wsPath")
+		wsPath := viper.GetString("server.wsPath")
 		if wsPath == "" {
 			wsPath = "127.0.0.1:8080"
 		}
@@ -143,9 +164,9 @@ func NewConfig() (*Config, error) {
 	c.WSEnabled = wsEnabled
 
 	// ipc server
-	ipcEnabled := viper.GetBool("eth.server.ipc")
+	ipcEnabled := viper.GetBool("server.ipc")
 	if ipcEnabled {
-		ipcPath := viper.GetString("eth.server.ipcPath")
+		ipcPath := viper.GetString("server.ipcPath")
 		if ipcPath == "" {
 			home, err := os.UserHomeDir()
 			if err != nil {
@@ -158,9 +179,9 @@ func NewConfig() (*Config, error) {
 	c.IPCEnabled = ipcEnabled
 
 	// http server
-	httpEnabled := viper.GetBool("eth.server.http")
+	httpEnabled := viper.GetBool("server.http")
 	if httpEnabled {
-		httpPath := viper.GetString("eth.server.httpPath")
+		httpPath := viper.GetString("server.httpPath")
 		if httpPath == "" {
 			httpPath = "127.0.0.1:8081"
 		}
@@ -169,43 +190,15 @@ func NewConfig() (*Config, error) {
 	c.HTTPEnabled = httpEnabled
 
 	// eth graphql endpoint
-	ethGraphqlEnabled := viper.GetBool("eth.server.graphql")
+	ethGraphqlEnabled := viper.GetBool("server.graphql")
 	if ethGraphqlEnabled {
-		ethGraphqlPath := viper.GetString("eth.server.graphqlPath")
+		ethGraphqlPath := viper.GetString("server.graphqlPath")
 		if ethGraphqlPath == "" {
 			ethGraphqlPath = "127.0.0.1:8082"
 		}
 		c.EthGraphqlEndpoint = ethGraphqlPath
 	}
 	c.EthGraphqlEnabled = ethGraphqlEnabled
-
-	// ipld graphql endpoint
-	ipldGraphqlEnabled := viper.GetBool("ipld.server.graphql")
-	if ipldGraphqlEnabled {
-		ipldGraphqlPath := viper.GetString("ipld.server.graphqlPath")
-		if ipldGraphqlPath == "" {
-			ipldGraphqlPath = "127.0.0.1:8083"
-		}
-		c.IpldGraphqlEndpoint = ipldGraphqlPath
-
-		ipldPostgraphilePath := viper.GetString("ipld.postgraphilePath")
-		if ipldPostgraphilePath == "" {
-			return nil, errors.New("ipld-postgraphile-path parameter is empty")
-		}
-		c.IpldPostgraphileEndpoint = ipldPostgraphilePath
-
-		tracingHttpEndpoint := viper.GetString("tracing.httpPath")
-		tracingPostgraphilePath := viper.GetString("tracing.postgraphilePath")
-
-		// these two parameters either can be both empty or both set
-		if (tracingHttpEndpoint == "" && tracingPostgraphilePath != "") || (tracingHttpEndpoint != "" && tracingPostgraphilePath == "") {
-			return nil, errors.New("tracing.httpPath and tracing.postgraphilePath parameters either can be both empty or both set")
-		}
-
-		c.TracingHttpEndpoint = tracingHttpEndpoint
-		c.TracingPostgraphileEndpoint = tracingPostgraphilePath
-	}
-	c.IpldGraphqlEnabled = ipldGraphqlEnabled
 
 	overrideDBConnConfig(&c.DBConfig)
 	serveDB, err := ethServerShared.NewDB(c.DBConfig.DbConnectionString(), c.DBConfig)
@@ -216,11 +209,6 @@ func NewConfig() (*Config, error) {
 	prom.RegisterDBCollector(c.DBConfig.DatabaseName, serveDB)
 	c.DB = serveDB
 
-	defaultSenderStr := viper.GetString("ethereum.defaultSender")
-	if defaultSenderStr != "" {
-		sender := common.HexToAddress(defaultSenderStr)
-		c.DefaultSender = &sender
-	}
 	rpcGasCapStr := viper.GetString("ethereum.rpcGasCap")
 	if rpcGasCapStr != "" {
 		if rpcGasCap, ok := new(big.Int).SetString(rpcGasCapStr, 10); ok {
@@ -312,4 +300,25 @@ func (c *Config) loadValidatorConfig() {
 
 	c.StateValidationEnabled = viper.GetBool("validator.enabled")
 	c.StateValidationEveryNthBlock = viper.GetUint64("validator.everyNthBlock")
+}
+
+// GetEthNodeAndClient returns eth node info and client from path url
+func getEthNodeAndClient(path string) (node.Info, *rpc.Client, error) {
+	viper.BindEnv("ethereum.nodeID", ETH_NODE_ID)
+	viper.BindEnv("ethereum.clientName", ETH_CLIENT_NAME)
+	viper.BindEnv("ethereum.genesisBlock", ETH_GENESIS_BLOCK)
+	viper.BindEnv("ethereum.networkID", ETH_NETWORK_ID)
+	viper.BindEnv("ethereum.chainID", ETH_CHAIN_ID)
+
+	rpcClient, err := rpc.Dial(path)
+	if err != nil {
+		return node.Info{}, nil, err
+	}
+	return node.Info{
+		ID:           viper.GetString("ethereum.nodeID"),
+		ClientName:   viper.GetString("ethereum.clientName"),
+		GenesisBlock: viper.GetString("ethereum.genesisBlock"),
+		NetworkID:    viper.GetString("ethereum.networkID"),
+		ChainID:      viper.GetUint64("ethereum.chainID"),
+	}, rpcClient, nil
 }

@@ -1,7 +1,8 @@
 const { artifacts } = require("hardhat")
 const { utils, BigNumber } = require("ethers")
-const { deployFactory } = require("solidity-create2-deployer");
+const { deployFactory, isDeployed } = require("solidity-create2-deployer");
 
+// Hardcoded account which solidity-create2-deployer uses to deploy its factory
 const CREATE2_FACTORY_ACCOUNT = '0x2287Fa6efdEc6d8c3E0f4612ce551dEcf89A357A';
 
 async function getStorageLayout(contractName) {
@@ -38,17 +39,17 @@ async function getStorageSlotKey(contractName, variableName) {
 };
 
 async function deployCreate2Factory(provider, signer) {
-  // Send eth to account as required to deploy create2 factory contract.
+  // Fund hardcoded account before deploying factory
   let tx = {
     to: CREATE2_FACTORY_ACCOUNT,
     value: utils.parseEther('0.01')
   }
+  await signer.sendTransaction(tx).then(tx => tx.wait());
 
-  const txResponse = await signer.sendTransaction(tx);
-  await txResponse.wait()
-
-  // Deploy create2 factory contract.
-  await deployFactory(provider)
+  const address = await deployFactory(provider);
+  // solidity-create2-deployer doesn't await the deploy tx
+  while (!await isDeployed(address, provider));
+  return address;
 }
 
 module.exports = { getStorageSlotKey, deployCreate2Factory }

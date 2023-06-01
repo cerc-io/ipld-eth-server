@@ -27,14 +27,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
@@ -43,7 +40,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
+	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
 )
 
 const (
@@ -165,10 +164,10 @@ func (pea *PublicEthAPI) BlockNumber() hexutil.Uint64 {
 }
 
 // GetBlockByNumber returns the requested canonical block.
-// * When blockNr is -1 the chain head is returned.
-// * We cannot support pending block calls since we do not have an active miner
-// * When fullTx is true all transactions in the block are returned, otherwise
-//   only the transaction hash is returned.
+//   - When blockNr is -1 the chain head is returned.
+//   - We cannot support pending block calls since we do not have an active miner
+//   - When fullTx is true all transactions in the block are returned, otherwise
+//     only the transaction hash is returned.
 func (pea *PublicEthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber, fullTx bool) (map[string]interface{}, error) {
 	block, err := pea.B.BlockByNumber(ctx, number)
 	if block != nil && err == nil {
@@ -510,7 +509,7 @@ type feeHistoryResult struct {
 }
 
 // FeeHistory returns the fee market history.
-func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
+func (pea *PublicEthAPI) FeeHistory(ctx context.Context, blockCount int, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
 	if pea.rpc != nil {
 		var res *feeHistoryResult
 		if err := pea.rpc.CallContext(ctx, &res, "eth_feeHistory", blockCount, lastBlock, rewardPercentiles); err != nil {
@@ -596,7 +595,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	if err != nil {
 		return nil, err
 	}
-	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.Transactions())
+	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.BaseFee(), block.Transactions())
 	if err != nil {
 		return nil, err
 	}
@@ -612,6 +611,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	from, _ := types.Sender(signer, tx)
 
 	fields := map[string]interface{}{
+		"type":              hexutil.Uint64(receipt.Type),
 		"blockHash":         blockHash,
 		"blockNumber":       hexutil.Uint64(blockNumber),
 		"transactionHash":   hash,
@@ -623,6 +623,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 		"contractAddress":   nil,
 		"logs":              receipt.Logs,
 		"logsBloom":         receipt.Bloom,
+		"effectiveGasPrice": (*hexutil.Big)(receipt.EffectiveGasPrice),
 	}
 
 	// Assign receipt status or post state.
@@ -707,6 +708,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -720,12 +722,15 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 
 	// If we have a blockHash to filter on, fire off single retrieval query
 	if crit.BlockHash != nil {
-		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLog(tx, filter, 0, crit.BlockHash)
+		var filteredLogs []LogResult
+		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, 0, crit.BlockHash)
 		if err != nil {
 			return nil, err
 		}
 
-		return decomposeLogs(filteredLogs)
+		var logs []*types.Log
+		logs, err = decomposeLogs(filteredLogs)
+		return logs, err
 	}
 
 	// Otherwise, create block range from criteria
@@ -737,7 +742,8 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	}
 
 	if endingBlock == nil {
-		endingBlockInt, err := pea.B.Retriever.RetrieveLastBlockNumber()
+		var endingBlockInt int64
+		endingBlockInt, err = pea.B.Retriever.RetrieveLastBlockNumber()
 		if err != nil {
 			return nil, err
 		}
@@ -748,21 +754,19 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	end := endingBlock.Int64()
 	var logs []*types.Log
 	for i := start; i <= end; i++ {
-		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLog(tx, filter, i, nil)
+		var filteredLogs []LogResult
+		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, i, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		logCIDs, err := decomposeLogs(filteredLogs)
+		var logCIDs []*types.Log
+		logCIDs, err = decomposeLogs(filteredLogs)
 		if err != nil {
 			return nil, err
 		}
 
 		logs = append(logs, logCIDs...)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
 	}
 
 	return logs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
@@ -779,7 +783,9 @@ State and Storage
 // block numbers are also allowed.
 func (pea *PublicEthAPI) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (*hexutil.Big, error) {
 	bal, err := pea.localGetBalance(ctx, address, blockNrOrHash)
-	if bal != nil && err == nil {
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	} else if bal != nil {
 		return bal, nil
 	}
 	if pea.config.ProxyOnError {
@@ -875,13 +881,17 @@ func (pea *PublicEthAPI) GetProof(ctx context.Context, address common.Address, s
 	return nil, err
 }
 
+// this continues to use ipfs-ethdb based geth StateDB as it requires trie access
 func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (*AccountResult, error) {
-	state, _, err := pea.B.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	state, _, err := pea.B.IPLDTrieStateDBAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if state == nil || err != nil {
 		return nil, err
 	}
 
-	storageTrie := state.StorageTrie(address)
+	storageTrie, err := state.StorageTrie(address)
+	if storageTrie == nil || err != nil {
+		return nil, err
+	}
 	storageHash := types.EmptyRootHash
 	codeHash := state.GetCodeHash(address)
 	storageProof := make([]StorageResult, len(storageKeys))
@@ -977,7 +987,7 @@ type OverrideAccount struct {
 type StateOverride map[common.Address]OverrideAccount
 
 // Apply overrides the fields of specified accounts into the given state.
-func (diff *StateOverride) Apply(state *state.StateDB) error {
+func (diff *StateOverride) Apply(state *ipld_direct_state.StateDB) error {
 	if diff == nil {
 		return nil
 	}
@@ -1054,7 +1064,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		log.Debugxf(ctx, "Executing EVM call finished %s runtime %s", time.Now().String(), time.Since(start).String())
 	}(time.Now())
 
-	state, header, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	state, header, err := b.IPLDDirectStateDBAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if state == nil || err != nil {
 		return nil, err
 	}
@@ -1105,7 +1115,7 @@ func DoCall(ctx context.Context, b *Backend, args CallArgs, blockNrOrHash rpc.Bl
 		return nil, fmt.Errorf("execution aborted (timeout = %v)", timeout)
 	}
 	if err != nil {
-		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.Gas())
+		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.GasLimit)
 	}
 	return result, nil
 }
@@ -1144,12 +1154,10 @@ func (pea *PublicEthAPI) writeStateDiffAt(height int64) {
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
-		IntermediateStateNodes:   true,
-		IntermediateStorageNodes: true,
-		IncludeBlock:             true,
-		IncludeReceipts:          true,
-		IncludeTD:                true,
-		IncludeCode:              true,
+		IncludeBlock:    true,
+		IncludeReceipts: true,
+		IncludeTD:       true,
+		IncludeCode:     true,
 	}
 	log.Debugf("Calling statediff_writeStateDiffAt(%d)", height)
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffAt", uint64(height), params); err != nil {
@@ -1167,12 +1175,10 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 	defer cancel()
 	var data json.RawMessage
 	params := statediff.Params{
-		IntermediateStateNodes:   true,
-		IntermediateStorageNodes: true,
-		IncludeBlock:             true,
-		IncludeReceipts:          true,
-		IncludeTD:                true,
-		IncludeCode:              true,
+		IncludeBlock:    true,
+		IncludeReceipts: true,
+		IncludeTD:       true,
+		IncludeCode:     true,
 	}
 	log.Debugf("Calling statediff_writeStateDiffFor(%s)", blockHash.Hex())
 	if err := pea.rpc.CallContext(ctx, &data, "statediff_writeStateDiffFor", blockHash, params); err != nil {

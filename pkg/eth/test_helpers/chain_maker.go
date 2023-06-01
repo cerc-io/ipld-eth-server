@@ -36,7 +36,8 @@ var (
 	TestBankKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	TestBankAddress = crypto.PubkeyToAddress(TestBankKey.PublicKey) //0x71562b71999873DB5b286dF957af199Ec94617F7
 	TestBankFunds   = big.NewInt(100000000)
-	Genesis         = test_helpers.GenesisBlockForTesting(Testdb, TestBankAddress, TestBankFunds)
+
+	Genesis = test_helpers.GenesisBlockForTesting(Testdb, TestBankAddress, TestBankFunds, big.NewInt(params.InitialBaseFee), params.MaxGasLimit)
 
 	Account1Key, _       = crypto.HexToECDSA("8a1f9a8f95be41cd7ccb6168179afb4504aefe388d1e14474d32c45c72ce7b7a")
 	Account2Key, _       = crypto.HexToECDSA("49a7b37aa6f6645917e7b807e9d1c00d4fa71f18343b0d4122a4d2df64dd6fee")
@@ -61,11 +62,12 @@ data function sig: 73d4a13a
 
 // MakeChain creates a chain of n blocks starting at and including parent.
 // the returned hash chain is ordered head->parent.
-func MakeChain(n int, parent *types.Block, chainGen func(int, *core.BlockGen)) ([]*types.Block, []types.Receipts, *core.BlockChain) {
-	config := params.TestChainConfig
-	config.LondonBlock = big.NewInt(100)
+func MakeChain(n int, parent *types.Block, chainGen func(int, *core.BlockGen), config *params.ChainConfig) ([]*types.Block, []types.Receipts, *core.BlockChain) {
 	blocks, receipts := core.GenerateChain(config, parent, ethash.NewFaker(), Testdb, n, chainGen)
-	chain, _ := core.NewBlockChain(Testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil)
+	chain, err := core.NewBlockChain(Testdb, nil, nil, nil, ethash.NewFaker(), vm.Config{}, nil, nil)
+	if err != nil {
+		panic(err)
+	}
 	return append([]*types.Block{parent}, blocks...), receipts, chain
 }
 

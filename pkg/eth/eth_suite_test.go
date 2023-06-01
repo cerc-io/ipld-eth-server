@@ -17,19 +17,13 @@
 package eth_test
 
 import (
-	"io/ioutil"
 	"testing"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 func TestETHSuite(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "eth ipld server eth suite test")
+	RunSpecs(t, "ipld-eth-server/pkg/eth")
 }
-
-var _ = BeforeSuite(func() {
-	log.SetOutput(ioutil.Discard)
-})

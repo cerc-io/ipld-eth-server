@@ -18,14 +18,14 @@ package cmd
 import (
 	"time"
 
-	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
-	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	validator "github.com/cerc-io/eth-ipfs-state-validator/v5/pkg"
+	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v5/postgres/v0"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	s "github.com/cerc-io/ipld-eth-server/v4/pkg/serve"
+	s "github.com/cerc-io/ipld-eth-server/v5/pkg/serve"
 )
 
 const GroupName = "statedb-validate"
@@ -34,7 +34,7 @@ const CacheSizeInMB = 16         // 16 MB
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
-	Short: "valdiate state",
+	Short: "validate state",
 	Long:  `This command validates the trie for the given state root`,
 	Run: func(cmd *cobra.Command, args []string) {
 		subCommand = cmd.CalledAs()

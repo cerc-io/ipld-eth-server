@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/google/uuid"
 
 	"github.com/ethereum/go-ethereum/rpc"

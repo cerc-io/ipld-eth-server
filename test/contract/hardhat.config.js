@@ -16,6 +16,16 @@ task("accounts", "Prints the list of accounts", async () => {
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
+
+const localNetwork = {
+  url: process.env.ETH_ADDR || "http://127.0.0.1:8545",
+  chainId: Number(process.env.ETH_CHAIN_ID) || 99,
+};
+
+if (process.env.DEPLOYER_PRIVATE_KEY) {
+  localNetwork["accounts"] = [process.env.DEPLOYER_PRIVATE_KEY];
+}
+
 module.exports = {
   solidity: {
     version: "0.8.0",
@@ -30,14 +40,7 @@ module.exports = {
     }
   },
   networks: {
-    local: {
-      url: 'http://127.0.0.1:8545',
-      chainId: 99
-    },
-    docker: {
-      url: process.env.ETH_ADDR,
-      chainId: 99
-    }
-  }
+    local: localNetwork
+  },
+  defaultNetwork: "local"
 };
-

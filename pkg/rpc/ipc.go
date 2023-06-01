@@ -22,11 +22,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/prom"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/prom"
 )
 
 var (

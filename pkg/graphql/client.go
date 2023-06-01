@@ -43,12 +43,12 @@ type IPFSBlockResponse struct {
 }
 
 type EthTransactionCIDResponse struct {
-	CID          string            `json:"cid"`
-	TxHash       string            `json:"txHash"`
-	Index        int32             `json:"index"`
-	Src          string            `json:"src"`
-	Dst          string            `json:"dst"`
-	BlockByMhKey IPFSBlockResponse `json:"blockByMhKey"`
+	CID        string            `json:"cid"`
+	TxHash     string            `json:"txHash"`
+	Index      int32             `json:"index"`
+	Src        string            `json:"src"`
+	Dst        string            `json:"dst"`
+	BlockByCid IPFSBlockResponse `json:"blockByCid"`
 }
 
 type EthTransactionCIDByTxHash struct {
@@ -72,7 +72,7 @@ type EthHeaderCIDResponse struct {
 	UncleRoot                    string                               `json:"uncleRoot"`
 	Bloom                        string                               `json:"bloom"`
 	EthTransactionCIDsByHeaderId EthTransactionCIDsByHeaderIdResponse `json:"ethTransactionCidsByHeaderId"`
-	BlockByMhKey                 IPFSBlockResponse                    `json:"blockByMhKey"`
+	BlockByCid                   IPFSBlockResponse                    `json:"blockByCid"`
 }
 
 type AllEthHeaderCIDsResponse struct {
@@ -195,7 +195,7 @@ func (c *Client) AllEthHeaderCIDs(ctx context.Context, condition EthHeaderCIDCon
 					receiptRoot
 					uncleRoot
 					bloom
-					blockByMhKey {
+					blockByCid {
 						key
 						data
 					}
@@ -244,7 +244,7 @@ func (c *Client) EthTransactionCIDByTxHash(ctx context.Context, txHash string) (
 				index
 				src
 				dst
-				blockByMhKey {
+				blockByCid {
 					data
 				}
 			}

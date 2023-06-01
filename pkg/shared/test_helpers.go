@@ -19,8 +19,6 @@ package shared
 import (
 	"bytes"
 	"context"
-	"os"
-	"strconv"
 
 	. "github.com/onsi/gomega"
 
@@ -46,7 +44,8 @@ func IPLDsContainBytes(iplds []models.IPLDModel, b []byte) bool {
 
 // SetupDB is use to setup a db for watcher tests
 func SetupDB() *sqlx.DB {
-	config := getTestDBConfig()
+	config, err := postgres.TestConfig.WithEnv()
+	Expect(err).NotTo(HaveOccurred())
 
 	db, err := NewDB(config.DbConnectionString(), config)
 	Expect(err).NotTo(HaveOccurred())
@@ -60,6 +59,8 @@ func TearDownDB(db *sqlx.DB) {
 	Expect(err).NotTo(HaveOccurred())
 	_, err = tx.Exec(`DELETE FROM nodes`)
 	Expect(err).NotTo(HaveOccurred())
+	_, err = tx.Exec(`DELETE FROM ipld.blocks`)
+	Expect(err).NotTo(HaveOccurred())
 	_, err = tx.Exec(`DELETE FROM eth.header_cids`)
 	Expect(err).NotTo(HaveOccurred())
 	_, err = tx.Exec(`DELETE FROM eth.uncle_cids`)
@@ -71,12 +72,6 @@ func TearDownDB(db *sqlx.DB) {
 	_, err = tx.Exec(`DELETE FROM eth.state_cids`)
 	Expect(err).NotTo(HaveOccurred())
 	_, err = tx.Exec(`DELETE FROM eth.storage_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.state_accounts`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.access_list_elements`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM blocks`)
 	Expect(err).NotTo(HaveOccurred())
 	_, err = tx.Exec(`DELETE FROM eth.log_cids`)
 	Expect(err).NotTo(HaveOccurred())
@@ -96,20 +91,10 @@ func SetupTestStateDiffIndexer(ctx context.Context, chainConfig *params.ChainCon
 		ChainID:      params.TestChainConfig.ChainID.Uint64(),
 	}
 
-	_, stateDiffIndexer, err := indexer.NewStateDiffIndexer(ctx, chainConfig, testInfo, getTestDBConfig())
+	dbconfig, err := postgres.TestConfig.WithEnv()
+	Expect(err).NotTo(HaveOccurred())
+	_, stateDiffIndexer, err := indexer.NewStateDiffIndexer(ctx, chainConfig, testInfo, dbconfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	return stateDiffIndexer
-}
-
-func getTestDBConfig() postgres.Config {
-	port, _ := strconv.Atoi(os.Getenv("DATABASE_PORT"))
-	return postgres.Config{
-		Hostname:     os.Getenv("DATABASE_HOSTNAME"),
-		DatabaseName: os.Getenv("DATABASE_NAME"),
-		Username:     os.Getenv("DATABASE_USER"),
-		Password:     os.Getenv("DATABASE_PASSWORD"),
-		Port:         port,
-		Driver:       postgres.SQLX,
-	}
 }

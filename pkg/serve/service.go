@@ -17,25 +17,21 @@
 package serve
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	ethnode "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/debug"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/net"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/debug"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/net"
 )
 
 const (
@@ -51,11 +47,7 @@ type Server interface {
 	APIs() []rpc.API
 	Protocols() []p2p.Protocol
 	// Pub-Sub handling event loop
-	Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth.ConvertedPayload)
-	// Method to subscribe to the service
-	Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings)
-	// Method to unsubscribe from the service
-	Unsubscribe(id rpc.ID)
+	Serve(wg *sync.WaitGroup)
 	// Backend exposes the server's backend
 	Backend() *eth.Backend
 }
@@ -64,22 +56,10 @@ type Server interface {
 type Service struct {
 	// Used to sync access to the Subscriptions
 	sync.Mutex
-	// Interface for filtering and serving data according to subscribed clients according to their specification
-	Filterer eth.Filterer
-	// Interface for fetching IPLD objects from IPFS
-	IPLDFetcher eth.Fetcher
-	// Interface for searching and retrieving CIDs from Postgres index
-	Retriever eth.Retriever
 	// Used to signal shutdown of the service
 	QuitChan chan bool
-	// A mapping of rpc.IDs to their subscription channels, mapped to their subscription type (hash of the StreamFilters)
-	Subscriptions map[common.Hash]map[rpc.ID]Subscription
-	// A mapping of subscription params hash to the corresponding subscription params
-	SubscriptionTypes map[common.Hash]eth.SubscriptionSettings
-	// Underlying db
+	// Underlying db connection pool
 	db *sqlx.DB
-	// wg for syncing serve processes
-	serveWg *sync.WaitGroup
 	// rpc client for forwarding cache misses
 	client *rpc.Client
 	// whether the proxied client supports state diffing
@@ -101,13 +81,8 @@ type Service struct {
 // NewServer creates a new Server using an underlying Service struct
 func NewServer(settings *Config) (Server, error) {
 	sap := new(Service)
-	sap.Retriever = eth.NewCIDRetriever(settings.DB)
-	sap.IPLDFetcher = eth.NewIPLDFetcher(settings.DB)
-	sap.Filterer = eth.NewResponseFilterer()
 	sap.db = settings.DB
 	sap.QuitChan = make(chan bool)
-	sap.Subscriptions = make(map[common.Hash]map[rpc.ID]Subscription)
-	sap.SubscriptionTypes = make(map[common.Hash]eth.SubscriptionSettings)
 	sap.client = settings.Client
 	sap.supportsStateDiffing = settings.SupportStateDiff
 	sap.stateDiffTimeout = settings.StateDiffTimeout
@@ -119,7 +94,6 @@ func NewServer(settings *Config) (Server, error) {
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:      settings.ChainConfig,
 		VMConfig:         vm.Config{NoBaseFee: true},
-		DefaultSender:    settings.DefaultSender,
 		RPCGasCap:        settings.RPCGasCap,
 		GroupCacheConfig: settings.GroupCache,
 	})
@@ -177,191 +151,14 @@ func (sap *Service) APIs() []rpc.API {
 // It filters and sends this data to any subscribers to the service
 // This process can also be stood up alone, without an screenAndServePayload attached to a Sync process
 // and it will hang on the WaitGroup indefinitely, allowing the Service to serve historical data requests only
-func (sap *Service) Serve(wg *sync.WaitGroup, screenAndServePayload <-chan eth.ConvertedPayload) {
-	sap.serveWg = wg
+func (sap *Service) Serve(wg *sync.WaitGroup) {
 	go func() {
 		wg.Add(1)
 		defer wg.Done()
-		for {
-			select {
-			case payload := <-screenAndServePayload:
-				sap.filterAndServe(payload)
-			case <-sap.QuitChan:
-				log.Info("quiting eth ipld server process")
-				return
-			}
-		}
+		<-sap.QuitChan
+		log.Info("quiting eth ipld server process")
 	}()
-	log.Info("eth ipld server process successfully spun up")
-}
-
-// filterAndServe filters the payload according to each subscription type and sends to the subscriptions
-func (sap *Service) filterAndServe(payload eth.ConvertedPayload) {
-	log.Debug("sending eth ipld payload to subscriptions")
-	sap.Lock()
-	sap.serveWg.Add(1)
-	defer sap.Unlock()
-	defer sap.serveWg.Done()
-	for ty, subs := range sap.Subscriptions {
-		// Retrieve the subscription parameters for this subscription type
-		subConfig, ok := sap.SubscriptionTypes[ty]
-		if !ok {
-			log.Errorf("eth ipld server subscription configuration for subscription type %s not available", ty.Hex())
-			sap.closeType(ty)
-			continue
-		}
-		if subConfig.End.Int64() > 0 && subConfig.End.Int64() < payload.Block.Number().Int64() {
-			// We are not out of range for this subscription type
-			// close it, and continue to the next
-			sap.closeType(ty)
-			continue
-		}
-		response, err := sap.Filterer.Filter(subConfig, payload)
-		if err != nil {
-			log.Errorf("eth ipld server filtering error: %v", err)
-			sap.closeType(ty)
-			continue
-		}
-		responseRLP, err := rlp.EncodeToBytes(response)
-		if err != nil {
-			log.Errorf("eth ipld server rlp encoding error: %v", err)
-			continue
-		}
-		for id, sub := range subs {
-			select {
-			case sub.PayloadChan <- SubscriptionPayload{Data: responseRLP, Err: "", Flag: EmptyFlag, Height: response.BlockNumber.Int64()}:
-				log.Debugf("sending eth ipld server payload to subscription %s", id)
-			default:
-				log.Infof("unable to send eth ipld payload to subscription %s; channel has no receiver", id)
-			}
-		}
-	}
-}
-
-// Subscribe is used by the API to remotely subscribe to the service loop
-// The params must be rlp serializable and satisfy the SubscriptionSettings() interface
-func (sap *Service) Subscribe(id rpc.ID, sub chan<- SubscriptionPayload, quitChan chan<- bool, params eth.SubscriptionSettings) {
-	sap.serveWg.Add(1)
-	defer sap.serveWg.Done()
-	log.Infof("new eth ipld subscription %s", id)
-	subscription := Subscription{
-		ID:          id,
-		PayloadChan: sub,
-		QuitChan:    quitChan,
-	}
-	// Subscription type is defined as the hash of the rlp-serialized subscription settings
-	by, err := rlp.EncodeToBytes(params)
-	if err != nil {
-		sendNonBlockingErr(subscription, err)
-		sendNonBlockingQuit(subscription)
-		return
-	}
-	subscriptionType := crypto.Keccak256Hash(by)
-	if !params.BackFillOnly {
-		// Add subscriber
-		sap.Lock()
-		if sap.Subscriptions[subscriptionType] == nil {
-			sap.Subscriptions[subscriptionType] = make(map[rpc.ID]Subscription)
-		}
-		sap.Subscriptions[subscriptionType][id] = subscription
-		sap.SubscriptionTypes[subscriptionType] = params
-		sap.Unlock()
-	}
-	// If the subscription requests a backfill, use the Postgres index to lookup and retrieve historical data
-	// Otherwise we only filter new data as it is streamed in from the state diffing geth node
-	if params.BackFill || params.BackFillOnly {
-		if err := sap.sendHistoricalData(subscription, id, params); err != nil {
-			sendNonBlockingErr(subscription, fmt.Errorf("eth ipld server subscription backfill error: %v", err))
-			sendNonBlockingQuit(subscription)
-			return
-		}
-	}
-}
-
-// sendHistoricalData sends historical data to the requesting subscription
-func (sap *Service) sendHistoricalData(sub Subscription, id rpc.ID, params eth.SubscriptionSettings) error {
-	log.Infof("sending eth ipld historical data to subscription %s", id)
-	// Retrieve cached CIDs relevant to this subscriber
-	var endingBlock int64
-	var startingBlock int64
-	var err error
-	startingBlock, err = sap.Retriever.RetrieveFirstBlockNumber()
-	if err != nil {
-		return err
-	}
-	if startingBlock < params.Start.Int64() {
-		startingBlock = params.Start.Int64()
-	}
-	endingBlock, err = sap.Retriever.RetrieveLastBlockNumber()
-	if err != nil {
-		return err
-	}
-	if endingBlock > params.End.Int64() && params.End.Int64() > 0 && params.End.Int64() > startingBlock {
-		endingBlock = params.End.Int64()
-	}
-	log.Debugf("eth ipld historical data starting block: %d", params.Start.Int64())
-	log.Debugf("eth ipld historical data ending block: %d", endingBlock)
-	go func() {
-		sap.serveWg.Add(1)
-		defer sap.serveWg.Done()
-		for i := startingBlock; i <= endingBlock; i++ {
-			select {
-			case <-sap.QuitChan:
-				log.Infof("ethereum historical data feed to subscription %s closed", id)
-				return
-			default:
-			}
-			cidWrappers, empty, err := sap.Retriever.Retrieve(params, i)
-			if err != nil {
-				sendNonBlockingErr(sub, fmt.Errorf("eth ipld server cid retrieval error at block %d\r%s", i, err.Error()))
-				continue
-			}
-			if empty {
-				continue
-			}
-			for _, cids := range cidWrappers {
-				response, err := sap.IPLDFetcher.Fetch(cids)
-				if err != nil {
-					sendNonBlockingErr(sub, fmt.Errorf("eth ipld server ipld fetching error at block %d\r%s", i, err.Error()))
-					continue
-				}
-				responseRLP, err := rlp.EncodeToBytes(response)
-				if err != nil {
-					log.Error(err)
-					continue
-				}
-				select {
-				case sub.PayloadChan <- SubscriptionPayload{Data: responseRLP, Err: "", Flag: EmptyFlag, Height: response.BlockNumber.Int64()}:
-					log.Debugf("eth ipld server sending historical data payload to subscription %s", id)
-				default:
-					log.Infof("eth ipld server unable to send backFill payload to subscription %s; channel has no receiver", id)
-				}
-			}
-		}
-		// when we are done backfilling send an empty payload signifying so in the msg
-		select {
-		case sub.PayloadChan <- SubscriptionPayload{Data: nil, Err: "", Flag: BackFillCompleteFlag}:
-			log.Debugf("eth ipld server sending backFill completion notice to subscription %s", id)
-		default:
-			log.Infof("eth ipld server unable to send backFill completion notice to subscription %s", id)
-		}
-	}()
-	return nil
-}
-
-// Unsubscribe is used by the API to remotely unsubscribe to the StateDiffingService loop
-func (sap *Service) Unsubscribe(id rpc.ID) {
-	log.Infof("unsubscribing %s from the eth ipld server", id)
-	sap.Lock()
-	for ty := range sap.Subscriptions {
-		delete(sap.Subscriptions[ty], id)
-		if len(sap.Subscriptions[ty]) == 0 {
-			// If we removed the last subscription of this type, remove the subscription type outright
-			delete(sap.Subscriptions, ty)
-			delete(sap.SubscriptionTypes, ty)
-		}
-	}
-	sap.Unlock()
+	log.Debug("eth ipld server process successfully spun up")
 }
 
 // Start is used to begin the service
@@ -369,18 +166,16 @@ func (sap *Service) Unsubscribe(id rpc.ID) {
 func (sap *Service) Start() error {
 	log.Info("starting eth ipld server")
 	wg := new(sync.WaitGroup)
-	payloadChan := make(chan eth.ConvertedPayload, PayloadChanBufferSize)
-	sap.Serve(wg, payloadChan)
+	sap.Serve(wg)
 	return nil
 }
 
 // Stop is used to close down the service
 // This is mostly just to satisfy the node.Service interface
 func (sap *Service) Stop() error {
-	log.Infof("stopping eth ipld server")
+	log.Info("stopping eth ipld server")
 	sap.Lock()
 	close(sap.QuitChan)
-	sap.close()
 	sap.Unlock()
 	return nil
 }
@@ -388,29 +183,4 @@ func (sap *Service) Stop() error {
 // Backend exposes the server's backend
 func (sap *Service) Backend() *eth.Backend {
 	return sap.backend
-}
-
-// close is used to close all listening subscriptions
-// close needs to be called with subscription access locked
-func (sap *Service) close() {
-	log.Infof("closing all eth ipld server subscriptions")
-	for subType, subs := range sap.Subscriptions {
-		for _, sub := range subs {
-			sendNonBlockingQuit(sub)
-		}
-		delete(sap.Subscriptions, subType)
-		delete(sap.SubscriptionTypes, subType)
-	}
-}
-
-// closeType is used to close all subscriptions of given type
-// closeType needs to be called with subscription access locked
-func (sap *Service) closeType(subType common.Hash) {
-	log.Infof("closing all eth ipld server subscriptions of type %s", subType.String())
-	subs := sap.Subscriptions[subType]
-	for _, sub := range subs {
-		sendNonBlockingQuit(sub)
-	}
-	delete(sap.Subscriptions, subType)
-	delete(sap.SubscriptionTypes, subType)
 }

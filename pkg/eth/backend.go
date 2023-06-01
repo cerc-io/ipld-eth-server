@@ -23,19 +23,14 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
-	validator "github.com/cerc-io/eth-ipfs-state-validator/v4/pkg"
-	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v4/postgres"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -44,13 +39,17 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	ethServerShared "github.com/ethereum/go-ethereum/statediff/indexer/shared"
-	sdtrie "github.com/ethereum/go-ethereum/statediff/trie_helpers"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
+	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	validator "github.com/cerc-io/eth-ipfs-state-validator/v5/pkg"
+	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v5/postgres/v0"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
+	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
+	ipld_sql "github.com/cerc-io/ipld-eth-statedb/sql"
+	ipld_trie_state "github.com/cerc-io/ipld-eth-statedb/trie_by_cid/state"
 )
 
 var (
@@ -61,61 +60,28 @@ var (
 	errMultipleHeadersForHash = errors.New("more than one headers for the given hash")
 	errTxHashNotFound         = errors.New("transaction for hash not found")
 	errTxHashInMultipleBlocks = errors.New("transaction for hash found in more than one canonical block")
-
-	// errMissingSignature is returned if a block's extra-data section doesn't seem
-	// to contain a 65 byte secp256k1 signature.
-)
-
-const (
-	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash
-									FROM canonical_header_hash($1) AS block_hash
-									WHERE block_hash IS NOT NULL`
-	RetrieveCanonicalHeaderByNumber = `SELECT cid, data FROM eth.header_cids
-									INNER JOIN public.blocks ON (
-										header_cids.mh_key = blocks.key
-										AND header_cids.block_number = blocks.block_number
-									)
-									WHERE block_hash = (SELECT canonical_header_hash($1))`
-	RetrieveTD = `SELECT CAST(td as Text) FROM eth.header_cids
-			WHERE header_cids.block_hash = $1`
-	RetrieveRPCTransaction = `SELECT blocks.data, header_id, transaction_cids.block_number, index
-			FROM public.blocks, eth.transaction_cids
-			WHERE blocks.key = transaction_cids.mh_key
-			AND blocks.block_number = transaction_cids.block_number
-			AND transaction_cids.tx_hash = $1
-			AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))`
-	RetrieveCodeHashByLeafKeyAndBlockHash = `SELECT code_hash FROM eth.state_accounts, eth.state_cids, eth.header_cids
-											WHERE state_accounts.header_id = state_cids.header_id
-											AND state_accounts.state_path = state_cids.state_path
-											AND state_accounts.block_number = state_cids.block_number
-											AND state_cids.header_id = header_cids.block_hash
-											AND state_cids.block_number = header_cids.block_number
-											AND state_leaf_key = $1
-											AND header_cids.block_number <= (SELECT block_number
-																FROM eth.header_cids
-																WHERE block_hash = $2)
-											AND header_cids.block_hash = (SELECT canonical_header_hash(header_cids.block_number))
-											ORDER BY header_cids.block_number DESC
-											LIMIT 1`
-	RetrieveCodeByMhKey = `SELECT data FROM public.blocks WHERE key = $1`
 )
 
 const (
 	StateDBGroupCacheName = "statedb"
 )
 
+// Backend handles all interactions with IPLD/SQL-backed Ethereum state.
+// Note that this does not contain a geth state.StateDatabase, as it is not compatible with the
+// IPFS v0 blockstore nor the leaf-key indexed SQL schema.
 type Backend struct {
 	// underlying postgres db
 	DB *sqlx.DB
 
 	// postgres db interfaces
-	Retriever     *CIDRetriever
-	Fetcher       *IPLDFetcher
-	IPLDRetriever *IPLDRetriever
+	Retriever *Retriever
 
 	// ethereum interfaces
-	EthDB         ethdb.Database
-	StateDatabase state.Database
+	EthDB ethdb.Database
+	// We use this state.Database for eth_call and any place we don't need trie access
+	IpldDirectStateDatabase ipld_direct_state.StateDatabase
+	// We use this where state must be accessed by trie
+	IpldTrieStateDatabase ipld_trie_state.Database
 
 	Config *Config
 }
@@ -123,7 +89,6 @@ type Backend struct {
 type Config struct {
 	ChainConfig      *params.ChainConfig
 	VMConfig         vm.Config
-	DefaultSender    *common.Address
 	RPCGasCap        *big.Int
 	GroupCacheConfig *shared.GroupCacheConfig
 }
@@ -136,7 +101,7 @@ func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 		groupName = StateDBGroupCacheName
 	}
 
-	r := NewCIDRetriever(db)
+	r := NewRetriever(db)
 	ethDB := ipfsethdb.NewDatabase(db, ipfsethdb.CacheConfig{
 		Name:           groupName,
 		Size:           gcc.StateDB.CacheSizeInMB * 1024 * 1024,
@@ -144,15 +109,14 @@ func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 	})
 
 	logStateDBStatsOnTimer(ethDB.(*ipfsethdb.Database), gcc)
-
+	driver := ipld_sql.NewSQLXDriverFromPool(context.Background(), db)
 	return &Backend{
-		DB:            db,
-		Retriever:     r,
-		Fetcher:       NewIPLDFetcher(db),
-		IPLDRetriever: NewIPLDRetriever(db),
-		EthDB:         ethDB,
-		StateDatabase: state.NewDatabase(ethDB),
-		Config:        c,
+		DB:                      db,
+		Retriever:               r,
+		EthDB:                   ethDB,
+		IpldDirectStateDatabase: ipld_direct_state.NewStateDatabase(driver),
+		IpldTrieStateDatabase:   ipld_trie_state.NewDatabase(ethDB),
+		Config:                  c,
 	}, nil
 }
 
@@ -161,27 +125,35 @@ func (b *Backend) ChainDb() ethdb.Database {
 	return b.EthDB
 }
 
-// HeaderByNumber gets the canonical header for the provided block number
-func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Header, error) {
+func (b *Backend) normalizeBlockNumber(blockNumber rpc.BlockNumber) (int64, error) {
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
 		number, err = b.Retriever.RetrieveLastBlockNumber()
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
 	}
 	if blockNumber == rpc.EarliestBlockNumber {
 		number, err = b.Retriever.RetrieveFirstBlockNumber()
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
 	}
 	if blockNumber == rpc.PendingBlockNumber {
-		return nil, errPendingBlockNumber
+		return 0, errPendingBlockNumber
 	}
 	if number < 0 {
-		return nil, errNegativeBlockNumber
+		return 0, errNegativeBlockNumber
+	}
+	return number, nil
+}
+
+// HeaderByNumber gets the canonical header for the provided block number
+func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Header, error) {
+	number, err := b.normalizeBlockNumber(blockNumber)
+	if err != nil {
+		return nil, err
 	}
 	_, canonicalHeaderRLP, err := b.GetCanonicalHeader(uint64(number))
 	if err != nil {
@@ -194,23 +166,7 @@ func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumbe
 
 // HeaderByHash gets the header for the provided block hash
 func (b *Backend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	// Begin tx
-	tx, err := b.DB.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
-
-	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
+	_, headerRLP, err := b.Retriever.RetrieveHeaderByHash(hash)
 	if err != nil {
 		return nil, err
 	}
@@ -229,14 +185,16 @@ func (b *Backend) HeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Bl
 			return nil, err
 		}
 		if header == nil {
-			return nil, errors.New("header for hash not found")
+			return nil, errHeaderHashNotFound
 		}
-		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
-		if err != nil {
-			return nil, err
-		}
-		if blockNrOrHash.RequireCanonical && canonicalHash != hash {
-			return nil, errors.New("hash is not currently canonical")
+		if blockNrOrHash.RequireCanonical {
+			canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+			if err != nil {
+				return nil, err
+			}
+			if canonicalHash != hash {
+				return nil, errors.New("hash is not currently canonical")
+			}
 		}
 		return header, nil
 	}
@@ -283,14 +241,16 @@ func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Blo
 			return nil, err
 		}
 		if header == nil {
-			return nil, errors.New("header for hash not found")
+			return nil, errHeaderHashNotFound
 		}
-		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
-		if err != nil {
-			return nil, err
-		}
-		if blockNrOrHash.RequireCanonical && canonicalHash != hash {
-			return nil, errors.New("hash is not currently canonical")
+		if blockNrOrHash.RequireCanonical {
+			canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+			if err != nil {
+				return nil, err
+			}
+			if canonicalHash != hash {
+				return nil, errors.New("hash is not currently canonical")
+			}
 		}
 		block, err := b.BlockByHash(ctx, hash)
 		if err != nil {
@@ -306,28 +266,10 @@ func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Blo
 
 // BlockByNumber returns the requested canonical block
 func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Block, error) {
-	var err error
-	number := blockNumber.Int64()
-	if blockNumber == rpc.LatestBlockNumber {
-		number, err = b.Retriever.RetrieveLastBlockNumber()
-		if err != nil {
-			return nil, err
-		}
+	number, err := b.normalizeBlockNumber(blockNumber)
+	if err != nil {
+		return nil, err
 	}
-	if blockNumber == rpc.EarliestBlockNumber {
-		number, err = b.Retriever.RetrieveFirstBlockNumber()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if blockNumber == rpc.PendingBlockNumber {
-		return nil, errPendingBlockNumber
-	}
-	if number < 0 {
-		return nil, errNegativeBlockNumber
-	}
-
-	// Get the canonical hash
 	canonicalHash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -346,6 +288,7 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -358,7 +301,8 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	}()
 
 	// Fetch header
-	header, err := b.GetHeaderByBlockHash(tx, hash)
+	var header *types.Header
+	header, err = b.GetHeaderByBlockHash(tx, hash)
 	if err != nil {
 		log.Error("error fetching header: ", err)
 		if err == sql.ErrNoRows {
@@ -370,50 +314,45 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 	blockNumber := header.Number.Uint64()
 
 	// Fetch uncles
-	uncles, err := b.GetUnclesByBlockHashAndNumber(tx, hash, blockNumber)
+	var uncles []*types.Header
+	uncles, err = b.GetUnclesByBlockHashAndNumber(tx, hash, blockNumber)
 	if err != nil && err != sql.ErrNoRows {
 		log.Error("error fetching uncles: ", err)
 		return nil, err
 	}
 
-	// When num. of uncles = 2,
-	// Check if calculated uncle hash matches the one in header
-	// If not, re-order the two uncles
-	// Assumption: Max num. of uncles in mainnet = 2
-	if len(uncles) == 2 {
-		uncleHash := types.CalcUncleHash(uncles)
-		if uncleHash != header.UncleHash {
-			uncles[0], uncles[1] = uncles[1], uncles[0]
-
-			uncleHash = types.CalcUncleHash(uncles)
-			// Check if uncle hash matches after re-ordering
-			if uncleHash != header.UncleHash {
-				log.Error("uncle hash mismatch for block hash: ", hash.Hex())
-			}
-		}
+	// We should not have any non-determinism in the ordering of the uncles returned to us now
+	uncleHash := types.CalcUncleHash(uncles)
+	// Check if uncle hash matches expected hash
+	if uncleHash != header.UncleHash {
+		log.Error("uncle hash mismatch for block hash: ", hash.Hex())
+		err = fmt.Errorf("uncle hash mismatch for block hash: %s", hash.Hex())
+		return nil, err
 	}
 
 	// Fetch transactions
-	transactions, err := b.GetTransactionsByBlockHashAndNumber(tx, hash, blockNumber)
+	var transactions types.Transactions
+	transactions, err = b.GetTransactionsByBlockHashAndNumber(tx, hash, blockNumber)
 	if err != nil && err != sql.ErrNoRows {
 		log.Error("error fetching transactions: ", err)
 		return nil, err
 	}
 
 	// Fetch receipts
-	receipts, err := b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
+	var receipts types.Receipts
+	receipts, err = b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
 	if err != nil && err != sql.ErrNoRows {
 		log.Error("error fetching receipts: ", err)
 		return nil, err
 	}
 
 	// Compose everything together into a complete block
-	return types.NewBlock(header, transactions, uncles, receipts, new(trie.Trie)), err
+	return types.NewBlock(header, transactions, uncles, receipts, trie.NewEmpty(nil)), err
 }
 
 // GetHeaderByBlockHash retrieves header for a provided block hash
 func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.Header, error) {
-	_, headerRLP, err := b.IPLDRetriever.RetrieveHeaderByHash(tx, hash)
+	_, headerRLP, err := b.Retriever.RetrieveHeaderByHash2(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -422,22 +361,40 @@ func (b *Backend) GetHeaderByBlockHash(tx *sqlx.Tx, hash common.Hash) (*types.He
 	return header, rlp.DecodeBytes(headerRLP, header)
 }
 
+// CurrentHeader returns the current block's header
+func (b *Backend) CurrentHeader() *types.Header {
+	header, err := b.HeaderByNumber(context.Background(), rpc.LatestBlockNumber)
+	if err != nil {
+		return nil
+	}
+	return header
+}
+
+// GetBody returns the the body for the provided block hash and number
+func (b *Backend) GetBody(ctx context.Context, hash common.Hash, number rpc.BlockNumber) (*types.Body, error) {
+	if number < 0 || hash == (common.Hash{}) {
+		return nil, errors.New("invalid arguments; expect hash and no special block numbers")
+	}
+	block, err := b.BlockByHash(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	if block != nil {
+		return block.Body(), nil
+	}
+	return nil, errors.New("block body not found")
+}
+
 // GetUnclesByBlockHash retrieves uncles for a provided block hash
 func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.Header, error) {
-	_, uncleBytes, err := b.IPLDRetriever.RetrieveUnclesByBlockHash(tx, hash)
+	_, uncleBytes, err := b.Retriever.RetrieveUnclesByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	uncles := make([]*types.Header, len(uncleBytes))
-	for i, bytes := range uncleBytes {
-		var uncle types.Header
-		err = rlp.DecodeBytes(bytes, &uncle)
-		if err != nil {
-			return nil, err
-		}
-
-		uncles[i] = &uncle
+	uncles := make([]*types.Header, 0)
+	if err := rlp.DecodeBytes(uncleBytes, &uncles); err != nil {
+		return nil, err
 	}
 
 	return uncles, nil
@@ -445,20 +402,14 @@ func (b *Backend) GetUnclesByBlockHash(tx *sqlx.Tx, hash common.Hash) ([]*types.
 
 // GetUnclesByBlockHashAndNumber retrieves uncles for a provided block hash and number
 func (b *Backend) GetUnclesByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) ([]*types.Header, error) {
-	_, uncleBytes, err := b.IPLDRetriever.RetrieveUncles(tx, hash, number)
+	_, uncleBytes, err := b.Retriever.RetrieveUncles(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
 
-	uncles := make([]*types.Header, len(uncleBytes))
-	for i, bytes := range uncleBytes {
-		var uncle types.Header
-		err = rlp.DecodeBytes(bytes, &uncle)
-		if err != nil {
-			return nil, err
-		}
-
-		uncles[i] = &uncle
+	uncles := make([]*types.Header, 0)
+	if err := rlp.DecodeBytes(uncleBytes, &uncles); err != nil {
+		return nil, err
 	}
 
 	return uncles, nil
@@ -466,7 +417,7 @@ func (b *Backend) GetUnclesByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, n
 
 // GetTransactionsByBlockHash retrieves transactions for a provided block hash
 func (b *Backend) GetTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Transactions, error) {
-	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactionsByBlockHash(tx, hash)
+	_, transactionBytes, err := b.Retriever.RetrieveTransactionsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -486,7 +437,7 @@ func (b *Backend) GetTransactionsByBlockHash(tx *sqlx.Tx, hash common.Hash) (typ
 
 // GetTransactionsByBlockHashAndNumber retrieves transactions for a provided block hash and number
 func (b *Backend) GetTransactionsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Transactions, error) {
-	_, transactionBytes, err := b.IPLDRetriever.RetrieveTransactions(tx, hash, number)
+	_, transactionBytes, err := b.Retriever.RetrieveTransactions(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
@@ -506,7 +457,7 @@ func (b *Backend) GetTransactionsByBlockHashAndNumber(tx *sqlx.Tx, hash common.H
 
 // GetReceiptsByBlockHash retrieves receipts for a provided block hash
 func (b *Backend) GetReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.Receipts, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceiptsByBlockHash(tx, hash)
+	_, receiptBytes, txs, err := b.Retriever.RetrieveReceiptsByBlockHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +475,7 @@ func (b *Backend) GetReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (types.R
 
 // GetReceiptsByBlockHashAndNumber retrieves receipts for a provided block hash and number
 func (b *Backend) GetReceiptsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Receipts, error) {
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceipts(tx, hash, number)
+	_, receiptBytes, txs, err := b.Retriever.RetrieveReceipts(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
@@ -576,6 +527,7 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -587,13 +539,15 @@ func (b *Backend) GetReceipts(ctx context.Context, hash common.Hash) (types.Rece
 		}
 	}()
 
-	headerCID, err := b.Retriever.RetrieveHeaderCIDByHash(tx, hash)
+	var blockNumber uint64
+	blockNumber, err = b.Retriever.RetrieveBlockNumberByHash(tx, hash)
 	if err != nil {
 		return nil, err
 	}
-	blockNumber, _ := strconv.ParseUint(string(headerCID.BlockNumber), 10, 64)
 
-	return b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
+	var receipts types.Receipts
+	receipts, err = b.GetReceiptsByBlockHashAndNumber(tx, hash, blockNumber)
+	return receipts, err
 }
 
 // GetLogs returns all the logs for the given block hash
@@ -603,6 +557,7 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -614,14 +569,16 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 		}
 	}()
 
-	_, receiptBytes, txs, err := b.IPLDRetriever.RetrieveReceipts(tx, hash, number)
+	var receiptBytes [][]byte
+	var txs []common.Hash
+	_, receiptBytes, txs, err = b.Retriever.RetrieveReceipts(tx, hash, number)
 	if err != nil {
 		return nil, err
 	}
 	logs := make([][]*types.Log, len(receiptBytes))
 	for i, rctBytes := range receiptBytes {
 		var rct types.Receipt
-		if err := rlp.DecodeBytes(rctBytes, &rct); err != nil {
+		if err = rlp.DecodeBytes(rctBytes, &rct); err != nil {
 			return nil, err
 		}
 
@@ -631,13 +588,27 @@ func (b *Backend) GetLogs(ctx context.Context, hash common.Hash, number uint64) 
 
 		logs[i] = rct.Logs
 	}
-	return logs, nil
+	return logs, err
 }
 
-// StateAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
-func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, *types.Header, error) {
-	if blockNr, ok := blockNrOrHash.Number(); ok {
-		return b.StateAndHeaderByNumber(ctx, blockNr)
+// IPLDStateDBAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
+func (b *Backend) IPLDDirectStateDBAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*ipld_direct_state.StateDB, *types.Header, error) {
+	if number, ok := blockNrOrHash.Number(); ok {
+		// Pending state is only known by the miner
+		if number == rpc.PendingBlockNumber {
+			return nil, nil, errPendingBlockNumber
+		}
+		// Otherwise resolve the block number and return its state
+		header, err := b.HeaderByNumber(ctx, number)
+		if err != nil {
+			return nil, nil, err
+		}
+		if header == nil {
+			return nil, nil, errHeaderNotFound
+		}
+		// TODO use GetCanonicalHeaderAndHash to avoid rehashing
+		statedb, err := ipld_direct_state.New(header.Hash(), b.IpldDirectStateDatabase)
+		return statedb, header, err
 	}
 	if hash, ok := blockNrOrHash.Hash(); ok {
 		header, err := b.HeaderByHash(ctx, hash)
@@ -645,37 +616,66 @@ func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHas
 			return nil, nil, err
 		}
 		if header == nil {
-			return nil, nil, errors.New("header for hash not found")
+			return nil, nil, errHeaderHashNotFound
 		}
-		canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
-		if err != nil {
-			return nil, nil, err
+		if blockNrOrHash.RequireCanonical {
+			canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+			if err != nil {
+				return nil, nil, err
+			}
+			if canonicalHash != hash {
+				return nil, nil, errors.New("hash is not currently canonical")
+			}
 		}
-		if blockNrOrHash.RequireCanonical && canonicalHash != hash {
-			return nil, nil, errors.New("hash is not currently canonical")
-		}
-		stateDb, err := state.New(header.Root, b.StateDatabase, nil)
-		return stateDb, header, err
+		statedb, err := ipld_direct_state.New(header.Hash(), b.IpldDirectStateDatabase)
+		return statedb, header, err
 	}
 	return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
 }
 
-// StateAndHeaderByNumber returns the statedb and header for a provided block number
-func (b *Backend) StateAndHeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
-	// Pending state is only known by the miner
-	if number == rpc.PendingBlockNumber {
-		return nil, nil, errPendingBlockNumber
+// IPLDStateDBAndHeaderByNumberOrHash returns the statedb and header for the provided block number or hash
+func (b *Backend) IPLDTrieStateDBAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*ipld_trie_state.StateDB, *types.Header, error) {
+	var header *types.Header
+	if number, ok := blockNrOrHash.Number(); ok {
+		// Pending state is only known by the miner
+		if number == rpc.PendingBlockNumber {
+			return nil, nil, errPendingBlockNumber
+		}
+		// Otherwise resolve the block number and return its state
+		blockHash, err := b.GetCanonicalHash(uint64(number))
+		if err != nil {
+			return nil, nil, err
+		}
+		header, err = b.HeaderByHash(ctx, blockHash)
+		if err != nil {
+			return nil, nil, err
+		}
+		if header == nil {
+			return nil, nil, errHeaderNotFound
+		}
+	} else if hash, ok := blockNrOrHash.Hash(); ok {
+		var err error
+		header, err = b.HeaderByHash(ctx, hash)
+		if err != nil {
+			return nil, nil, err
+		}
+		if header == nil {
+			return nil, nil, errHeaderHashNotFound
+		}
+		if blockNrOrHash.RequireCanonical {
+			canonicalHash, err := b.GetCanonicalHash(header.Number.Uint64())
+			if err != nil {
+				return nil, nil, err
+			}
+			if canonicalHash != hash {
+				return nil, nil, errors.New("hash is not currently canonical")
+			}
+		}
+	} else {
+		return nil, nil, errors.New("invalid arguments; neither block nor hash specified")
 	}
-	// Otherwise resolve the block number and return its state
-	header, err := b.HeaderByNumber(ctx, number)
-	if err != nil {
-		return nil, nil, err
-	}
-	if header == nil {
-		return nil, nil, errors.New("header not found")
-	}
-	stateDb, err := state.New(header.Root, b.StateDatabase, nil)
-	return stateDb, header, err
+	statedb, err := ipld_trie_state.New(header.Root, b.IpldTrieStateDatabase, nil)
+	return statedb, header, err
 }
 
 // GetCanonicalHash gets the canonical hash for the provided number, if there is one
@@ -687,23 +687,34 @@ func (b *Backend) GetCanonicalHash(number uint64) (common.Hash, error) {
 	return common.HexToHash(hashResult), nil
 }
 
-type rowResult struct {
-	CID  string
-	Data []byte
-}
-
 // GetCanonicalHeader gets the canonical header for the provided number, if there is one
 func (b *Backend) GetCanonicalHeader(number uint64) (string, []byte, error) {
+	type rowResult struct {
+		CID  string
+		Data []byte
+	}
 	headerResult := new(rowResult)
-	return headerResult.CID, headerResult.Data, b.DB.QueryRowx(RetrieveCanonicalHeaderByNumber, number).StructScan(headerResult)
+	return headerResult.CID, headerResult.Data,
+		b.DB.QueryRowx(RetrieveCanonicalHeaderByNumber, number).StructScan(headerResult)
+}
+
+// GetCanonicalHeader gets the canonical hash and header for the provided number, if they exist
+func (b *Backend) GetCanonicalHeaderAndHash(number uint64) (string, []byte, error) {
+	type rowResult struct {
+		Data      []byte
+		BlockHash string
+	}
+	headerResult := new(rowResult)
+	return headerResult.BlockHash, headerResult.Data,
+		b.DB.QueryRowx(RetrieveCanonicalHeaderAndHashByNumber, number).StructScan(headerResult)
 }
 
 // GetEVM constructs and returns a vm.EVM
-func (b *Backend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
+func (b *Backend) GetEVM(ctx context.Context, msg *core.Message, state vm.StateDB, header *types.Header) (*vm.EVM, func() error, error) {
 	vmError := func() error { return nil }
 	txContext := core.NewEVMTxContext(msg)
-	context := core.NewEVMBlockContext(header, b, nil)
-	return vm.NewEVM(context, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), vmError, nil
+	evmCtx := core.NewEVMBlockContext(header, b, nil)
+	return vm.NewEVM(evmCtx, txContext, state, b.Config.ChainConfig, b.Config.VMConfig), vmError, nil
 }
 
 // GetAccountByNumberOrHash returns the account object for the provided address at the block corresponding to the provided number or hash
@@ -755,13 +766,21 @@ func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, 
 		return nil, err
 	}
 
-	_, accountRlp, err := b.IPLDRetriever.RetrieveAccountByAddressAndBlockHash(address, hash)
+	acctRecord, err := b.Retriever.RetrieveAccountByAddressAndBlockHash(address, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	acct := new(types.StateAccount)
-	return acct, rlp.DecodeBytes(accountRlp, acct)
+	balance, ok := new(big.Int).SetString(acctRecord.Balance, 10)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse balance %s", acctRecord.Balance)
+	}
+	return &types.StateAccount{
+		Nonce:    acctRecord.Nonce,
+		Balance:  balance,
+		Root:     common.HexToHash(acctRecord.Root),
+		CodeHash: acctRecord.CodeHash,
+	}, nil
 }
 
 // GetCodeByNumberOrHash returns the byte code for the contract deployed at the provided address at the block with the provided hash or block number
@@ -799,20 +818,20 @@ func (b *Backend) GetCodeByNumber(ctx context.Context, address common.Address, b
 		return nil, err
 	}
 	if hash == (common.Hash{}) {
-		return nil, fmt.Errorf("no canoncial block hash found for provided height (%d)", number)
+		return nil, fmt.Errorf("no canonical block hash found for provided height (%d)", number)
 	}
 	return b.GetCodeByHash(ctx, address, hash)
 }
 
 // GetCodeByHash returns the byte code for the contract deployed at the provided address at the block with the provided hash
 func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, hash common.Hash) ([]byte, error) {
-	codeHash := make([]byte, 0)
 	leafKey := crypto.Keccak256Hash(address.Bytes())
 	// Begin tx
 	tx, err := b.DB.Beginx()
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -823,17 +842,14 @@ func (b *Backend) GetCodeByHash(ctx context.Context, address common.Address, has
 			err = tx.Commit()
 		}
 	}()
+	var codeHash string
 	err = tx.Get(&codeHash, RetrieveCodeHashByLeafKeyAndBlockHash, leafKey.Hex(), hash.Hex())
 	if err != nil {
 		return nil, err
 	}
-	var mhKey string
-	mhKey, err = ethServerShared.MultihashKeyFromKeccak256(common.BytesToHash(codeHash))
-	if err != nil {
-		return nil, err
-	}
-	code := make([]byte, 0)
-	err = tx.Get(&code, RetrieveCodeByMhKey, mhKey)
+	cid := ipld.Keccak256ToCid(ipld.RawBinary, common.HexToHash(codeHash).Bytes())
+	var code []byte
+	err = tx.Get(&code, RetrieveCodeByKey, cid.String())
 	return code, err
 }
 
@@ -886,8 +902,7 @@ func (b *Backend) GetStorageByHash(ctx context.Context, address common.Address, 
 		return nil, err
 	}
 
-	_, _, storageRlp, err := b.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
-	return storageRlp, err
+	return b.Retriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(address, key, hash)
 }
 
 func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage bool) (*GetSliceResponse, error) {
@@ -898,14 +913,23 @@ func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage boo
 	metaData := metaDataFields{}
 
 	startTime := makeTimestamp()
-	t, _ := b.StateDatabase.OpenTrie(root)
+	var t ipld_trie_state.Trie
+	var err error
+	if storage {
+		t, err = b.IpldTrieStateDatabase.OpenStorageTrie(common.Hash{}, common.Hash{}, root)
+	} else {
+		t, err = b.IpldTrieStateDatabase.OpenTrie(root)
+	}
+	if err != nil {
+		return nil, err
+	}
 	metaData.trieLoadingTime = makeTimestamp() - startTime
 
 	// Convert the head hex path to a decoded byte path
 	headPath := common.FromHex(path)
 
 	// Get Stem nodes
-	err := b.getSliceStem(headPath, t, response, &metaData, storage)
+	err = b.getSliceStem(headPath, t, response, &metaData, storage)
 	if err != nil {
 		return nil, err
 	}
@@ -929,16 +953,16 @@ func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage boo
 	return response, nil
 }
 
-func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+func (b *Backend) getSliceStem(headPath []byte, t ipld_trie_state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
 	leavesFetchTime := int64(0)
 	totalStemStartTime := makeTimestamp()
 
 	for i := 0; i < len(headPath); i++ {
 		// Create path for each node along the stem
-		nodePath := make([]byte, len(headPath[:i]))
-		copy(nodePath, headPath[:i])
+		// nodePath := make([]byte, len(headPath[:i]))
+		nodePath := headPath[:i]
 
-		rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(nodePath))
+		rawNode, _, err := t.TryGetNode(trie.HexToCompact(nodePath))
 		if err != nil {
 			return err
 		}
@@ -948,12 +972,12 @@ func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSlice
 			continue
 		}
 
-		node, nodeElements, err := ResolveNode(nodePath, rawNode, b.StateDatabase.TrieDB())
+		node, nodeElements, err := ResolveNode(nodePath, rawNode, b.IpldTrieStateDatabase.TrieDB())
 		if err != nil {
 			return err
 		}
 
-		leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Stem, response.Leaves, node, nodeElements, storage)
+		leafFetchTime, err := fillSliceNodeData(b.IpldTrieStateDatabase, response.TrieNodes.Stem, response.Leaves, node, nodeElements, storage)
 		if err != nil {
 			return err
 		}
@@ -963,7 +987,7 @@ func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSlice
 		if depthReached > metaData.maxDepth {
 			metaData.maxDepth = depthReached
 		}
-		if node.NodeType == sdtypes.Leaf {
+		if node.NodeType == Leaf {
 			metaData.leafCount++
 		}
 		leavesFetchTime += leafFetchTime
@@ -977,10 +1001,10 @@ func (b *Backend) getSliceStem(headPath []byte, t state.Trie, response *GetSlice
 	return nil
 }
 
-func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+func (b *Backend) getSliceHead(headPath []byte, t ipld_trie_state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
 	totalHeadStartTime := makeTimestamp()
 
-	rawNode, _, err := t.(*trie.StateTrie).TryGetNode(trie.HexToCompact(headPath))
+	rawNode, _, err := t.TryGetNode(trie.HexToCompact(headPath))
 	if err != nil {
 		return err
 	}
@@ -990,12 +1014,12 @@ func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSlice
 		return nil
 	}
 
-	node, nodeElements, err := ResolveNode(headPath, rawNode, b.StateDatabase.TrieDB())
+	node, nodeElements, err := ResolveNode(headPath, rawNode, b.IpldTrieStateDatabase.TrieDB())
 	if err != nil {
 		return err
 	}
 
-	leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Head, response.Leaves, node, nodeElements, storage)
+	leafFetchTime, err := fillSliceNodeData(b.IpldTrieStateDatabase, response.TrieNodes.Head, response.Leaves, node, nodeElements, storage)
 	if err != nil {
 		return err
 	}
@@ -1005,7 +1029,7 @@ func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSlice
 	if depthReached > metaData.maxDepth {
 		metaData.maxDepth = depthReached
 	}
-	if node.NodeType == sdtypes.Leaf {
+	if node.NodeType == Leaf {
 		metaData.leafCount++
 	}
 
@@ -1017,7 +1041,7 @@ func (b *Backend) getSliceHead(headPath []byte, t state.Trie, response *GetSlice
 	return nil
 }
 
-func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSliceResponse, metaData *metaDataFields, depth int, storage bool) error {
+func (b *Backend) getSliceTrie(headPath []byte, t ipld_trie_state.Trie, response *GetSliceResponse, metaData *metaDataFields, depth int, storage bool) error {
 	it, timeTaken := getIteratorAtPath(t, headPath)
 	metaData.trieLoadingTime += timeTaken
 
@@ -1047,12 +1071,16 @@ func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSlice
 			continue
 		}
 
-		node, nodeElements, err := sdtrie.ResolveNode(it, b.StateDatabase.TrieDB())
+		blob, err := it.NodeBlob(), it.Error()
+		if err != nil {
+			return err
+		}
+		node, nodeElements, err := ResolveNode(it.Path(), blob, b.IpldTrieStateDatabase.TrieDB())
 		if err != nil {
 			return err
 		}
 
-		leafFetchTime, err := fillSliceNodeData(b.EthDB, response.TrieNodes.Slice, response.Leaves, node, nodeElements, storage)
+		leafFetchTime, err := fillSliceNodeData(b.IpldTrieStateDatabase, response.TrieNodes.Slice, response.Leaves, node, nodeElements, storage)
 		if err != nil {
 			return err
 		}
@@ -1062,7 +1090,7 @@ func (b *Backend) getSliceTrie(headPath []byte, t state.Trie, response *GetSlice
 		if depthReached > metaData.maxDepth {
 			metaData.maxDepth = depthReached
 		}
-		if node.NodeType == sdtypes.Leaf {
+		if node.NodeType == Leaf {
 			metaData.leafCount++
 		}
 		leavesFetchTime += leafFetchTime
@@ -1129,6 +1157,15 @@ func (b *Backend) ServiceFilter(ctx context.Context, session *bloombits.MatcherS
 	panic("implement me")
 }
 
+// Close closes the backing DB and EthDB instances
+func (b *Backend) Close() error {
+	err := b.EthDB.Close()
+	if err != nil {
+		log.Errorf("error closing EthDB: %s", err)
+	}
+	return b.DB.Close()
+}
+
 func logStateDBStatsOnTimer(ethDB *ipfsethdb.Database, gcc *shared.GroupCacheConfig) {
 	// No stats logging if interval isn't a positive integer.
 	if gcc.StateDB.LogStatsIntervalInSecs <= 0 {
@@ -1139,7 +1176,7 @@ func logStateDBStatsOnTimer(ethDB *ipfsethdb.Database, gcc *shared.GroupCacheCon
 
 	go func() {
 		for range ticker.C {
-			log.Infof("%s groupcache stats: %+v", StateDBGroupCacheName, ethDB.GetCacheStats())
+			log.Debugf("%s groupcache stats: %+v", StateDBGroupCacheName, ethDB.GetCacheStats())
 		}
 	}()
 }

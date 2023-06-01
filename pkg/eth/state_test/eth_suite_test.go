@@ -14,13 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package eth
+package eth_state_test
 
-// ReceiptFilter contains filter settings for receipts
-type ReceiptFilter struct {
-	Off bool
-	// TODO: change this so that we filter for receipts first and we always return the corresponding transaction
-	MatchTxs     bool     // turn on to retrieve receipts that pair with retrieved transactions
-	LogAddresses []string // receipt contains logs from the provided addresses
-	Topics       [][]string
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestETHSuite(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "ipld-eth-server/pkg/eth/state_test")
 }

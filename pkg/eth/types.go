@@ -22,10 +22,11 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
@@ -125,10 +126,10 @@ func (arg *CallArgs) data() []byte {
 // ToMessage converts the transaction arguments to the Message type used by the
 // core evm. This method is used in calls and traces that do not require a real
 // live transaction.
-func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (types.Message, error) {
+func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (*core.Message, error) {
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if arg.GasPrice != nil && (arg.MaxFeePerGas != nil || arg.MaxPriorityFeePerGas != nil) {
-		return types.Message{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+		return nil, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	}
 	// Set sender address or use zero address if none specified.
 	addr := arg.from()
@@ -189,49 +190,20 @@ func (arg *CallArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (types.Mes
 	if arg.AccessList != nil {
 		accessList = *arg.AccessList
 	}
-	msg := types.NewMessage(addr, arg.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, true)
+	msg := &core.Message{
+		Nonce:             0,
+		GasLimit:          gas,
+		GasPrice:          gasPrice,
+		GasFeeCap:         gasFeeCap,
+		GasTipCap:         gasTipCap,
+		To:                arg.To,
+		Value:             value,
+		Data:              data,
+		AccessList:        accessList,
+		SkipAccountChecks: true,
+		From:              addr,
+	}
 	return msg, nil
-}
-
-// IPLDs is used to package raw IPLD block data fetched from IPFS and returned by the server
-// Returned by IPLDFetcher and ResponseFilterer
-type IPLDs struct {
-	BlockNumber     *big.Int
-	TotalDifficulty *big.Int
-	Header          models.IPLDModel
-	Uncles          []models.IPLDModel
-	Transactions    []models.IPLDModel
-	Receipts        []models.IPLDModel
-	StateNodes      []StateNode
-	StorageNodes    []StorageNode
-}
-
-type StateNode struct {
-	Type         sdtypes.NodeType
-	StateLeafKey common.Hash
-	Path         []byte
-	IPLD         models.IPLDModel
-}
-
-type StorageNode struct {
-	Type           sdtypes.NodeType
-	StateLeafKey   common.Hash
-	StorageLeafKey common.Hash
-	Path           []byte
-	IPLD           models.IPLDModel
-}
-
-// CIDWrapper is used to direct fetching of IPLDs from IPFS
-// Returned by CIDRetriever
-// Passed to IPLDFetcher
-type CIDWrapper struct {
-	BlockNumber  *big.Int
-	Header       models.HeaderModel
-	Uncles       []models.UncleModel
-	Transactions []models.TxModel
-	Receipts     []models.ReceiptModel
-	StateNodes   []models.StateNodeModel
-	StorageNodes []models.StorageNodeWithStateKeyModel
 }
 
 // ConvertedPayload is a custom type which packages raw ETH data for publishing to IPFS and filtering to subscribers
@@ -243,13 +215,13 @@ type ConvertedPayload struct {
 	TxMetaData      []models.TxModel
 	Receipts        types.Receipts
 	ReceiptMetaData []models.ReceiptModel
-	StateNodes      []sdtypes.StateNode
-	StorageNodes    map[string][]sdtypes.StorageNode
+	StateNodes      []sdtypes.StateLeafNode
+	StorageNodes    map[string][]sdtypes.StorageLeafNode
 }
 
 // LogResult represent a log.
 type LogResult struct {
-	LeafCID     string `db:"leaf_cid"`
+	LeafCID     string `db:"cid"`
 	ReceiptID   string `db:"rct_id"`
 	Address     string `db:"address"`
 	Index       int64  `db:"index"`
@@ -259,7 +231,7 @@ type LogResult struct {
 	Topic2      string `db:"topic2"`
 	Topic3      string `db:"topic3"`
 	LogLeafData []byte `db:"data"`
-	RctCID      string `db:"cid"`
+	RctCID      string `db:"rct_cid"`
 	RctStatus   uint64 `db:"post_status"`
 	BlockNumber string `db:"block_number"`
 	BlockHash   string `db:"block_hash"`

@@ -29,14 +29,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/shared"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
+	state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
 )
 
 var (
@@ -52,7 +51,7 @@ type Account struct {
 
 // getState fetches the StateDB object for an account.
 func (a *Account) getState(ctx context.Context) (*state.StateDB, error) {
-	state, _, err := a.backend.StateAndHeaderByNumberOrHash(ctx, a.blockNrOrHash)
+	state, _, err := a.backend.IPLDDirectStateDBAndHeaderByNumberOrHash(ctx, a.blockNrOrHash)
 	return state, err
 }
 
@@ -1009,30 +1008,27 @@ func (r *Resolver) GetStorageAt(ctx context.Context, args struct {
 	Contract  common.Address
 	Slot      common.Hash
 }) (*StorageResult, error) {
-	cid, ipldBlock, rlpValue, err := r.backend.IPLDRetriever.RetrieveStorageAtByAddressAndStorageSlotAndBlockHash(args.Contract, args.Slot, args.BlockHash)
-
+	cid, nodeRLP, err := r.backend.Retriever.RetrieveStorageAndRLP(args.Contract, args.Slot, args.BlockHash)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			ret := StorageResult{value: []byte{}, cid: "", ipldBlock: []byte{}}
-
-			return &ret, nil
+			return &StorageResult{value: []byte{}, cid: "", ipldBlock: []byte{}}, nil
 		}
-
 		return nil, err
 	}
-
-	if bytes.Equal(rlpValue, eth.EmptyNodeValue) {
-		return &StorageResult{value: eth.EmptyNodeValue, cid: cid, ipldBlock: ipldBlock}, nil
+	valueRLP, err := eth.DecodeLeafNode(nodeRLP)
+	if err != nil {
+		return nil, err
 	}
-
+	if bytes.Equal(valueRLP, eth.EmptyNodeValue) {
+		return &StorageResult{value: eth.EmptyNodeValue, cid: cid, ipldBlock: nodeRLP}, nil
+	}
 	var value interface{}
-	err = rlp.DecodeBytes(rlpValue, &value)
+	err = rlp.DecodeBytes(valueRLP, &value)
 	if err != nil {
 		return nil, err
 	}
 
-	ret := StorageResult{value: value.([]byte), cid: cid, ipldBlock: ipldBlock}
-	return &ret, nil
+	return &StorageResult{value: value.([]byte), cid: cid, ipldBlock: nodeRLP}, nil
 }
 
 func (r *Resolver) GetLogs(ctx context.Context, args struct {
@@ -1160,7 +1156,7 @@ func (t EthTransactionCID) Dst(ctx context.Context) string {
 	return t.dst
 }
 
-func (t EthTransactionCID) BlockByMhKey(ctx context.Context) IPFSBlock {
+func (t EthTransactionCID) BlockByCid(ctx context.Context) IPFSBlock {
 	return t.ipfsBlock
 }
 
@@ -1249,7 +1245,7 @@ func (h EthHeaderCID) EthTransactionCidsByHeaderId(ctx context.Context) EthTrans
 	return EthTransactionCIDsConnection{nodes: h.transactions}
 }
 
-func (h EthHeaderCID) BlockByMhKey(ctx context.Context) IPFSBlock {
+func (h EthHeaderCID) BlockByCid(ctx context.Context) IPFSBlock {
 	return h.ipfsBlock
 }
 
@@ -1289,22 +1285,6 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 		return nil, fmt.Errorf("provide block number or block hash")
 	}
 
-	// Begin tx
-	tx, err := r.backend.DB.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
-
 	var resultNodes []*EthHeaderCID
 	for _, headerCID := range headerCIDs {
 		var blockNumber BigInt
@@ -1326,7 +1306,7 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 			td:          td,
 			txRoot:      headerCID.TxRoot,
 			receiptRoot: headerCID.RctRoot,
-			uncleRoot:   headerCID.UncleRoot,
+			uncleRoot:   headerCID.UnclesHash,
 			bloom:       Bytes(headerCID.Bloom).String(),
 			ipfsBlock: IPFSBlock{
 				key:  headerCID.IPLD.Key,

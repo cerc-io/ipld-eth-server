@@ -14,24 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-package serve
+package eth_api_test
 
-import "github.com/cerc-io/ipld-eth-server/v4/pkg/log"
+import (
+	"testing"
 
-func sendNonBlockingErr(sub Subscription, err error) {
-	log.Error(err)
-	select {
-	case sub.PayloadChan <- SubscriptionPayload{Data: nil, Err: err.Error(), Flag: EmptyFlag}:
-	default:
-		log.Infof("unable to send error to subscription %s", sub.ID)
-	}
-}
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-func sendNonBlockingQuit(sub Subscription) {
-	select {
-	case sub.QuitChan <- true:
-		log.Infof("closing subscription %s", sub.ID)
-	default:
-		log.Infof("unable to close subscription %s; channel has no receiver", sub.ID)
-	}
+func TestETHSuite(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "ipld-eth-server/pkg/eth/api_test")
 }

@@ -16,7 +16,7 @@
 package main
 
 import (
-	"github.com/cerc-io/ipld-eth-server/v4/cmd"
+	"github.com/cerc-io/ipld-eth-server/v5/cmd"
 )
 
 func main() {

@@ -17,11 +17,9 @@
 package graphql_test
 
 import (
-	"io/ioutil"
 	"testing"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/log"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -29,7 +27,3 @@ func TestGraphQL(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "graphql test suite")
 }
-
-var _ = BeforeSuite(func() {
-	log.SetOutput(ioutil.Discard)
-})

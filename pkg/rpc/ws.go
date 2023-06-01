@@ -24,7 +24,8 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/cerc-io/ipld-eth-server/v4/pkg/prom"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
+	"github.com/cerc-io/ipld-eth-server/v5/pkg/prom"
 )
 
 // StartWSEndpoint starts a websocket endpoint.
@@ -49,6 +50,7 @@ func StartWSEndpoint(endpoint string, apis []rpc.API, modules []string, wsOrigin
 	wsServer := NewWSServer(wsOrigins, handler)
 	wsServer.Handler = prom.WSMiddleware(wsServer.Handler)
 	go wsServer.Serve(listener)
+	log.Infof("WS endpoint opened at ws://%s", endpoint)
 
 	return listener, handler, err
 
