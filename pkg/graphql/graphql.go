@@ -35,8 +35,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
-	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
-	"github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
+	state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
 )
 
 var (
@@ -1285,22 +1284,6 @@ func (r *Resolver) AllEthHeaderCids(ctx context.Context, args struct {
 	} else {
 		return nil, fmt.Errorf("provide block number or block hash")
 	}
-
-	// Begin tx
-	tx, err := r.backend.DB.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
 
 	var resultNodes []*EthHeaderCID
 	for _, headerCID := range headerCIDs {

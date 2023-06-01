@@ -708,6 +708,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	if err != nil {
 		return nil, err
 	}
+	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
 	defer func() {
 		if p := recover(); p != nil {
 			shared.Rollback(tx)
@@ -721,12 +722,15 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 
 	// If we have a blockHash to filter on, fire off single retrieval query
 	if crit.BlockHash != nil {
-		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLogs(tx, filter, 0, crit.BlockHash)
+		var filteredLogs []LogResult
+		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, 0, crit.BlockHash)
 		if err != nil {
 			return nil, err
 		}
 
-		return decomposeLogs(filteredLogs)
+		var logs []*types.Log
+		logs, err = decomposeLogs(filteredLogs)
+		return logs, err
 	}
 
 	// Otherwise, create block range from criteria
@@ -738,7 +742,8 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	}
 
 	if endingBlock == nil {
-		endingBlockInt, err := pea.B.Retriever.RetrieveLastBlockNumber()
+		var endingBlockInt int64
+		endingBlockInt, err = pea.B.Retriever.RetrieveLastBlockNumber()
 		if err != nil {
 			return nil, err
 		}
@@ -749,21 +754,19 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	end := endingBlock.Int64()
 	var logs []*types.Log
 	for i := start; i <= end; i++ {
-		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLogs(tx, filter, i, nil)
+		var filteredLogs []LogResult
+		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, i, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		logCIDs, err := decomposeLogs(filteredLogs)
+		var logCIDs []*types.Log
+		logCIDs, err = decomposeLogs(filteredLogs)
 		if err != nil {
 			return nil, err
 		}
 
 		logs = append(logs, logCIDs...)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
 	}
 
 	return logs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
