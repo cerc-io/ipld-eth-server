@@ -604,12 +604,7 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	}
 	receipt := receipts[index]
 
-	var signer types.Signer
-	if tx.Protected() {
-		signer = types.LatestSignerForChainID(tx.ChainId())
-	} else {
-		signer = types.HomesteadSigner{}
-	}
+	signer := SignerForTx(tx)
 	from, _ := types.Sender(signer, tx)
 
 	fields := map[string]interface{}{
