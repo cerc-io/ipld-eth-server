@@ -467,7 +467,7 @@ func (pea *PublicEthAPI) GetRawTransactionByHash(ctx context.Context, hash commo
 	// Retrieve a finalized transaction, or a pooled otherwise
 	tx, _, _, _, err := pea.B.GetTransaction(ctx, hash)
 	if tx != nil && err == nil {
-		return rlp.EncodeToBytes(tx)
+		return tx.MarshalBinary()
 	}
 	if pea.config.ProxyOnError {
 		var tx hexutil.Bytes
