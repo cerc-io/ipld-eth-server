@@ -144,15 +144,21 @@ func NewRPCTransactionFromBlockHash(b *types.Block, hash common.Hash) *RPCTransa
 	return nil
 }
 
-// NewRPCTransaction returns a transaction that will serialize to the RPC
-// representation, with the given location metadata set (if available).
-func NewRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64, baseFee *big.Int) *RPCTransaction {
+// SignerForTx returns an appropriate Signer for this Transaction
+func SignerForTx(tx *types.Transaction) types.Signer {
 	var signer types.Signer
 	if tx.Protected() {
 		signer = types.LatestSignerForChainID(tx.ChainId())
 	} else {
 		signer = types.HomesteadSigner{}
 	}
+	return signer
+}
+
+// NewRPCTransaction returns a transaction that will serialize to the RPC
+// representation, with the given location metadata set (if available).
+func NewRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64, baseFee *big.Int) *RPCTransaction {
+	signer := SignerForTx(tx)
 	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
 	result := &RPCTransaction{
