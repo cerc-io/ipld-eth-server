@@ -28,7 +28,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
@@ -136,9 +135,9 @@ var (
 	expectedTransaction2      = eth.NewRPCTransaction(test_helpers.MockTransactions[1], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 1, test_helpers.MockBlock.BaseFee())
 	expectedTransaction3      = eth.NewRPCTransaction(test_helpers.MockTransactions[2], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 2, test_helpers.MockBlock.BaseFee())
 	expectedLondonTransaction = eth.NewRPCTransaction(test_helpers.MockLondonTransactions[0], test_helpers.MockLondonBlock.Hash(), test_helpers.MockLondonBlock.NumberU64(), 0, test_helpers.MockLondonBlock.BaseFee())
-	expectRawTx, _            = rlp.EncodeToBytes(test_helpers.MockTransactions[0])
-	expectRawTx2, _           = rlp.EncodeToBytes(test_helpers.MockTransactions[1])
-	expectRawTx3, _           = rlp.EncodeToBytes(test_helpers.MockTransactions[2])
+	expectRawTx, _            = test_helpers.MockTransactions[0].MarshalBinary()
+	expectRawTx2, _           = test_helpers.MockTransactions[1].MarshalBinary()
+	expectRawTx3, _           = test_helpers.MockTransactions[2].MarshalBinary()
 	expectedReceipt           = map[string]interface{}{
 		"blockHash":         blockHash,
 		"blockNumber":       hexutil.Uint64(uint64(number.Int64())),

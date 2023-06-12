@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -147,10 +146,10 @@ var _ = Describe("Basic integration test", func() {
 
 			Expect(gethReceipt).To(Equal(ipldReceipt))
 
-			rlpGeth, err := rlp.EncodeToBytes(gethReceipt)
+			rlpGeth, err := gethReceipt.MarshalBinary()
 			Expect(err).ToNot(HaveOccurred())
 
-			rlpIpld, err := rlp.EncodeToBytes(ipldReceipt)
+			rlpIpld, err := ipldReceipt.MarshalBinary()
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(rlpGeth).To(Equal(rlpIpld))
