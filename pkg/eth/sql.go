@@ -133,6 +133,7 @@ const (
 							AND receipt_cids.header_id = transaction_cids.header_id
 							AND receipt_cids.block_number = transaction_cids.block_number
 							AND transaction_cids.header_id = log_cids.header_id
+							AND transaction_cids.header_id = (SELECT canonical_header_hash(transaction_cids.block_number))
 							AND transaction_cids.block_number = log_cids.block_number`
 	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr   = `SELECT cid, val, block_number, removed, state_leaf_removed FROM get_storage_at_by_hash($1, $2, $3)`
 	RetrieveStorageAndRLPByAddressHashAndLeafKeyAndBlockHashPgStr = `
