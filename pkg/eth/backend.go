@@ -125,7 +125,7 @@ func (b *Backend) ChainDb() ethdb.Database {
 	return b.EthDB
 }
 
-func (b *Backend) normalizeBlockNumber(blockNumber rpc.BlockNumber) (int64, error) {
+func (b *Backend) NormalizeBlockNumber(blockNumber rpc.BlockNumber) (int64, error) {
 	var err error
 	number := blockNumber.Int64()
 	if blockNumber == rpc.LatestBlockNumber {
@@ -151,7 +151,7 @@ func (b *Backend) normalizeBlockNumber(blockNumber rpc.BlockNumber) (int64, erro
 
 // HeaderByNumber gets the canonical header for the provided block number
 func (b *Backend) HeaderByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Header, error) {
-	number, err := b.normalizeBlockNumber(blockNumber)
+	number, err := b.NormalizeBlockNumber(blockNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Blo
 
 // BlockByNumber returns the requested canonical block
 func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Block, error) {
-	number, err := b.normalizeBlockNumber(blockNumber)
+	number, err := b.NormalizeBlockNumber(blockNumber)
 	if err != nil {
 		return nil, err
 	}

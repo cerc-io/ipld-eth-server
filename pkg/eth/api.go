@@ -677,6 +677,8 @@ func (pea *PublicEthAPI) GetLogs(ctx context.Context, crit filters.FilterCriteri
 }
 
 func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log, error) {
+	// TODO: WIP, add to config.
+	limit := int64(100)
 	// TODO: this can be optimized away from using the old cid retriever and ipld fetcher interfaces
 	// Convert FilterQuery into ReceiptFilter
 	addrStrs := make([]string, len(crit.Addresses))
@@ -720,7 +722,7 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 	// If we have a blockHash to filter on, fire off single retrieval query
 	if crit.BlockHash != nil {
 		var filteredLogs []LogResult
-		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, 0, crit.BlockHash)
+		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, -1, -1, crit.BlockHash, limit)
 		if err != nil {
 			return nil, err
 		}
@@ -732,41 +734,40 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 
 	// Otherwise, create block range from criteria
 	// nil values are filled in; to request a single block have both ToBlock and FromBlock equal that number
-	startingBlock := crit.FromBlock
-	endingBlock := crit.ToBlock
-	if startingBlock == nil {
-		startingBlock = common.Big0
+
+	// geth uses LatestBlockNumber as the default value for both begin and end, so we do the same
+	lastBlockNumber, err := pea.B.Retriever.RetrieveLastBlockNumber()
+	if err != nil {
+		return nil, err
 	}
 
-	if endingBlock == nil {
-		var endingBlockInt int64
-		endingBlockInt, err = pea.B.Retriever.RetrieveLastBlockNumber()
+	start := lastBlockNumber
+	if crit.FromBlock != nil {
+		start, err = pea.B.NormalizeBlockNumber(rpc.BlockNumber(crit.FromBlock.Int64()))
 		if err != nil {
 			return nil, err
 		}
-		endingBlock = big.NewInt(endingBlockInt)
 	}
-
-	start := startingBlock.Int64()
-	end := endingBlock.Int64()
-	var logs []*types.Log
-	for i := start; i <= end; i++ {
-		var filteredLogs []LogResult
-		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, i, nil)
+	end := lastBlockNumber
+	if crit.ToBlock != nil {
+		end, err = pea.B.NormalizeBlockNumber(rpc.BlockNumber(crit.ToBlock.Int64()))
 		if err != nil {
 			return nil, err
 		}
-
-		var logCIDs []*types.Log
-		logCIDs, err = decomposeLogs(filteredLogs)
-		if err != nil {
-			return nil, err
-		}
-
-		logs = append(logs, logCIDs...)
 	}
 
-	return logs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
+	filteredLogs, err := pea.B.Retriever.RetrieveFilteredLogs(tx, filter, start, end, nil, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	var logCIDs []*types.Log
+	logCIDs, err = decomposeLogs(filteredLogs)
+	if err != nil {
+		return nil, err
+	}
+
+	return logCIDs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
 }
 
 /*

@@ -236,24 +236,32 @@ func (r *Retriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter
 
 // RetrieveFilteredLogs retrieves and returns all the log CIDs provided blockHeight or blockHash that conform to the provided
 // filter parameters.
-func (r *Retriever) RetrieveFilteredLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, blockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
+func (r *Retriever) RetrieveFilteredLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, startBlockNumber int64, stopBlockNumber int64, blockHash *common.Hash, limit int64) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
 	pgStr := RetrieveFilteredLogs
 	id := 1
-	if blockNumber > 0 {
-		pgStr += fmt.Sprintf(` AND header_cids.block_number = $%d`, id)
-		args = append(args, blockNumber)
+	if startBlockNumber >= 0 {
+		pgStr += fmt.Sprintf(` AND log_cids.block_number >= $%d`, id)
+		args = append(args, startBlockNumber)
+		id++
+	}
+	if stopBlockNumber >= 0 {
+		pgStr += fmt.Sprintf(` AND log_cids.block_number <= $%d`, id)
+		args = append(args, stopBlockNumber)
 		id++
 	}
 	if blockHash != nil {
-		pgStr += fmt.Sprintf(` AND header_cids.block_hash = $%d`, id)
+		pgStr += fmt.Sprintf(` AND log_cids.header_id = $%d`, id)
 		args = append(args, blockHash.String())
 		id++
 	}
 
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY log_cids.index`
+	if limit > 0 {
+		pgStr += fmt.Sprintf(` LIMIT %d`, limit)
+	}
 
 	logs := make([]LogResult, 0)
 	err := tx.Select(&logs, pgStr, args...)
