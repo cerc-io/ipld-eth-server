@@ -223,7 +223,7 @@ func (r *Retriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter
 	}
 
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
-	pgStr += ` ORDER BY log_cids.index`
+	pgStr += ` ORDER BY log_cids.block_number, log_cids.index`
 
 	logs := make([]LogResult, 0)
 	err := tx.Select(&logs, pgStr, args...)
@@ -234,37 +234,41 @@ func (r *Retriever) RetrieveFilteredGQLLogs(tx *sqlx.Tx, rctFilter ReceiptFilter
 	return logs, nil
 }
 
-// RetrieveFilteredLogs retrieves and returns all the log CIDs provided blockHeight or blockHash that conform to the provided
-// filter parameters.
-func (r *Retriever) RetrieveFilteredLogs(tx *sqlx.Tx, rctFilter ReceiptFilter, startBlockNumber int64, stopBlockNumber int64, blockHash *common.Hash, limit int64) ([]LogResult, error) {
+// RetrieveFilteredLogsForBlock retrieves and returns all the log CIDs for the block that conform to the provided filter parameters.
+func (r *Retriever) RetrieveFilteredLogsForBlock(db *sqlx.DB, rctFilter ReceiptFilter, blockHash *common.Hash) ([]LogResult, error) {
+	return r.retrieveFilteredLogs(db, rctFilter, -1, -1, blockHash)
+}
+
+// RetrieveFilteredLogsForBlockRange retrieves and returns all the log CIDs for the blocks in the range that conform
+// to the provided filter parameters.
+func (r *Retriever) RetrieveFilteredLogsForBlockRange(db *sqlx.DB, rctFilter ReceiptFilter, startBlockNumber int64, stopBlockNumber int64) ([]LogResult, error) {
+	return r.retrieveFilteredLogs(db, rctFilter, startBlockNumber, stopBlockNumber, nil)
+}
+
+// retrieveFilteredLogs retrieves all the log CIDs either for a single block (by hash) or range of blocks (by number) which
+// conform to the provided filter parameters.
+func (r *Retriever) retrieveFilteredLogs(db *sqlx.DB, rctFilter ReceiptFilter, startBlockNumber int64, stopBlockNumber int64, blockHash *common.Hash) ([]LogResult, error) {
 	log.Debug("retrieving log cids for receipt ids")
 	args := make([]interface{}, 0, 4)
-	pgStr := RetrieveFilteredLogs
+	var pgStr string
 	id := 1
-	if startBlockNumber >= 0 {
-		pgStr += fmt.Sprintf(` AND log_cids.block_number >= $%d`, id)
+	if blockHash != nil {
+		pgStr = RetrieveFilteredLogsSingle
+		args = append(args, blockHash.String())
+		id++
+	} else {
+		pgStr = RetrieveFilteredLogsRange
 		args = append(args, startBlockNumber)
 		id++
-	}
-	if stopBlockNumber >= 0 {
-		pgStr += fmt.Sprintf(` AND log_cids.block_number <= $%d`, id)
 		args = append(args, stopBlockNumber)
-		id++
-	}
-	if blockHash != nil {
-		pgStr += fmt.Sprintf(` AND log_cids.header_id = $%d`, id)
-		args = append(args, blockHash.String())
 		id++
 	}
 
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
-	pgStr += ` ORDER BY log_cids.index`
-	if limit > 0 {
-		pgStr += fmt.Sprintf(` LIMIT %d`, limit)
-	}
+	pgStr += ` ORDER BY eth.log_cids.block_number, eth.log_cids.index`
 
 	logs := make([]LogResult, 0)
-	err := tx.Select(&logs, pgStr, args...)
+	err := db.Select(&logs, pgStr, args...)
 	if err != nil {
 		return nil, err
 	}
