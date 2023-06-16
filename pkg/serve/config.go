@@ -158,7 +158,7 @@ func NewConfig() (*Config, error) {
 	if viper.IsSet("ethereum.getLogsBlockLimit") {
 		c.GetLogsBlockLimit = viper.GetInt64("ethereum.getLogsBlockLimit")
 	} else {
-		c.GetLogsBlockLimit = 100
+		c.GetLogsBlockLimit = 500
 	}
 
 	// websocket server
