@@ -72,6 +72,8 @@ type Service struct {
 	forwardEthCalls bool
 	// whether to forward eth_getStorageAt directly to proxy node
 	forwardGetStorageAt bool
+	// the maximum size of the block range to use in GetLogs
+	getLogsBlockLimit int64
 	// whether to forward all calls to proxy node if they throw an error locally
 	proxyOnError bool
 	// eth node network id
@@ -88,6 +90,7 @@ func NewServer(settings *Config) (Server, error) {
 	sap.stateDiffTimeout = settings.StateDiffTimeout
 	sap.forwardEthCalls = settings.ForwardEthCalls
 	sap.forwardGetStorageAt = settings.ForwardGetStorageAt
+	sap.getLogsBlockLimit = settings.GetLogsBlockLimit
 	sap.proxyOnError = settings.ProxyOnError
 	sap.nodeNetworkId = settings.NodeNetworkID
 	var err error
@@ -128,6 +131,7 @@ func (sap *Service) APIs() []rpc.API {
 		ForwardGetStorageAt: sap.forwardGetStorageAt,
 		ProxyOnError:        sap.proxyOnError,
 		StateDiffTimeout:    sap.stateDiffTimeout,
+		GetLogsBlockLimit:   sap.getLogsBlockLimit,
 	}
 	ethAPI, err := eth.NewPublicEthAPI(sap.backend, sap.client, conf)
 	if err != nil {

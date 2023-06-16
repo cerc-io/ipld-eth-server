@@ -56,6 +56,7 @@ const (
 	ETH_FORWARD_ETH_CALLS      = "ETH_FORWARD_ETH_CALLS"
 	ETH_FORWARD_GET_STORAGE_AT = "ETH_FORWARD_GET_STORAGE_AT"
 	ETH_PROXY_ON_ERROR         = "ETH_PROXY_ON_ERROR"
+	ETH_GETLOGS_BLOCK_LIMIT    = "ETH_GETLOGS_BLOCK_LIMIT"
 
 	VALIDATOR_ENABLED         = "VALIDATOR_ENABLED"
 	VALIDATOR_EVERY_NTH_BLOCK = "VALIDATOR_EVERY_NTH_BLOCK"
@@ -107,6 +108,7 @@ type Config struct {
 	ForwardEthCalls     bool
 	ForwardGetStorageAt bool
 	ProxyOnError        bool
+	GetLogsBlockLimit   int64
 	NodeNetworkID       string
 
 	// Cache configuration.
@@ -134,6 +136,7 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("ethereum.forwardEthCalls", ETH_FORWARD_ETH_CALLS)
 	viper.BindEnv("ethereum.forwardGetStorageAt", ETH_FORWARD_GET_STORAGE_AT)
 	viper.BindEnv("ethereum.proxyOnError", ETH_PROXY_ON_ERROR)
+	viper.BindEnv("ethereum.getLogsBlockLimit", ETH_GETLOGS_BLOCK_LIMIT)
 	viper.BindEnv("log.file", "LOG_FILE")
 	viper.BindEnv("log.level", "LOG_LEVEL")
 
@@ -151,6 +154,12 @@ func NewConfig() (*Config, error) {
 	c.ForwardGetStorageAt = viper.GetBool("ethereum.forwardGetStorageAt")
 	c.ProxyOnError = viper.GetBool("ethereum.proxyOnError")
 	c.EthHttpEndpoint = ethHTTPEndpoint
+
+	if viper.IsSet("ethereum.getLogsBlockLimit") {
+		c.GetLogsBlockLimit = viper.GetInt64("ethereum.getLogsBlockLimit")
+	} else {
+		c.GetLogsBlockLimit = 500
+	}
 
 	// websocket server
 	wsEnabled := viper.GetBool("server.ws")

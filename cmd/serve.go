@@ -325,6 +325,7 @@ func init() {
 	viper.BindPFlag("ethereum.forwardEthCalls", serveCmd.PersistentFlags().Lookup("eth-forward-eth-calls"))
 	viper.BindPFlag("ethereum.forwardGetStorageAt", serveCmd.PersistentFlags().Lookup("eth-forward-get-storage-at"))
 	viper.BindPFlag("ethereum.proxyOnError", serveCmd.PersistentFlags().Lookup("eth-proxy-on-error"))
+	viper.BindPFlag("ethereum.getLogsBlockLimit", serveCmd.PersistentFlags().Lookup("eth-getlogs-block-limit"))
 
 	// groupcache flags
 	viper.BindPFlag("groupcache.pool.enabled", serveCmd.PersistentFlags().Lookup("gcache-pool-enabled"))

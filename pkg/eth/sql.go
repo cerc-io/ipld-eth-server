@@ -119,21 +119,36 @@ const (
 				AND log_cids.cid = blocks.key
 				AND log_cids.block_number = blocks.block_number
 				AND receipt_cids.header_id = $1`
-	RetrieveFilteredLogs = `SELECT CAST(eth.log_cids.block_number as TEXT), eth.log_cids.cid, eth.log_cids.index, eth.log_cids.rct_id,
+	RetrieveFilteredLogsRange = `SELECT CAST(eth.log_cids.block_number as TEXT), eth.log_cids.cid, eth.log_cids.index, eth.log_cids.rct_id,
 			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
 			eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index,
-			blocks.data, eth.receipt_cids.cid AS rct_cid, eth.receipt_cids.post_status, header_cids.block_hash
-							FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, eth.header_cids, ipld.blocks
-							WHERE eth.log_cids.rct_id = receipt_cids.tx_id
-							AND eth.log_cids.header_id = eth.receipt_cids.header_id
-							AND eth.log_cids.block_number = eth.receipt_cids.block_number
-							AND log_cids.cid = blocks.key
-							AND log_cids.block_number = blocks.block_number
-							AND receipt_cids.tx_id = transaction_cids.tx_hash
-							AND receipt_cids.header_id = transaction_cids.header_id
-							AND receipt_cids.block_number = transaction_cids.block_number
-							AND transaction_cids.header_id = header_cids.block_hash
-							AND transaction_cids.block_number = header_cids.block_number`
+			ipld.blocks.data, eth.receipt_cids.cid AS rct_cid, eth.receipt_cids.post_status, log_cids.header_id AS block_hash
+							FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, ipld.blocks
+							WHERE eth.log_cids.block_number >= $1 AND eth.log_cids.block_number <= $2
+							AND eth.log_cids.header_id IN (SELECT canonical_header_hash(block_number) from eth.header_cids where eth.header_cids.block_number >= $1 AND header_cids.block_number <= $2)
+							AND eth.transaction_cids.block_number = eth.log_cids.block_number
+							AND eth.transaction_cids.header_id = eth.log_cids.header_id
+							AND eth.receipt_cids.block_number = eth.log_cids.block_number
+							AND eth.receipt_cids.header_id = eth.log_cids.header_id
+							AND eth.receipt_cids.tx_id = eth.log_cids.rct_id
+							AND eth.receipt_cids.tx_id = eth.transaction_cids.tx_hash
+							AND ipld.blocks.block_number = eth.log_cids.block_number
+							AND ipld.blocks.key = eth.log_cids.cid`
+
+	RetrieveFilteredLogsSingle = `SELECT CAST(eth.log_cids.block_number as TEXT), eth.log_cids.cid, eth.log_cids.index, eth.log_cids.rct_id,
+			eth.log_cids.address, eth.log_cids.topic0, eth.log_cids.topic1, eth.log_cids.topic2, eth.log_cids.topic3,
+			eth.transaction_cids.tx_hash, eth.transaction_cids.index as txn_index,
+			ipld.blocks.data, eth.receipt_cids.cid AS rct_cid, eth.receipt_cids.post_status, log_cids.header_id AS block_hash
+							FROM eth.log_cids, eth.receipt_cids, eth.transaction_cids, ipld.blocks
+							WHERE eth.log_cids.header_id = $1
+							AND eth.transaction_cids.block_number = eth.log_cids.block_number
+							AND eth.transaction_cids.header_id = eth.log_cids.header_id
+							AND eth.receipt_cids.block_number = eth.log_cids.block_number
+							AND eth.receipt_cids.header_id = eth.log_cids.header_id
+							AND eth.receipt_cids.tx_id = eth.log_cids.rct_id
+							AND eth.receipt_cids.tx_id = eth.transaction_cids.tx_hash
+							AND ipld.blocks.block_number = eth.log_cids.block_number
+							AND ipld.blocks.key = eth.log_cids.cid`
 	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr   = `SELECT cid, val, block_number, removed, state_leaf_removed FROM get_storage_at_by_hash($1, $2, $3)`
 	RetrieveStorageAndRLPByAddressHashAndLeafKeyAndBlockHashPgStr = `
 SELECT cid, val, storage.block_number, removed, state_leaf_removed, data

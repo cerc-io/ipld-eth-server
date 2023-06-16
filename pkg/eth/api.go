@@ -41,7 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/statediff"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
-	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
 	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
 )
 
@@ -57,10 +56,11 @@ const APIVersion = "0.0.1"
 
 type APIConfig struct {
 	// Proxy node for forwarding cache misses
-	SupportsStateDiff   bool // Whether the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
-	ForwardEthCalls     bool // if true, forward eth_call calls directly to the configured proxy node
-	ForwardGetStorageAt bool // if true, forward eth_getStorageAt calls directly to the configured proxy node
-	ProxyOnError        bool // turn on regular proxy fall-through on errors; needed to test difference between direct and indirect fall-through
+	SupportsStateDiff   bool  // Whether the remote node supports the statediff_writeStateDiffAt endpoint, if it does we can fill the local cache when we hit a miss
+	ForwardEthCalls     bool  // if true, forward eth_call calls directly to the configured proxy node
+	ForwardGetStorageAt bool  // if true, forward eth_getStorageAt calls directly to the configured proxy node
+	ProxyOnError        bool  // turn on regular proxy fall-through on errors; needed to test difference between direct and indirect fall-through
+	GetLogsBlockLimit   int64 // the maximum size of the block range to use in GetLogs
 
 	StateDiffTimeout time.Duration
 }
@@ -700,27 +700,10 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 		Topics:       topicStrSets,
 	}
 
-	// Begin tx
-	tx, err := pea.B.DB.Beginx()
-	if err != nil {
-		return nil, err
-	}
-	// we must avoid overshadowing `err` so that we update the value of the variable inside the defer
-	defer func() {
-		if p := recover(); p != nil {
-			shared.Rollback(tx)
-			panic(p)
-		} else if err != nil {
-			shared.Rollback(tx)
-		} else {
-			err = tx.Commit()
-		}
-	}()
-
 	// If we have a blockHash to filter on, fire off single retrieval query
 	if crit.BlockHash != nil {
 		var filteredLogs []LogResult
-		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, 0, crit.BlockHash)
+		filteredLogs, err := pea.B.Retriever.RetrieveFilteredLogsForBlock(pea.B.DB, filter, crit.BlockHash)
 		if err != nil {
 			return nil, err
 		}
@@ -732,41 +715,48 @@ func (pea *PublicEthAPI) localGetLogs(crit filters.FilterCriteria) ([]*types.Log
 
 	// Otherwise, create block range from criteria
 	// nil values are filled in; to request a single block have both ToBlock and FromBlock equal that number
-	startingBlock := crit.FromBlock
-	endingBlock := crit.ToBlock
-	if startingBlock == nil {
-		startingBlock = common.Big0
+
+	// geth uses LatestBlockNumber as the default value for both begin and end, so we do the same
+	lastBlockNumber, err := pea.B.Retriever.RetrieveLastBlockNumber()
+	if err != nil {
+		return nil, err
 	}
 
-	if endingBlock == nil {
-		var endingBlockInt int64
-		endingBlockInt, err = pea.B.Retriever.RetrieveLastBlockNumber()
+	start := lastBlockNumber
+	if crit.FromBlock != nil {
+		start, err = pea.B.NormalizeBlockNumber(rpc.BlockNumber(crit.FromBlock.Int64()))
 		if err != nil {
 			return nil, err
 		}
-		endingBlock = big.NewInt(endingBlockInt)
 	}
-
-	start := startingBlock.Int64()
-	end := endingBlock.Int64()
-	var logs []*types.Log
-	for i := start; i <= end; i++ {
-		var filteredLogs []LogResult
-		filteredLogs, err = pea.B.Retriever.RetrieveFilteredLogs(tx, filter, i, nil)
+	end := lastBlockNumber
+	if crit.ToBlock != nil {
+		end, err = pea.B.NormalizeBlockNumber(rpc.BlockNumber(crit.ToBlock.Int64()))
 		if err != nil {
 			return nil, err
 		}
-
-		var logCIDs []*types.Log
-		logCIDs, err = decomposeLogs(filteredLogs)
-		if err != nil {
-			return nil, err
-		}
-
-		logs = append(logs, logCIDs...)
 	}
 
-	return logs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
+	if pea.config.GetLogsBlockLimit > 0 && (end-start) > pea.config.GetLogsBlockLimit {
+		return nil, errors.New(
+			fmt.Sprintf(
+				"Invalid eth_getLogs request. 'fromBlock'-'toBlock' range too large. Max range: %d",
+				pea.config.GetLogsBlockLimit,
+			))
+	}
+
+	filteredLogs, err := pea.B.Retriever.RetrieveFilteredLogsForBlockRange(pea.B.DB, filter, start, end)
+	if err != nil {
+		return nil, err
+	}
+
+	var logCIDs []*types.Log
+	logCIDs, err = decomposeLogs(filteredLogs)
+	if err != nil {
+		return nil, err
+	}
+
+	return logCIDs, err // need to return err variable so that we return the err = tx.Commit() assignment in the defer
 }
 
 /*
