@@ -227,7 +227,7 @@ state_cids.state_leaf_key = $1
 			FROM eth.header_cids
 			WHERE block_hash = $2
 			LIMIT 1)
-AND header_cids.canonical
+	AND header_cids.canonical
 	AND state_cids.header_id = header_cids.block_hash
 	AND state_cids.block_number = header_cids.block_number
 ORDER BY state_cids.block_number DESC
