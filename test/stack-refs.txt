@@ -1,2 +1,2 @@
-github.com/cerc-io/go-ethereum v1.11.5-statediff-5.0.5-alpha
-github.com/cerc-io/ipld-eth-db v5.0.2-alpha
+github.com/cerc-io/go-ethereum v1.11.6-statediff-5.0.6
+github.com/cerc-io/ipld-eth-db v5.0.5-alpha
