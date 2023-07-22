@@ -19,9 +19,6 @@ package graphql_test
 import (
 	"context"
 	"fmt"
-	"math/big"
-	"strconv"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -36,6 +33,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"math/big"
+	"strconv"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth/test_helpers"
@@ -134,10 +133,21 @@ var _ = BeforeSuite(func() {
 			rcts = receipts[i-1]
 		}
 
-		_, err = builder.BuildStateDiffObject(args, statediff.Params{})
-		Expect(err).ToNot(HaveOccurred())
 		tx, err := indexer.PushBlock(block, rcts, mockTD)
 		Expect(err).ToNot(HaveOccurred())
+
+		diff, err := builder.BuildStateDiffObject(args, statediff.Params{})
+		Expect(err).ToNot(HaveOccurred())
+
+		for _, node := range diff.Nodes {
+			err = indexer.PushStateNode(tx, node, block.Hash().String())
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		for _, ipld := range diff.IPLDs {
+			err = indexer.PushIPLD(tx, ipld)
+			Expect(err).ToNot(HaveOccurred())
+		}
 
 		err = tx.Submit(err)
 		Expect(err).ToNot(HaveOccurred())
