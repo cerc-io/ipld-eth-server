@@ -20,9 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -32,11 +29,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/ethereum/go-ethereum/statediff"
+	"io/ioutil"
+	"math/big"
 	// "github.com/ethereum/go-ethereum/statediff/test_helpers"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
@@ -161,6 +159,25 @@ var _ = BeforeSuite(func() {
 		"receiptsRoot":     canonicalHeader.ReceiptHash,
 		"totalDifficulty":  (*hexutil.Big)(mockTD),
 	}
+
+	// Insert some non-canonical data into the database so that we test our ability to discern canonicity
+	// NOTE: Nan-canonical blocks must come first, because the statediffer will assume the most recent block it is
+	// provided at a certain height is canonical.  This is true inside geth, but not necessarily inside this test.
+	indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
+
+	tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+	Expect(err).ToNot(HaveOccurred())
+
+	err = tx.Submit(err)
+	Expect(err).ToNot(HaveOccurred())
+
+	// The non-canonical header has a child
+	tx, err = indexAndPublisher.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
+	Expect(err).ToNot(HaveOccurred())
+
+	err = tx.Submit(err)
+	Expect(err).ToNot(HaveOccurred())
+
 	// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
 	builder := statediff.NewBuilder(chain.StateCache())
 	for i, block := range blocks {
@@ -201,21 +218,6 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-	indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
-
-	tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
-	Expect(err).ToNot(HaveOccurred())
-
-	err = tx.Submit(err)
-	Expect(err).ToNot(HaveOccurred())
-
-	// The non-canonical header has a child
-	tx, err = indexAndPublisher.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
-	Expect(err).ToNot(HaveOccurred())
-
-	err = tx.Submit(err)
-	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
