@@ -19,9 +19,6 @@ package graphql_test
 import (
 	"context"
 	"fmt"
-	"math/big"
-	"strconv"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -30,11 +27,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"math/big"
+	"strconv"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth/test_helpers"
@@ -85,39 +85,73 @@ var _ = BeforeSuite(func() {
 	// make the test blockchain (and state)
 	chainConfig.LondonBlock = big.NewInt(100)
 	blocks, receipts, chain = test_helpers.MakeChain(5, test_helpers.Genesis, test_helpers.TestChainGen, chainConfig)
-	test_helpers.IndexChain(test_helpers.IndexChainParams{
-		StateCache:      chain.StateCache(),
-		ChainConfig:     chainConfig,
-		Blocks:          blocks,
-		Receipts:        receipts,
-		TotalDifficulty: mockTD,
-	})
+	indexer := shared.SetupTestStateDiffIndexer(context.Background(), chainConfig, test_helpers.Genesis.Hash())
+	builder := statediff.NewBuilder(chain.StateCache())
 
 	// Insert some non-canonical data into the database so that we test our ability to discern canonicity
-	indexAndPublisher := shared.SetupTestStateDiffIndexer(ctx, chainConfig, test_helpers.Genesis.Hash())
-
 	nonCanonBlockHash = test_helpers.MockBlock.Hash()
 	nonCanonContractAddress = test_helpers.ContractAddr
 
-	tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
+	tx, err := indexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 	Expect(err).ToNot(HaveOccurred())
 
 	err = tx.Submit(err)
 	Expect(err).ToNot(HaveOccurred())
 
 	// The non-canonical header has a child
-	tx, err = indexAndPublisher.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
+	tx, err = indexer.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
 	Expect(err).ToNot(HaveOccurred())
 
 	ipld := sdtypes.IPLD{
 		CID:     ipld.Keccak256ToCid(ipld.RawBinary, test_helpers.CodeHash.Bytes()).String(),
 		Content: test_helpers.ContractCode,
 	}
-	err = indexAndPublisher.PushIPLD(tx, ipld)
+	err = indexer.PushIPLD(tx, ipld)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = tx.Submit(err)
 	Expect(err).ToNot(HaveOccurred())
+
+	// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
+	for i, block := range blocks {
+		var args statediff.Args
+		var rcts types.Receipts
+		if i == 0 {
+			args = statediff.Args{
+				OldStateRoot: common.Hash{},
+				NewStateRoot: block.Root(),
+				BlockNumber:  block.Number(),
+				BlockHash:    block.Hash(),
+			}
+		} else {
+			args = statediff.Args{
+				OldStateRoot: blocks[i-1].Root(),
+				NewStateRoot: block.Root(),
+				BlockNumber:  block.Number(),
+				BlockHash:    block.Hash(),
+			}
+			rcts = receipts[i-1]
+		}
+
+		tx, err := indexer.PushBlock(block, rcts, mockTD)
+		Expect(err).ToNot(HaveOccurred())
+
+		diff, err := builder.BuildStateDiffObject(args, statediff.Params{})
+		Expect(err).ToNot(HaveOccurred())
+
+		for _, node := range diff.Nodes {
+			err = indexer.PushStateNode(tx, node, block.Hash().String())
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		for _, ipld := range diff.IPLDs {
+			err = indexer.PushIPLD(tx, ipld)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		err = tx.Submit(err)
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	graphQLServer, err = graphql.New(backend, gqlEndPoint, nil, []string{"*"}, rpc.HTTPTimeouts{})
 	Expect(err).ToNot(HaveOccurred())

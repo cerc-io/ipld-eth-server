@@ -46,6 +46,6 @@ jobs:
           -t git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
       - name: Push Docker tags
         run: |
-          echo ${{ secrets.GITEA_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
+          echo ${{ secrets.GITEA_PUBLISH_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
           docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
           docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
