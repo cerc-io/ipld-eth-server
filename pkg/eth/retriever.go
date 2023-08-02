@@ -266,9 +266,6 @@ func (r *Retriever) retrieveFilteredLogs(db *sqlx.DB, rctFilter ReceiptFilter, s
 
 	pgStr, args = logFilterCondition(&id, pgStr, args, rctFilter)
 	pgStr += ` ORDER BY eth.log_cids.block_number, eth.log_cids.index`
-	if blockHash != nil {
-		pgStr += ` LIMIT 1`
-	}
 
 	logs := make([]LogResult, 0)
 	err := db.Select(&logs, pgStr, args...)
