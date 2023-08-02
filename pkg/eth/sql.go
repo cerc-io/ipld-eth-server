@@ -168,15 +168,40 @@ LIMIT 1
 							AND eth.receipt_cids.tx_id = eth.transaction_cids.tx_hash
 							AND ipld.blocks.block_number = eth.log_cids.block_number
 							AND ipld.blocks.key = eth.log_cids.cid`
-	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr   = `SELECT cid, val, block_number, removed, state_leaf_removed FROM get_storage_at_by_hash($1, $2, $3)`
+	RetrieveStorageLeafByAddressHashAndLeafKeyAndBlockHashPgStr = `
+SELECT storage_cids.cid,
+       storage_cids.val,
+       storage_cids.block_number,
+       storage_cids.removed,
+       was_state_leaf_removed_by_number(storage_cids.state_leaf_key, storage_cids.block_number) AS state_leaf_removed
+FROM eth.storage_cids, eth.header_cids
+WHERE header_cids.block_number <= (SELECT block_number from eth.header_cids where block_hash = $3 LIMIT 1)
+    AND header_cids.canonical
+    AND storage_cids.block_number = header_cids.block_number
+    AND storage_cids.header_id = header_cids.block_hash
+    AND storage_cids.storage_leaf_key = $2
+    AND storage_cids.state_leaf_key = $1
+ORDER BY storage_cids.block_number DESC LIMIT 1
+`
 	RetrieveStorageAndRLPByAddressHashAndLeafKeyAndBlockHashPgStr = `
-SELECT cid, val, storage.block_number, removed, state_leaf_removed, data
-  FROM get_storage_at_by_hash($1, $2, $3) AS storage
-       INNER JOIN ipld.blocks ON (
-         storage.cid = blocks.key
-         AND storage.block_number = blocks.block_number
-       )`
-	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids WHERE block_number = $1 and canonical`
+SELECT storage_cids.cid,
+       storage_cids.val,
+       storage_cids.block_number,
+       storage_cids.removed,
+       was_state_leaf_removed_by_number(storage_cids.state_leaf_key, storage_cids.block_number) AS state_leaf_removed,
+       blocks.data
+FROM eth.storage_cids, eth.header_cids, ipld.blocks
+WHERE header_cids.block_number <= (SELECT block_number from eth.header_cids where block_hash = $3 LIMIT 1)
+    AND header_cids.canonical
+    AND storage_cids.block_number = header_cids.block_number
+    AND storage_cids.header_id = header_cids.block_hash
+    AND storage_cids.storage_leaf_key = $2
+    AND storage_cids.state_leaf_key = $1
+    AND blocks.key = storage_cids.cid
+    AND blocks.block_number = storage_cids.block_number
+ORDER BY storage_cids.block_number DESC LIMIT 1
+`
+	RetrieveCanonicalBlockHashByNumber = `SELECT block_hash FROM eth.header_cids WHERE block_number = $1 AND canonical`
 	RetrieveCanonicalHeaderByNumber    = `
 SELECT header_cids.cid,
 	blocks.data
