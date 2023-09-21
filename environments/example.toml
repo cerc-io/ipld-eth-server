@@ -6,7 +6,7 @@
     password = "" # $DATABASE_PASSWORD
 
 [log]
-    level = "info" # $LOGRUS_LEVEL
+    level = "info" # $LOG_LEVEL
 
 [server]
     ipc = false

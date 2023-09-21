@@ -20,6 +20,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
+	"os"
+
+	"github.com/cerc-io/plugeth-statediff"
+	"github.com/cerc-io/plugeth-statediff/adapt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -29,13 +34,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"io/ioutil"
-	"math/big"
-	// "github.com/ethereum/go-ethereum/statediff/test_helpers"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth/test_helpers"
@@ -85,7 +86,7 @@ var (
 
 func init() {
 	// load abi
-	abiBytes, err := ioutil.ReadFile("../test_helpers/abi.json")
+	abiBytes, err := os.ReadFile("../test_helpers/abi.json")
 	if err != nil {
 		panic(err)
 	}
@@ -179,7 +180,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
-	builder := statediff.NewBuilder(chain.StateCache())
+	builder := statediff.NewBuilder(adapt.GethStateView(chain.StateCache()))
 	for i, block := range blocks {
 		var args statediff.Args
 		var rcts types.Receipts

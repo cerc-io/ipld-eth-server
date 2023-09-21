@@ -24,12 +24,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cerc-io/plugeth-statediff/indexer/database/sql/postgres"
+	"github.com/cerc-io/plugeth-statediff/indexer/node"
+	"github.com/cerc-io/plugeth-statediff/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff"
-	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
-	"github.com/ethereum/go-ethereum/statediff/indexer/node"
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/viper"
 
@@ -239,9 +239,9 @@ func NewConfig() (*Config, error) {
 	}
 	chainConfigPath := viper.GetString("ethereum.chainConfig")
 	if chainConfigPath != "" {
-		c.ChainConfig, err = statediff.LoadConfig(chainConfigPath)
+		c.ChainConfig, err = utils.LoadConfig(chainConfigPath)
 	} else {
-		c.ChainConfig, err = statediff.ChainConfig(nodeInfo.ChainID)
+		c.ChainConfig, err = utils.ChainConfig(nodeInfo.ChainID)
 	}
 
 	c.loadGroupCacheConfig()

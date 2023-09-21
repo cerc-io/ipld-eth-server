@@ -3,8 +3,7 @@
 services:
   ipld-eth-server:
     restart: unless-stopped
-    image: cerc/ipld-eth-server
-    build: ..
+    image: cerc/ipld-eth-server:local
     networks:
       - test_default
     environment:
@@ -14,21 +13,22 @@ services:
       DATABASE_USER: "vdbm"
       DATABASE_PASSWORD: "password"
       ETH_HTTP_PATH: fixturenet-eth-geth-1:8545
-      ETH_CHAIN_CONFIG: "/tmp/chain.json"
+      ETH_CHAIN_CONFIG: /tmp/chain.json
       ETH_PROXY_ON_ERROR: false
       ETH_FORWARD_ETH_CALLS: $ETH_FORWARD_ETH_CALLS
       SERVER_HTTP_PATH: 0.0.0.0:8081
       VDB_COMMAND: serve
+      LOG_LEVEL: debug
     volumes:
-    - type: bind
-      source: "${ETH_CHAIN_CONFIG:-./test/chain.json}"
-      target: /tmp/chain.json
+      - type: bind
+        source: $ETH_CHAIN_CONFIG
+        target: /tmp/chain.json
     ports:
-     - 127.0.0.1:8081:8081
+      - 127.0.0.1:8081:8081
 
   contract-deployer:
     restart: on-failure
-    image: cerc/contract-deployer
+    image: cerc/ipld-eth-server/contract-deployer:local
     build: ./contract
     networks:
       - test_default

@@ -19,6 +19,7 @@ package test_helpers
 import (
 	"math/big"
 
+	"github.com/cerc-io/plugeth-statediff/test_helpers"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
@@ -27,7 +28,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/statediff/test_helpers"
 )
 
 // Test variables

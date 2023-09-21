@@ -17,8 +17,8 @@
 package serve
 
 import (
+	"github.com/cerc-io/plugeth-statediff/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/types"
 )
 
 // APIName is the namespace used for the state diffing service API
@@ -45,6 +45,7 @@ func NewPublicServerAPI(w Server, client *rpc.Client) *PublicServerAPI {
 func (api *PublicServerAPI) WatchAddress(operation types.OperationType, args []types.WatchAddressArg) error {
 	err := api.rpc.Call(nil, "statediff_watchAddress", operation, args)
 	if err != nil {
+		// Return the error directly to match the native Geth API
 		return err
 	}
 

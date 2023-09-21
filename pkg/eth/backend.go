@@ -25,6 +25,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/cerc-io/plugeth-statediff/indexer/ipld"
+	"github.com/cerc-io/plugeth-statediff/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -39,7 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 
@@ -962,7 +963,7 @@ func (b *Backend) getSliceStem(headPath []byte, t ipld_trie_state.Trie, response
 		// nodePath := make([]byte, len(headPath[:i]))
 		nodePath := headPath[:i]
 
-		rawNode, _, err := t.TryGetNode(trie.HexToCompact(nodePath))
+		rawNode, _, err := t.TryGetNode(utils.HexToCompact(nodePath))
 		if err != nil {
 			return err
 		}
@@ -1004,7 +1005,7 @@ func (b *Backend) getSliceStem(headPath []byte, t ipld_trie_state.Trie, response
 func (b *Backend) getSliceHead(headPath []byte, t ipld_trie_state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
 	totalHeadStartTime := makeTimestamp()
 
-	rawNode, _, err := t.TryGetNode(trie.HexToCompact(headPath))
+	rawNode, _, err := t.TryGetNode(utils.HexToCompact(headPath))
 	if err != nil {
 		return err
 	}

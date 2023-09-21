@@ -19,9 +19,9 @@ package eth_test
 import (
 	"context"
 
+	"github.com/cerc-io/plugeth-statediff/indexer/interfaces"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/statediff/indexer/interfaces"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo/v2"

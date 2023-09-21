@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cerc-io/plugeth-statediff"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -38,7 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"

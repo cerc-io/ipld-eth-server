@@ -2,9 +2,23 @@ name: Test the stack.
 on:
   workflow_call:
 
+  # Job headers are hidden when not top-level - run them directly for readability until fixed:
+  # https://github.com/go-gitea/gitea/issues/26736
+  pull_request:
+    branches: '*'
+  push:
+    branches:
+      - main
+      - ci-test
+
+env:
+  # Needed until we can incorporate docker startup into the executor container
+  DOCKER_HOST: unix:///var/run/dind.sock
+  SO_VERSION: v1.1.0-e0b5318-202309201927   # contains fixes for plugeth stack
+
 jobs:
   test:
-    name: "Run unit tests"
+    name: Run unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -12,15 +26,24 @@ jobs:
         with:
           go-version-file: 'go.mod'
           check-latest: true
-      - name: "Run DB container"
+      - name: Run dockerd
+        run: |
+          dockerd -H $DOCKER_HOST --userland-proxy=false &
+          sleep 5
+      - name: Run DB container
         run: docker compose -f test/compose-db.yml up --wait --quiet-pull
-      - name: "Build and run tests"
+      - name: Configure Gitea access
+        env:
+          TOKEN: ${{ secrets.CICD_REPO_TOKEN }}
+        run: |
+          git config --global url."https://$TOKEN:@git.vdb.to/".insteadOf https://git.vdb.to/
+      - name: Build and run tests
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
           ginkgo -v -r --skipPackage=./integration
 
   integration-test:
-    name: "Run integration tests"
+    name: Run integration tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -28,64 +51,61 @@ jobs:
         with:
           go-version-file: 'go.mod'
           check-latest: true
-      - name: "Install stack-orchestrator"
-        # FIXME: using my dev branch for v5 migration changes until a release has them
-        # run: |
-        #   curl -L -O https://github.com/cerc-io/stack-orchestrator/releases/latest/download/laconic-so
+      - name: Run dockerd
+        run: |
+          dockerd -H $DOCKER_HOST --userland-proxy=false &
+          sleep 5
+
+      - name: Build server image
+        env:
+          GIT_VDBTO_TOKEN: ${{ secrets.CICD_REPO_TOKEN }}
+        run: docker build . -t cerc/ipld-eth-server:local --build-arg GIT_VDBTO_TOKEN
+      - name: Install jq
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: apt-get update && apt-get install -y jq
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install stack-orchestrator
         uses: actions/checkout@v3
         with:
           repository: cerc-io/stack-orchestrator
-          ref: roy/ipld-eth-ci
+          ref: ${{ env.SO_VERSION }}
           path: ./stack-orchestrator
       - run: pip install ./stack-orchestrator
-      - name: "Run testnet stack"
+      - name: Configure Gitea access
+        env:
+          TOKEN: ${{ secrets.CICD_REPO_TOKEN }}
+        run: |
+          git config --global url."https://$TOKEN:@git.vdb.to/".insteadOf https://git.vdb.to/
+
+      - name: Run testnet stack
+        env:
+          CERC_GO_AUTH_TOKEN: ${{ secrets.CICD_REPO_TOKEN }}
         run: ./scripts/integration-setup.sh
-      - name: "Build and run server"
+      - name: Run server
         env:
           ETH_FORWARD_ETH_CALLS: false
-          ETH_CHAIN_ID: ${{ env.ETH_CHAIN_ID }}
-          ETH_CHAIN_CONFIG: ${{ env.ETH_CHAIN_CONFIG }}
-          DEPLOYER_PRIVATE_KEY: ${{ env.DEPLOYER_PRIVATE_KEY }}
         run: docker compose -f test/compose-server.yml up --wait --quiet-pull
-      - name: "Run tests"
-        env:
-          ETH_CHAIN_ID: ${{ env.ETH_CHAIN_ID }}
-          ETH_HTTP_PATH: ${{ env.ETH_HTTP_PATH }}
+      - name: Run tests
         run: |
+          sleep 30
           go install github.com/onsi/ginkgo/v2/ginkgo
           ginkgo -v --label-filter '!proxy' -r ./integration
 
-  integration-test-eth-proxy:
-    name: "Run direct-proxy integration tests"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version-file: 'go.mod'
-          check-latest: true
-      - name: "Install stack-orchestrator"
-        uses: actions/checkout@v3
-        with:
-          repository: cerc-io/stack-orchestrator
-          ref: roy/ipld-eth-ci
-          path: ./stack-orchestrator
-      - run: pip install ./stack-orchestrator
-      - name: "Run testnet stack"
+      - name: Run testnet stack without statediff
         env:
           CERC_RUN_STATEDIFF: false
+          SKIP_BUILD: 1
         run: ./scripts/integration-setup.sh
-      - name: "Build and run server"
+      - name: Run server with call forwarding
         env:
           ETH_FORWARD_ETH_CALLS: true
-          ETH_CHAIN_ID: ${{ env.ETH_CHAIN_ID }}
-          ETH_CHAIN_CONFIG: ${{ env.ETH_CHAIN_CONFIG }}
-          DEPLOYER_PRIVATE_KEY: ${{ env.DEPLOYER_PRIVATE_KEY }}
         run: docker compose -f test/compose-server.yml up --wait --quiet-pull
-      - name: "Run tests"
-        env:
-          ETH_CHAIN_ID: ${{ env.ETH_CHAIN_ID }}
-          ETH_HTTP_PATH: ${{ env.ETH_HTTP_PATH }}
+      - name: Run eth_call proxy tests
         run: |
+          sleep 30
           go install github.com/onsi/ginkgo/v2/ginkgo
           ginkgo -v --label-filter 'proxy' -r ./integration

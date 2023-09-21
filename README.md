@@ -60,7 +60,7 @@ The corresponding CLI flags can be found with the `./ipld-eth-server serve --hel
     password = "" # $DATABASE_PASSWORD
 
 [log]
-    level = "info" # $LOGRUS_LEVEL
+    level = "info" # $LOG_LEVEL
 
 [server]
     ipcPath = "~/.vulcanize/vulcanize.ipc" # $SERVER_IPC_PATH

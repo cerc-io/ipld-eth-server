@@ -1,31 +1,29 @@
-FROM golang:1.19-alpine as builder
-
-RUN apk --update --no-cache add gcc musl-dev
-# DEBUG
-RUN apk add busybox-extras
+FROM golang:1.19-alpine as debugger
 
 # Include dlv
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
+FROM golang:1.19-alpine as builder
+
+RUN apk --update --no-cache add gcc musl-dev binutils-gold git
+
 # Build ipld-eth-server
 WORKDIR /go/src/github.com/cerc-io/ipld-eth-server
+
+ARG GIT_VDBTO_TOKEN
 
 # Cache the modules
 ENV GO111MODULE=on
 COPY go.mod .
 COPY go.sum .
-RUN go mod download
+RUN if [ -n "$GIT_VDBTO_TOKEN" ]; then git config --global url."https://$GIT_VDBTO_TOKEN:@git.vdb.to/".insteadOf "https://git.vdb.to/"; fi && \
+    go mod download && \
+    rm -f ~/.gitconfig
 
 COPY . .
 
 # Build the binary
 RUN GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o ipld-eth-server .
-
-# Get migration tool
-WORKDIR /
-ARG GOOSE_VER="v3.6.1"
-ADD https://github.com/pressly/goose/releases/download/${GOOSE_VER}/goose_linux_x86_64 ./goose
-RUN chmod +x ./goose
 
 # app container
 FROM alpine
@@ -46,10 +44,9 @@ COPY --chown=5000:5000 --from=builder /go/src/github.com/cerc-io/ipld-eth-server
 
 # keep binaries immutable
 COPY --from=builder /go/src/github.com/cerc-io/ipld-eth-server/ipld-eth-server ipld-eth-server
-COPY --from=builder /goose goose
 COPY --from=builder /go/src/github.com/cerc-io/ipld-eth-server/environments environments
 
 # Allow for debugging
-COPY --from=builder  /go/bin/dlv /usr/local/bin/
+COPY --from=debugger  /go/bin/dlv /usr/local/bin/
 
 ENTRYPOINT ["/app/entrypoint.sh"]

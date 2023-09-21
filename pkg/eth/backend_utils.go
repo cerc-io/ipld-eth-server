@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"math/big"
 
+	nodeiter "github.com/cerc-io/eth-iterator-utils"
+	"github.com/cerc-io/plugeth-statediff/utils"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -32,7 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
-	nodeiter "github.com/ethereum/go-ethereum/trie/concurrent_iterator"
 
 	"github.com/cerc-io/ipld-eth-statedb/trie_by_cid/state"
 )
@@ -376,9 +377,9 @@ func extractContractAccountInfo(sdb state.Database, node StateNode, nodeElements
 	}
 
 	// Extract state leaf key
-	partialPath := trie.CompactToHex(nodeElements[0].([]byte))
+	partialPath := utils.CompactToHex(nodeElements[0].([]byte))
 	valueNodePath := append(node.Path, partialPath...)
-	encodedPath := trie.HexToCompact(valueNodePath)
+	encodedPath := utils.HexToCompact(valueNodePath)
 	leafKey := encodedPath[1:]
 	stateLeafKeyString := common.BytesToHash(leafKey).String()
 

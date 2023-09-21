@@ -21,7 +21,8 @@ jobs:
           do_not_skip: '["workflow_dispatch", "schedule"]'
   run-tests:
     uses: ./.github/workflows/tests.yaml
-    if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
+    if: false                   # see tests.yaml
+    # if: ${{ needs.pre_job.outputs.should_skip != 'true' }}
     needs: pre_job
   build:
     name: Run docker build

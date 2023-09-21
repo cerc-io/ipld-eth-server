@@ -4,9 +4,9 @@ import (
 	"context"
 	"math/big"
 
+	sdtypes "github.com/cerc-io/plugeth-statediff/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -18,7 +18,7 @@ var (
 	ipldMethod = "vdb_watchAddress"
 )
 
-var _ = Describe("WatchAddress integration test", func() {
+var _ = Describe("WatchAddress integration test", Ordered, func() {
 	var (
 		ctx = context.Background()
 
@@ -52,7 +52,7 @@ var _ = Describe("WatchAddress integration test", func() {
 		actualCountA3 *big.Int
 	)
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		var err error
 
 		gethRPCClient, err = rpc.Dial(gethHttpPath)
@@ -60,9 +60,7 @@ var _ = Describe("WatchAddress integration test", func() {
 
 		ipldRPCClient, err = rpc.Dial(ipldEthHttpPath)
 		Expect(err).ToNot(HaveOccurred())
-	})
 
-	It("test init", func() {
 		// Deploy three contracts
 		contract1, contractErr = integration.DeploySLVContract()
 		Expect(contractErr).ToNot(HaveOccurred())
@@ -79,7 +77,7 @@ var _ = Describe("WatchAddress integration test", func() {
 		countAIndex = common.HexToHash(storageSlotAKey.Key)
 
 		// Clear out watched addresses
-		err = integration.ClearWatchedAddresses(gethRPCClient)
+		err = gethRPCClient.Call(nil, gethMethod, sdtypes.Clear, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Get initial balances for all the contracts
@@ -130,9 +128,9 @@ var _ = Describe("WatchAddress integration test", func() {
 		prevCountA3 = big.NewInt(0)
 	})
 
-	defer It("test cleanup", func() {
+	AfterAll(func() {
 		// Clear out watched addresses
-		err := integration.ClearWatchedAddresses(gethRPCClient)
+		err := gethRPCClient.Call(nil, gethMethod, sdtypes.Clear, nil)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -144,6 +142,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract1.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance1.Add(actualBalance1, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance1AfterTransfer, err := ipldClient.BalanceAt(ctx, contract1.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -154,6 +153,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract2.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance2.Add(actualBalance2, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance2AfterTransfer, err := ipldClient.BalanceAt(ctx, contract2.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -164,6 +164,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract3.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance3.Add(actualBalance3, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance3AfterTransfer, err := ipldClient.BalanceAt(ctx, contract3.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -175,6 +176,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract1.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA1.Add(actualCountA1, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA1AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract1.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -186,6 +188,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract2.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA2.Add(actualCountA2, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA2AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract2.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -197,6 +200,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract3.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA3.Add(actualCountA3, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA3AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract3.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -224,6 +228,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract1.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance1.Add(actualBalance1, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance1AfterTransfer, err := ipldClient.BalanceAt(ctx, contract1.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -234,6 +239,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract2.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance2.Add(actualBalance2, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance2AfterTransfer, err := ipldClient.BalanceAt(ctx, contract2.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -243,6 +249,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract3.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance3.Add(actualBalance3, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance3AfterTransfer, err := ipldClient.BalanceAt(ctx, contract3.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -253,6 +260,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract1.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA1.Add(actualCountA1, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA1AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract1.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -264,6 +272,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract2.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA2.Add(actualCountA2, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA2AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract2.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -274,6 +283,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract3.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA3.Add(actualCountA3, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA3AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract3.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -300,6 +310,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract1.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance1.Add(actualBalance1, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance1AfterTransfer, err := ipldClient.BalanceAt(ctx, contract1.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -310,6 +321,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract2.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance2.Add(actualBalance2, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance2AfterTransfer, err := ipldClient.BalanceAt(ctx, contract2.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -320,6 +332,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract3.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance3.Add(actualBalance3, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance3AfterTransfer, err := ipldClient.BalanceAt(ctx, contract3.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -330,6 +343,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract1.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA1.Add(actualCountA1, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA1AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract1.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -341,6 +355,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract2.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA2.Add(actualCountA2, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA2AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract2.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -352,6 +367,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract3.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA3.Add(actualCountA3, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA3AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract3.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -378,6 +394,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract1.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance1.Add(actualBalance1, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance1AfterTransfer, err := ipldClient.BalanceAt(ctx, contract1.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -387,6 +404,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract2.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance2.Add(actualBalance2, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance2AfterTransfer, err := ipldClient.BalanceAt(ctx, contract2.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -397,6 +415,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract3.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance3.Add(actualBalance3, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance3AfterTransfer, err := ipldClient.BalanceAt(ctx, contract3.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -407,6 +426,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract1.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA1.Add(actualCountA1, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA1AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract1.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -417,6 +437,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract2.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA2.Add(actualCountA2, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA2AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract2.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -428,6 +449,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract3.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA3.Add(actualCountA3, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA3AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract3.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -458,6 +480,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract1.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance1.Add(actualBalance1, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance1AfterTransfer, err := ipldClient.BalanceAt(ctx, contract1.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -468,6 +491,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract2.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance2.Add(actualBalance2, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance2AfterTransfer, err := ipldClient.BalanceAt(ctx, contract2.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -477,6 +501,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract3.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance3.Add(actualBalance3, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance3AfterTransfer, err := ipldClient.BalanceAt(ctx, contract3.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -488,6 +513,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract1.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA1.Add(actualCountA1, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA1AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract1.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -499,6 +525,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract2.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA2.Add(actualCountA2, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA2AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract2.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -509,6 +536,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract3.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA3.Add(actualCountA3, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA3AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract3.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -531,6 +559,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract1.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance1.Add(actualBalance1, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance1AfterTransfer, err := ipldClient.BalanceAt(ctx, contract1.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -541,6 +570,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract2.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance2.Add(actualBalance2, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance2AfterTransfer, err := ipldClient.BalanceAt(ctx, contract2.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -551,6 +581,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			tx, txErr = integration.SendEth(contract3.Address, "0.01")
 			Expect(txErr).ToNot(HaveOccurred())
 			actualBalance3.Add(actualBalance3, big.NewInt(10000000000000000))
+			waitForBlock(ctx, ipldClient, tx.BlockNumber)
 
 			balance3AfterTransfer, err := ipldClient.BalanceAt(ctx, contract3.Address, big.NewInt(tx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
@@ -562,6 +593,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract1.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA1.Add(actualCountA1, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA1AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract1.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -573,6 +605,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract2.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA2.Add(actualCountA2, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA2AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract2.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())
@@ -584,6 +617,7 @@ var _ = Describe("WatchAddress integration test", func() {
 			inc, incErr = integration.IncrementCount("A", contract3.Address)
 			Expect(incErr).ToNot(HaveOccurred())
 			actualCountA3.Add(actualCountA3, big.NewInt(1))
+			waitForBlock(ctx, ipldClient, inc.BlockNumber.Int64())
 
 			countA3AfterIncrementStorage, err := ipldClient.StorageAt(ctx, contract3.Address, countAIndex, inc.BlockNumber)
 			Expect(err).ToNot(HaveOccurred())

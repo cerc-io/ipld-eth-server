@@ -7,8 +7,6 @@ import (
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff/types"
 )
 
 type ContractDeployed struct {
@@ -72,11 +70,3 @@ var (
 	IncrementCount     = MakeGetAndDecodeFunc[CountIncremented]("%s/v1/incrementCount%s?addr=%s")
 	Create2Contract    = MakeGetAndDecodeFunc[ContractDeployed]("%s/v1/create2Contract?contract=%s&salt=%s")
 )
-
-func ClearWatchedAddresses(gethRPCClient *rpc.Client) error {
-	gethMethod := "statediff_watchAddress"
-	args := []types.WatchAddressArg{}
-
-	// Clear watched addresses
-	return gethRPCClient.Call(nil, gethMethod, types.Clear, args)
-}

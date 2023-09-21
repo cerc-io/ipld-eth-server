@@ -19,6 +19,13 @@ package graphql_test
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"strconv"
+
+	statediff "github.com/cerc-io/plugeth-statediff"
+	"github.com/cerc-io/plugeth-statediff/adapt"
+	"github.com/cerc-io/plugeth-statediff/indexer/ipld"
+	sdtypes "github.com/cerc-io/plugeth-statediff/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
@@ -27,14 +34,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/statediff"
-	"github.com/ethereum/go-ethereum/statediff/indexer/ipld"
-	sdtypes "github.com/ethereum/go-ethereum/statediff/types"
 	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"math/big"
-	"strconv"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth/test_helpers"
@@ -86,7 +88,7 @@ var _ = BeforeSuite(func() {
 	chainConfig.LondonBlock = big.NewInt(100)
 	blocks, receipts, chain = test_helpers.MakeChain(5, test_helpers.Genesis, test_helpers.TestChainGen, chainConfig)
 	indexer := shared.SetupTestStateDiffIndexer(context.Background(), chainConfig, test_helpers.Genesis.Hash())
-	builder := statediff.NewBuilder(chain.StateCache())
+	builder := statediff.NewBuilder(adapt.GethStateView(chain.StateCache()))
 
 	// Insert some non-canonical data into the database so that we test our ability to discern canonicity
 	nonCanonBlockHash = test_helpers.MockBlock.Hash()

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Builds and deploys a stack with only what we need.
+# This script assumes we are running in the project root.
 
 set -e
 
@@ -15,20 +17,21 @@ echo CERC_STATEDIFF_DB_GOOSE_MIN_VER=18 >> $CONFIG_DIR/stack.env
 # Pass this in so we can run eth_call forwarding tests, which expect no IPLD DB
 echo CERC_RUN_STATEDIFF=${CERC_RUN_STATEDIFF:-true} >> $CONFIG_DIR/stack.env
 
-laconic_so="${LACONIC_SO:-laconic-so} --stack fixturenet-eth-loaded --quiet"
+laconic_so="${LACONIC_SO:-laconic-so} --stack fixturenet-plugeth-tx --verbose"
 
 set -x
 
-# Build and deploy a cluster with only what we need from the stack
-$laconic_so setup-repositories \
-    --exclude github.com/cerc-io/ipld-eth-server,github.com/cerc-io/tx-spammer \
-    --branches-file ./test/stack-refs.txt
+if [[ -z $SKIP_BUILD ]]; then
+    $laconic_so setup-repositories \
+        --exclude github.com/cerc-io/ipld-eth-server,github.com/cerc-io/tx-spammer,github.com/dboreham/foundry \
+        --branches-file ./test/stack-refs.txt
 
-$laconic_so build-containers \
-    --exclude cerc/ipld-eth-server,cerc/keycloak,cerc/tx-spammer
+    $laconic_so build-containers \
+        --exclude cerc/ipld-eth-server,cerc/keycloak,cerc/tx-spammer,cerc/foundry
+fi
 
 $laconic_so deploy \
-    --include fixturenet-eth,ipld-eth-db \
+    --include fixturenet-plugeth,ipld-eth-db \
     --env-file $CONFIG_DIR/stack.env \
     --cluster test up
 

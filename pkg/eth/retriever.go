@@ -22,10 +22,10 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/cerc-io/plugeth-statediff/indexer/models"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/statediff/indexer/models"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"gorm.io/driver/postgres"

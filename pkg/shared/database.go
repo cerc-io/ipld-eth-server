@@ -17,7 +17,7 @@
 package shared
 
 import (
-	"github.com/ethereum/go-ethereum/statediff/indexer/database/sql/postgres"
+	"github.com/cerc-io/plugeth-statediff/indexer/database/sql/postgres"
 	"github.com/jmoiron/sqlx"
 )
 

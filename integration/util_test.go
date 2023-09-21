@@ -25,5 +25,4 @@ func waitForBlock(ctx context.Context, client *ethclient.Client, target int64) e
 			time.Sleep(time.Second)
 		}
 	}
-
 }

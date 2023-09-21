@@ -59,7 +59,7 @@ func serve() {
 	if err != nil {
 		logWithCommand.Fatal(err)
 	}
-	logWithCommand.Debug("server config: %+v", serverConfig)
+	logWithCommand.Debugf("server config: %+v", serverConfig)
 	server, err := s.NewServer(serverConfig)
 	if err != nil {
 		logWithCommand.Fatal(err)
