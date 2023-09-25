@@ -1,0 +1,28 @@
+name: Publish Docker image
+on:
+  release:
+    types: [published, edited]
+jobs:
+  build:
+    name: Build and publish image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - id: vars
+        name: Output SHA and version tag
+        run: |
+          echo "sha=${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - name: Build and tag Docker image
+        env:
+          GIT_VDBTO_TOKEN: ${{ secrets.CICD_REPO_TOKEN }}
+        run: |
+          docker build . \
+            --build-arg GIT_VDBTO_TOKEN \
+            -t git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}} \
+            -t git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
+      - name: Push Docker tags
+        run: |
+          echo ${{ secrets.GITEA_PUBLISH_TOKEN }} | docker login https://git.vdb.to -u cerccicd --password-stdin
+          docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.sha}}
+          docker push git.vdb.to/cerc-io/ipld-eth-server/ipld-eth-server:${{steps.vars.outputs.tag}}
