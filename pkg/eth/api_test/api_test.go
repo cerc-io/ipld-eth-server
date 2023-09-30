@@ -219,6 +219,7 @@ var _ = BeforeSuite(func() {
 	api, _ = eth.NewPublicEthAPI(backend, nil, eth.APIConfig{StateDiffTimeout: shared.DefaultStateDiffTimeout})
 	tx, err = indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 	Expect(err).ToNot(HaveOccurred())
+	defer tx.RollbackOnFailure(err)
 
 	ipld := sdtypes.IPLD{
 		CID:     ipld.Keccak256ToCid(ipld.RawBinary, test_helpers.CodeHash.Bytes()).String(),
@@ -232,7 +233,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	err = tx.Submit(err)
+	err = tx.Submit()
 	Expect(err).ToNot(HaveOccurred())
 
 	uncles := test_helpers.MockBlock.Uncles()
@@ -248,8 +249,9 @@ var _ = BeforeSuite(func() {
 
 	tx, err = indexAndPublisher.PushBlock(test_helpers.MockLondonBlock, test_helpers.MockLondonReceipts, test_helpers.MockLondonBlock.Difficulty())
 	Expect(err).ToNot(HaveOccurred())
+	defer tx.RollbackOnFailure(err)
 
-	err = tx.Submit(err)
+	err = tx.Submit()
 	Expect(err).ToNot(HaveOccurred())
 })
 

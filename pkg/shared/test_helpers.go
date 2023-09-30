@@ -93,7 +93,7 @@ func SetupTestStateDiffIndexer(ctx context.Context, chainConfig *params.ChainCon
 
 	dbconfig, err := postgres.TestConfig.WithEnv()
 	Expect(err).NotTo(HaveOccurred())
-	_, stateDiffIndexer, err := indexer.NewStateDiffIndexer(ctx, chainConfig, testInfo, dbconfig)
+	_, stateDiffIndexer, err := indexer.NewStateDiffIndexer(ctx, chainConfig, testInfo, dbconfig, true)
 	Expect(err).NotTo(HaveOccurred())
 
 	return stateDiffIndexer

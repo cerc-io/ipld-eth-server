@@ -168,15 +168,17 @@ var _ = BeforeSuite(func() {
 
 	tx, err := indexAndPublisher.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 	Expect(err).ToNot(HaveOccurred())
+	defer tx.RollbackOnFailure(err)
 
-	err = tx.Submit(err)
+	err = tx.Submit()
 	Expect(err).ToNot(HaveOccurred())
 
 	// The non-canonical header has a child
 	tx, err = indexAndPublisher.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
 	Expect(err).ToNot(HaveOccurred())
+	defer tx.RollbackOnFailure(err)
 
-	err = tx.Submit(err)
+	err = tx.Submit()
 	Expect(err).ToNot(HaveOccurred())
 
 	// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
@@ -204,6 +206,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred())
 		tx, err := transformer.PushBlock(block, rcts, mockTD)
 		Expect(err).ToNot(HaveOccurred())
+		defer tx.RollbackOnFailure(err)
 
 		for _, node := range diff.Nodes {
 			err = transformer.PushStateNode(tx, node, block.Hash().String())
@@ -215,7 +218,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		err = tx.Submit(err)
+		err = tx.Submit()
 		Expect(err).ToNot(HaveOccurred())
 	}
 

@@ -53,12 +53,13 @@ var _ = Describe("Retriever", func() {
 	It("Retrieve", func() {
 		tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 		Expect(err).ToNot(HaveOccurred())
+		defer tx.RollbackOnFailure(err)
 		for _, node := range test_helpers.MockStateNodes {
 			err = diffIndexer.PushStateNode(tx, node, test_helpers.MockBlock.Hash().String())
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		err = tx.Submit(err)
+		err = tx.Submit()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -70,8 +71,9 @@ var _ = Describe("Retriever", func() {
 		It("Gets the number of the first block that has data in the database", func() {
 			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
+			defer tx.RollbackOnFailure(err)
 
-			err = tx.Submit(err)
+			err = tx.Submit()
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveFirstBlockNumber()
@@ -84,8 +86,9 @@ var _ = Describe("Retriever", func() {
 			payload.Block = newMockBlock(1010101)
 			tx, err := diffIndexer.PushBlock(payload.Block, payload.Receipts, payload.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
+			defer tx.RollbackOnFailure(err)
 
-			err = tx.Submit(err)
+			err = tx.Submit()
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveFirstBlockNumber()
@@ -100,12 +103,14 @@ var _ = Describe("Retriever", func() {
 			payload2.Block = newMockBlock(5)
 			tx, err := diffIndexer.PushBlock(payload1.Block, payload1.Receipts, payload1.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Submit(err)
+			defer tx.RollbackOnFailure(err)
+			err = tx.Submit()
 			Expect(err).ToNot(HaveOccurred())
 
 			tx, err = diffIndexer.PushBlock(payload2.Block, payload2.Receipts, payload2.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Submit(err)
+			defer tx.RollbackOnFailure(err)
+			err = tx.Submit()
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveFirstBlockNumber()
@@ -122,7 +127,8 @@ var _ = Describe("Retriever", func() {
 		It("Gets the number of the latest block that has data in the database", func() {
 			tx, err := diffIndexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Submit(err)
+			defer tx.RollbackOnFailure(err)
+			err = tx.Submit()
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveLastBlockNumber()
@@ -135,8 +141,9 @@ var _ = Describe("Retriever", func() {
 			payload.Block = newMockBlock(1010101)
 			tx, err := diffIndexer.PushBlock(payload.Block, payload.Receipts, payload.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
+			defer tx.RollbackOnFailure(err)
 
-			err = tx.Submit(err)
+			err = tx.Submit()
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveLastBlockNumber()
@@ -151,12 +158,14 @@ var _ = Describe("Retriever", func() {
 			payload2.Block = newMockBlock(5)
 			tx, err := diffIndexer.PushBlock(payload1.Block, payload1.Receipts, payload1.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Submit(err)
+			defer tx.RollbackOnFailure(err)
+			err = tx.Submit()
 			Expect(err).ToNot(HaveOccurred())
 
 			tx, err = diffIndexer.PushBlock(payload2.Block, payload2.Receipts, payload2.Block.Difficulty())
 			Expect(err).ToNot(HaveOccurred())
-			err = tx.Submit(err)
+			defer tx.RollbackOnFailure(err)
+			err = tx.Submit()
 			Expect(err).ToNot(HaveOccurred())
 
 			num, err := retriever.RetrieveLastBlockNumber()

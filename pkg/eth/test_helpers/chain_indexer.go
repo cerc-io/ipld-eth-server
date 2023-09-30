@@ -60,6 +60,7 @@ func IndexChain(params IndexChainParams) error {
 		if err != nil {
 			return err
 		}
+		defer tx.RollbackOnFailure(err)
 
 		if !params.SkipStateNodes {
 			for _, node := range diff.Nodes {
@@ -75,7 +76,7 @@ func IndexChain(params IndexChainParams) error {
 				}
 			}
 		}
-		if err = tx.Submit(err); err != nil {
+		if err = tx.Submit(); err != nil {
 			return err
 		}
 	}

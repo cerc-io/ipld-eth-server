@@ -96,13 +96,15 @@ var _ = BeforeSuite(func() {
 
 	tx, err := indexer.PushBlock(test_helpers.MockBlock, test_helpers.MockReceipts, test_helpers.MockBlock.Difficulty())
 	Expect(err).ToNot(HaveOccurred())
+	defer tx.RollbackOnFailure(err)
 
-	err = tx.Submit(err)
+	err = tx.Submit()
 	Expect(err).ToNot(HaveOccurred())
 
 	// The non-canonical header has a child
 	tx, err = indexer.PushBlock(test_helpers.MockChild, test_helpers.MockReceipts, test_helpers.MockChild.Difficulty())
 	Expect(err).ToNot(HaveOccurred())
+	defer tx.RollbackOnFailure(err)
 
 	ipld := sdtypes.IPLD{
 		CID:     ipld.Keccak256ToCid(ipld.RawBinary, test_helpers.CodeHash.Bytes()).String(),
@@ -111,7 +113,7 @@ var _ = BeforeSuite(func() {
 	err = indexer.PushIPLD(tx, ipld)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = tx.Submit(err)
+	err = tx.Submit()
 	Expect(err).ToNot(HaveOccurred())
 
 	// iterate over the blocks, generating statediff payloads, and transforming the data into Postgres
@@ -135,8 +137,9 @@ var _ = BeforeSuite(func() {
 			rcts = receipts[i-1]
 		}
 
-		tx, err := indexer.PushBlock(block, rcts, mockTD)
+		tx, err = indexer.PushBlock(block, rcts, mockTD)
 		Expect(err).ToNot(HaveOccurred())
+		defer tx.RollbackOnFailure(err)
 
 		diff, err := builder.BuildStateDiffObject(args, statediff.Params{})
 		Expect(err).ToNot(HaveOccurred())
@@ -151,7 +154,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		err = tx.Submit(err)
+		err = tx.Submit()
 		Expect(err).ToNot(HaveOccurred())
 	}
 
