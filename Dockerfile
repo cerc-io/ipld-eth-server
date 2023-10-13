@@ -1,9 +1,9 @@
-FROM golang:1.19-alpine as debugger
+FROM golang:1.21-alpine as debugger
 
 # Include dlv
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
-FROM golang:1.19-alpine as builder
+FROM golang:1.21-alpine as builder
 
 RUN apk --update --no-cache add gcc musl-dev binutils-gold git
 
@@ -27,6 +27,8 @@ RUN GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -
 
 # app container
 FROM alpine
+
+RUN apk --update --no-cache add bash jq curl
 
 ARG USER="vdm"
 ARG CONFIG_FILE="./environments/example.toml"

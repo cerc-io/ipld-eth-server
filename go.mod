@@ -8,7 +8,7 @@ require (
 	github.com/cerc-io/ipfs-ethdb/v5 v5.0.0-alpha
 	github.com/cerc-io/ipld-eth-statedb v0.0.5-alpha
 	github.com/cerc-io/plugeth-statediff v0.1.1
-	github.com/ethereum/go-ethereum v1.11.6
+	github.com/ethereum/go-ethereum v1.12.0 // TODO: Investigate
 	github.com/google/uuid v1.3.0
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/ipfs/go-cid v0.4.1
@@ -23,6 +23,9 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
+	github.com/statechannels/go-nitro v0.1.1
+	github.com/tidwall/buntdb v1.2.10
+	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	gorm.io/driver/postgres v1.3.7
 	gorm.io/gorm v1.23.5
 )
@@ -77,6 +80,7 @@ require (
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.0.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
@@ -230,6 +234,13 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
 	github.com/thoas/go-funk v0.9.3 // indirect
+	github.com/tidwall/btree v1.6.0 // indirect
+	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/grect v0.1.4 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/rtred v0.1.2 // indirect
+	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
@@ -254,7 +265,6 @@ require (
 	go.uber.org/zap v1.25.0 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/crypto v0.12.0 // indirect
-	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
@@ -291,3 +301,5 @@ replace (
 	// https://git.vdb.to/cerc-io/ipfs-ethdb/src/branch/v5-go-upgrade
 	github.com/cerc-io/ipfs-ethdb/v5 => github.com/cerc-io/ipfs-ethdb/v5 v5.0.1-alpha.0.20231013070931-0b1a36562a28
 )
+
+replace github.com/statechannels/go-nitro v0.1.1 => github.com/cerc-io/go-nitro v0.1.1-ts-port-0.1.7

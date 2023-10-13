@@ -79,7 +79,27 @@ const (
 	DATABASE_MAX_IDLE_CONNECTIONS = "DATABASE_MAX_IDLE_CONNECTIONS"
 	DATABASE_MAX_OPEN_CONNECTIONS = "DATABASE_MAX_OPEN_CONNECTIONS"
 	DATABASE_MAX_CONN_LIFETIME    = "DATABASE_MAX_CONN_LIFETIME"
+
+	NITRO_PK                   = "NITRO_PK"
+	NITRO_CHAIN_PK             = "NITRO_CHAIN_PK"
+	NITRO_CHAIN_URL            = "NITRO_CHAIN_URL"
+	NITRO_NA_ADDRESS           = "NITRO_NA_ADDRESS"
+	NITRO_VPA_ADDRESS          = "NITRO_VPA_ADDRESS"
+	NITRO_CA_ADDRESS           = "NITRO_CA_ADDRESS"
+	NITRO_USE_DURABLE_STORE    = "NITRO_USE_DURABLE_STORE"
+	NITRO_DURABLE_STORE_FOLDER = "NITRO_DURABLE_STORE_FOLDER"
 )
+
+type NitroConfig struct {
+	Pk                 string
+	ChainPk            string
+	ChainUrl           string
+	NaAddress          string
+	VpaAddress         string
+	CaAddress          string
+	UseDurableStore    bool
+	DurableStoreFolder string
+}
 
 // Config struct
 type Config struct {
@@ -116,6 +136,8 @@ type Config struct {
 
 	StateValidationEnabled       bool
 	StateValidationEveryNthBlock uint64
+
+	Nitro *NitroConfig
 }
 
 // NewConfig is used to initialize a watcher config from a .toml file
@@ -248,6 +270,8 @@ func NewConfig() (*Config, error) {
 
 	c.loadValidatorConfig()
 
+	c.loadNitroConfig()
+
 	return c, err
 }
 
@@ -278,6 +302,28 @@ func (c *Config) dbInit() {
 	c.DBConfig.MaxIdle = viper.GetInt("database.maxIdle")
 	c.DBConfig.MaxConns = viper.GetInt("database.maxOpen")
 	c.DBConfig.MaxConnLifetime = time.Duration(viper.GetInt("database.maxLifetime"))
+}
+
+func (c *Config) loadNitroConfig() {
+	c.Nitro = &NitroConfig{}
+
+	viper.BindEnv("nitro.pk", NITRO_PK)
+	viper.BindEnv("nitro.chainPk", NITRO_CHAIN_PK)
+	viper.BindEnv("nitro.chainUrl", NITRO_CHAIN_URL)
+	viper.BindEnv("nitro.naAddress", NITRO_NA_ADDRESS)
+	viper.BindEnv("nitro.vpaAddress", NITRO_VPA_ADDRESS)
+	viper.BindEnv("nitro.caAddress", NITRO_CA_ADDRESS)
+	viper.BindEnv("nitro.useDurableStore", NITRO_USE_DURABLE_STORE)
+	viper.BindEnv("nitro.durableStoreFolder", NITRO_DURABLE_STORE_FOLDER)
+
+	c.Nitro.Pk = viper.GetString("nitro.pk")
+	c.Nitro.ChainPk = viper.GetString("nitro.chainPk")
+	c.Nitro.ChainUrl = viper.GetString("nitro.chainUrl")
+	c.Nitro.NaAddress = viper.GetString("nitro.naAddress")
+	c.Nitro.VpaAddress = viper.GetString("nitro.vpaAddress")
+	c.Nitro.CaAddress = viper.GetString("nitro.caAddress")
+	c.Nitro.UseDurableStore = viper.GetBool("nitro.useDurableStore")
+	c.Nitro.DurableStoreFolder = viper.GetString("nitro.durableStoreFolder")
 }
 
 func (c *Config) loadGroupCacheConfig() {

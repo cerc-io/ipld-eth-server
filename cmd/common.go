@@ -35,3 +35,25 @@ func addDatabaseFlags(command *cobra.Command) {
 	viper.BindPFlag("database.user", command.PersistentFlags().Lookup("database-user"))
 	viper.BindPFlag("database.password", command.PersistentFlags().Lookup("database-password"))
 }
+
+func addNitroFlags(command *cobra.Command) {
+	// nitro flags
+	command.PersistentFlags().String("nitro-pk", "", "nitro pk")
+	command.PersistentFlags().String("nitro-chain-pk", "", "nitro chainPk")
+	command.PersistentFlags().String("nitro-chain-url", "", "nitro chainUrl")
+	command.PersistentFlags().String("nitro-na-address", "", "nitro naAddress")
+	command.PersistentFlags().String("nitro-vpa-address", "", "nitro vpaAddress")
+	command.PersistentFlags().String("nitro-ca-address", "", "nitro caAddress")
+	command.PersistentFlags().Bool("nitro-use-durable-store", false, "nitro useDurableStore")
+	command.PersistentFlags().String("nitro-durable-store-folder", "", "nitro durableStoreFolder")
+
+	// nitro flag bindings
+	viper.BindPFlag("nitro.pk", command.PersistentFlags().Lookup("nitro-pk"))
+	viper.BindPFlag("nitro.chainPk", command.PersistentFlags().Lookup("nitro-chain-pk"))
+	viper.BindPFlag("nitro.chainUrl", command.PersistentFlags().Lookup("nitro-chain-url"))
+	viper.BindPFlag("nitro.naAddress", command.PersistentFlags().Lookup("nitro-na-address"))
+	viper.BindPFlag("nitro.vpaAddress", command.PersistentFlags().Lookup("nitro-vpa-address"))
+	viper.BindPFlag("nitro.caAddress", command.PersistentFlags().Lookup("nitro-ca-address"))
+	viper.BindPFlag("nitro.useDurableStore", command.PersistentFlags().Lookup("nitro-use-durable-store"))
+	viper.BindPFlag("nitro.durableStoreFolder", command.PersistentFlags().Lookup("nitro-durable-store"))
+}

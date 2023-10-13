@@ -18,27 +18,32 @@ package rpc
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/statechannels/go-nitro/paymentsmanager"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/prom"
 )
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules.
-func StartHTTPEndpoint(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeouts rpc.HTTPTimeouts) (*rpc.Server, error) {
-
+// TODO: Absorb voucherValidator and queryRates args into existing ones
+func StartHTTPEndpoint(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeouts rpc.HTTPTimeouts, voucherValidator paymentsmanager.VoucherValidator, queryRates map[string]*big.Int) (*rpc.Server, error) {
 	srv := rpc.NewServer()
 	err := node.RegisterApis(apis, modules, srv)
 	if err != nil {
 		utils.Fatalf("Could not register HTTP API: %w", err)
 	}
-	handler := prom.HTTPMiddleware(node.NewHTTPHandlerStack(srv, cors, vhosts, nil))
+
+	promHandler := prom.HTTPMiddleware(node.NewHTTPHandlerStack(srv, cors, vhosts, nil))
+	paymentHandler := paymentsmanager.HTTPMiddleware(promHandler, voucherValidator, queryRates)
 
 	// start http server
-	_, addr, err := node.StartHTTPEndpoint(endpoint, rpc.DefaultHTTPTimeouts, handler)
+	// request -> payments -> metrics -> server
+	_, addr, err := node.StartHTTPEndpoint(endpoint, rpc.DefaultHTTPTimeouts, paymentHandler)
 	if err != nil {
 		utils.Fatalf("Could not start RPC api: %v", err)
 	}
