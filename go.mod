@@ -24,7 +24,6 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
 	github.com/statechannels/go-nitro v0.1.1
-	github.com/tidwall/buntdb v1.2.10
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	gorm.io/driver/postgres v1.3.7
 	gorm.io/gorm v1.23.5
@@ -235,6 +234,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
 	github.com/thoas/go-funk v0.9.3 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
+	github.com/tidwall/buntdb v1.2.10 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/grect v0.1.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -302,4 +302,6 @@ replace (
 	github.com/cerc-io/ipfs-ethdb/v5 => github.com/cerc-io/ipfs-ethdb/v5 v5.0.1-alpha.0.20231013070931-0b1a36562a28
 )
 
-replace github.com/statechannels/go-nitro v0.1.1 => github.com/cerc-io/go-nitro v0.1.1-ts-port-0.1.7
+// TODO: Use release
+// https://github.com/cerc-io/go-nitro/tree/ts-interop
+replace github.com/statechannels/go-nitro v0.1.1 => github.com/cerc-io/go-nitro v0.1.2-ts-port-0.1.8.0.20231018070130-e66ac486a763

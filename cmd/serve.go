@@ -16,6 +16,7 @@
 package cmd
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"math/big"
@@ -35,10 +36,9 @@ import (
 	"github.com/spf13/viper"
 	"github.com/statechannels/go-nitro/node/engine"
 	"github.com/statechannels/go-nitro/node/engine/chainservice"
-	"github.com/statechannels/go-nitro/node/engine/store"
+	nitroStore "github.com/statechannels/go-nitro/node/engine/store"
 	"github.com/statechannels/go-nitro/paymentsmanager"
 	"github.com/statechannels/go-nitro/rpc/transport"
-	"github.com/tidwall/buntdb"
 	"golang.org/x/exp/slog"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/graphql"
@@ -69,6 +69,8 @@ func serve() {
 	logWithCommand.Infof("ipld-eth-server version: %s", v.VersionWithMeta)
 
 	wg := new(sync.WaitGroup)
+	defer wg.Wait()
+
 	serverConfig, err := s.NewConfig()
 	if err != nil {
 		logWithCommand.Fatal(err)
@@ -90,19 +92,58 @@ func serve() {
 
 	server.Serve(wg)
 
-	nitroNode, err := initializeNitroNode(serverConfig.Nitro)
-	if err != nil {
-		logWithCommand.Fatal(err)
+	var voucherValidator paymentsmanager.VoucherValidator
+
+	// TODO: Refactor into a function / subcommand
+	nitroConfig := serverConfig.Nitro
+	if nitroConfig.RunNodeInProcess {
+		log.Info("Running an in-process Nitro node")
+
+		nitroNode, err := initNitroNode(&nitroConfig.InProcessNode)
+		if err != nil {
+			logWithCommand.Fatal(err)
+		}
+
+		pm, err := paymentsmanager.NewPaymentsManager(nitroNode)
+		if err != nil {
+			logWithCommand.Fatal(err)
+		}
+		pm.Start(wg)
+		defer pm.Stop()
+
+		// TODO: Read from config file
+		rpcPort := 4005
+		tlsCertFilepath := ""
+		tlsKeyFilepath := ""
+
+		var cert *tls.Certificate
+		if tlsCertFilepath != "" && tlsKeyFilepath != "" {
+			*cert, err = tls.LoadX509KeyPair(tlsCertFilepath, tlsKeyFilepath)
+			if err != nil {
+				logWithCommand.Fatal(err)
+			}
+		}
+
+		nitroRpcServer, err := initNitroRpcServer(nitroNode, pm, cert, rpcPort)
+		if err != nil {
+			logWithCommand.Fatal(err)
+		}
+		defer nitroRpcServer.Close()
+
+		voucherValidator = paymentsmanager.InProcessVoucherValidator{PaymentsManager: pm}
+	} else {
+		log.Info("Connecting to a remote Nitro node")
+
+		// TODO: Read from config file
+		isSecure := false
+		nitroRpcClient, err := nitroRpc.NewHttpRpcClient(nitroConfig.RemoteNode.NitroEndpoint, isSecure)
+		if err != nil {
+			logWithCommand.Fatal(err)
+		}
+		defer nitroRpcClient.Close()
+
+		voucherValidator = nitroRpc.RemoteVoucherValidator{Client: nitroRpcClient}
 	}
-
-	pm, err := paymentsmanager.NewPaymentsManager(nitroNode)
-	if err != nil {
-		logWithCommand.Fatal(err)
-	}
-
-	pm.Start(wg)
-
-	voucherValidator := paymentsmanager.InProcessVoucherValidator{PaymentsManager: pm}
 
 	// TODO: Read from config file
 	queryRates := map[string]*big.Int{
@@ -110,13 +151,6 @@ func serve() {
 		"eth_getBlockByHash":   big.NewInt(50),
 		"eth_getStorageAt":     big.NewInt(50),
 		"eth_getLogs":          big.NewInt(50),
-	}
-
-	// TODO: Read from config file
-	rpcPort := 4005
-	nitroRpcServer, err := initializeNitroRpcServer(nitroNode, rpcPort)
-	if err != nil {
-		logWithCommand.Fatal(err)
 	}
 
 	if err := startServers(server, serverConfig, voucherValidator, queryRates); err != nil {
@@ -146,10 +180,6 @@ func serve() {
 		graphQL.Stop()
 	}
 	server.Stop()
-	pm.Stop()
-	nitroRpcServer.Close()
-
-	wg.Wait()
 }
 
 // TODO: Absorb voucherValidator and queryRates args into existing ones
@@ -391,19 +421,19 @@ func init() {
 }
 
 // https://github.com/cerc-io/go-nitro/blob/release-v0.1.1-ts-port-0.1.7/internal/node/node.go#L17
-func initializeNitroNode(nitroConfig *s.NitroConfig) (*nitroNode.Node, error) {
+func initNitroNode(config *s.InProcessNitroNodeConfig) (*nitroNode.Node, error) {
 	// TODO: Read from config file
-	pkString := nitroConfig.Pk
-	useDurableStore := nitroConfig.UseDurableStore
-	durableStoreFolder := nitroConfig.DurableStoreFolder
+	pkString := config.Pk
+	useDurableStore := config.UseDurableStore
+	durableStoreFolder := config.DurableStoreFolder
 	msgPort := 3005
 	wsMsgPort := 5005
-	chainUrl := nitroConfig.ChainUrl
+	chainUrl := config.ChainUrl
 	chainStartBlock := uint64(0)
-	chainPk := nitroConfig.ChainPk
-	naAddress := nitroConfig.NaAddress
-	vpaAddress := nitroConfig.VpaAddress
-	caAddress := nitroConfig.CaAddress
+	chainPk := config.ChainPk
+	naAddress := config.NaAddress
+	vpaAddress := config.VpaAddress
+	caAddress := config.CaAddress
 
 	chainAuthToken := ""
 	publicIp := "0.0.0.0"
@@ -418,14 +448,28 @@ func initializeNitroNode(nitroConfig *s.NitroConfig) (*nitroNode.Node, error) {
 		CaAddress:       common.HexToAddress(caAddress),
 	}
 
-	ourStore, err := store.NewStore(common.Hex2Bytes(pkString), useDurableStore, durableStoreFolder, buntdb.Config{})
+	storeOpts := nitroStore.StoreOpts{
+		PkBytes:            common.Hex2Bytes(pkString),
+		UseDurableStore:    useDurableStore,
+		DurableStoreFolder: durableStoreFolder,
+	}
+
+	bootPeers := []string{}
+	messageOpts := nitrop2pms.MessageOpts{
+		PkBytes:   common.Hex2Bytes(pkString),
+		TcpPort:   msgPort,
+		WsMsgPort: wsMsgPort,
+		BootPeers: bootPeers,
+		PublicIp:  publicIp,
+	}
+
+	ourStore, err := nitroStore.NewStore(storeOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	bootPeers := []string{}
 	log.Info("Initializing message service...", " tcp port=", msgPort, " web socket port=", wsMsgPort)
-	messageService := nitrop2pms.NewMessageService(publicIp, msgPort, wsMsgPort, *ourStore.GetAddress(), common.Hex2Bytes(pkString), bootPeers)
+	messageService := nitrop2pms.NewMessageService(messageOpts)
 
 	// Compare chainOpts.ChainStartBlock to lastBlockNum seen in store. The larger of the two
 	// gets passed as an argument when creating NewEthChainService
@@ -453,17 +497,17 @@ func initializeNitroNode(nitroConfig *s.NitroConfig) (*nitroNode.Node, error) {
 	return &node, nil
 }
 
-func initializeNitroRpcServer(node *nitroNode.Node, rpcPort int) (*nitroRpc.RpcServer, error) {
+func initNitroRpcServer(node *nitroNode.Node, pm paymentsmanager.PaymentsManager, cert *tls.Certificate, rpcPort int) (*nitroRpc.RpcServer, error) {
 	var transport transport.Responder
 	var err error
 
 	slog.Info("Initializing Nitro HTTP RPC transport...")
-	transport, err = nitroHttpTransport.NewHttpTransportAsServer(fmt.Sprint(rpcPort))
+	transport, err = nitroHttpTransport.NewHttpTransportAsServer(fmt.Sprint(rpcPort), cert)
 	if err != nil {
 		return nil, err
 	}
 
-	rpcServer, err := nitroRpc.NewRpcServer(node, transport)
+	rpcServer, err := nitroRpc.NewRpcServer(node, pm, transport)
 	if err != nil {
 		return nil, err
 	}

@@ -80,6 +80,7 @@ const (
 	DATABASE_MAX_OPEN_CONNECTIONS = "DATABASE_MAX_OPEN_CONNECTIONS"
 	DATABASE_MAX_CONN_LIFETIME    = "DATABASE_MAX_CONN_LIFETIME"
 
+	NITRO_RUN_NODE_IN_PROCESS  = "NITRO_RUN_NODE_IN_PROCESS"
 	NITRO_PK                   = "NITRO_PK"
 	NITRO_CHAIN_PK             = "NITRO_CHAIN_PK"
 	NITRO_CHAIN_URL            = "NITRO_CHAIN_URL"
@@ -88,9 +89,10 @@ const (
 	NITRO_CA_ADDRESS           = "NITRO_CA_ADDRESS"
 	NITRO_USE_DURABLE_STORE    = "NITRO_USE_DURABLE_STORE"
 	NITRO_DURABLE_STORE_FOLDER = "NITRO_DURABLE_STORE_FOLDER"
+	NITRO_ENDPOINT             = "NITRO_ENDPOINT"
 )
 
-type NitroConfig struct {
+type InProcessNitroNodeConfig struct {
 	Pk                 string
 	ChainPk            string
 	ChainUrl           string
@@ -99,6 +101,16 @@ type NitroConfig struct {
 	CaAddress          string
 	UseDurableStore    bool
 	DurableStoreFolder string
+}
+
+type RemoteNitroNodeConfig struct {
+	NitroEndpoint string
+}
+
+type NitroConfig struct {
+	RunNodeInProcess bool
+	InProcessNode    InProcessNitroNodeConfig
+	RemoteNode       RemoteNitroNodeConfig
 }
 
 // Config struct
@@ -305,25 +317,33 @@ func (c *Config) dbInit() {
 }
 
 func (c *Config) loadNitroConfig() {
-	c.Nitro = &NitroConfig{}
+	c.Nitro = &NitroConfig{InProcessNode: InProcessNitroNodeConfig{}, RemoteNode: RemoteNitroNodeConfig{}}
 
-	viper.BindEnv("nitro.pk", NITRO_PK)
-	viper.BindEnv("nitro.chainPk", NITRO_CHAIN_PK)
-	viper.BindEnv("nitro.chainUrl", NITRO_CHAIN_URL)
-	viper.BindEnv("nitro.naAddress", NITRO_NA_ADDRESS)
-	viper.BindEnv("nitro.vpaAddress", NITRO_VPA_ADDRESS)
-	viper.BindEnv("nitro.caAddress", NITRO_CA_ADDRESS)
-	viper.BindEnv("nitro.useDurableStore", NITRO_USE_DURABLE_STORE)
-	viper.BindEnv("nitro.durableStoreFolder", NITRO_DURABLE_STORE_FOLDER)
+	viper.BindEnv("nitro.runNodeInProcess", NITRO_RUN_NODE_IN_PROCESS)
 
-	c.Nitro.Pk = viper.GetString("nitro.pk")
-	c.Nitro.ChainPk = viper.GetString("nitro.chainPk")
-	c.Nitro.ChainUrl = viper.GetString("nitro.chainUrl")
-	c.Nitro.NaAddress = viper.GetString("nitro.naAddress")
-	c.Nitro.VpaAddress = viper.GetString("nitro.vpaAddress")
-	c.Nitro.CaAddress = viper.GetString("nitro.caAddress")
-	c.Nitro.UseDurableStore = viper.GetBool("nitro.useDurableStore")
-	c.Nitro.DurableStoreFolder = viper.GetString("nitro.durableStoreFolder")
+	viper.BindEnv("nitro.inProcesssNode.pk", NITRO_PK)
+	viper.BindEnv("nitro.inProcesssNode.chainPk", NITRO_CHAIN_PK)
+	viper.BindEnv("nitro.inProcesssNode.chainUrl", NITRO_CHAIN_URL)
+	viper.BindEnv("nitro.inProcesssNode.naAddress", NITRO_NA_ADDRESS)
+	viper.BindEnv("nitro.inProcesssNode.vpaAddress", NITRO_VPA_ADDRESS)
+	viper.BindEnv("nitro.inProcesssNode.caAddress", NITRO_CA_ADDRESS)
+	viper.BindEnv("nitro.inProcesssNode.useDurableStore", NITRO_USE_DURABLE_STORE)
+	viper.BindEnv("nitro.inProcesssNode.durableStoreFolder", NITRO_DURABLE_STORE_FOLDER)
+
+	viper.BindEnv("nitro.remoteNode.nitroEndpoint", NITRO_ENDPOINT)
+
+	c.Nitro.RunNodeInProcess = viper.GetBool("nitro.runNodeInProcess")
+
+	c.Nitro.InProcessNode.Pk = viper.GetString("nitro.inProcesssNode.pk")
+	c.Nitro.InProcessNode.ChainPk = viper.GetString("nitro.inProcesssNode.chainPk")
+	c.Nitro.InProcessNode.ChainUrl = viper.GetString("nitro.inProcesssNode.chainUrl")
+	c.Nitro.InProcessNode.NaAddress = viper.GetString("nitro.inProcesssNode.naAddress")
+	c.Nitro.InProcessNode.VpaAddress = viper.GetString("nitro.inProcesssNode.vpaAddress")
+	c.Nitro.InProcessNode.CaAddress = viper.GetString("nitro.inProcesssNode.caAddress")
+	c.Nitro.InProcessNode.UseDurableStore = viper.GetBool("nitro.inProcesssNode.useDurableStore")
+	c.Nitro.InProcessNode.DurableStoreFolder = viper.GetString("nitro.inProcesssNode.durableStoreFolder")
+
+	c.Nitro.RemoteNode.NitroEndpoint = viper.GetString("nitro.remoteNode.nitroEndpoint")
 }
 
 func (c *Config) loadGroupCacheConfig() {

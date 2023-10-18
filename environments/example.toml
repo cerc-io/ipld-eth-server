@@ -33,11 +33,17 @@
     networkID = "1" # $ETH_NETWORK_ID
 
 [nitro]
-    pk = "" # NITRO_PK
-    chainPk = "" # NITRO_CHAIN_PK
-    chainUrl = "" # NITRO_CHAIN_URL
-    naAddress = "" # NITRO_NA_ADDRESS
-    vpaAddress = "" # NITRO_VPA_ADDRESS
-    caAddress = "" # NITRO_CA_ADDRESS
-    useDurableStore = false # NITRO_USE_DURABLE_STORE
-    durableStoreFolder = "" # NITRO_DURABLE_STORE_FOLDER
+    runNodeInProcess = false # NITRO_RUN_NODE_IN_PROCESS
+
+    [nitro.inProcesssNode]
+        pk = "" # NITRO_PK
+        chainPk = "" # NITRO_CHAIN_PK
+        chainUrl = "ws://127.0.0.1:8545" # NITRO_CHAIN_URL
+        naAddress = "" # NITRO_NA_ADDRESS
+        vpaAddress = "" # NITRO_VPA_ADDRESS
+        caAddress = "" # NITRO_CA_ADDRESS
+        useDurableStore = true # NITRO_USE_DURABLE_STORE
+        durableStoreFolder = "./data/nitronode" # NITRO_DURABLE_STORE_FOLDER
+
+    [nitro.remoteNode]
+        nitroEndpoint = "127.0.0.1:4005/api/v1" # NITRO_ENDPOINT

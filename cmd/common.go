@@ -38,6 +38,8 @@ func addDatabaseFlags(command *cobra.Command) {
 
 func addNitroFlags(command *cobra.Command) {
 	// nitro flags
+	command.PersistentFlags().Bool("nitro-run-node-in-process", false, "nitro run node in process")
+
 	command.PersistentFlags().String("nitro-pk", "", "nitro pk")
 	command.PersistentFlags().String("nitro-chain-pk", "", "nitro chainPk")
 	command.PersistentFlags().String("nitro-chain-url", "", "nitro chainUrl")
@@ -47,13 +49,19 @@ func addNitroFlags(command *cobra.Command) {
 	command.PersistentFlags().Bool("nitro-use-durable-store", false, "nitro useDurableStore")
 	command.PersistentFlags().String("nitro-durable-store-folder", "", "nitro durableStoreFolder")
 
+	command.PersistentFlags().String("nitro-endpoint", "", "nitro endpoint")
+
 	// nitro flag bindings
-	viper.BindPFlag("nitro.pk", command.PersistentFlags().Lookup("nitro-pk"))
-	viper.BindPFlag("nitro.chainPk", command.PersistentFlags().Lookup("nitro-chain-pk"))
-	viper.BindPFlag("nitro.chainUrl", command.PersistentFlags().Lookup("nitro-chain-url"))
-	viper.BindPFlag("nitro.naAddress", command.PersistentFlags().Lookup("nitro-na-address"))
-	viper.BindPFlag("nitro.vpaAddress", command.PersistentFlags().Lookup("nitro-vpa-address"))
-	viper.BindPFlag("nitro.caAddress", command.PersistentFlags().Lookup("nitro-ca-address"))
-	viper.BindPFlag("nitro.useDurableStore", command.PersistentFlags().Lookup("nitro-use-durable-store"))
-	viper.BindPFlag("nitro.durableStoreFolder", command.PersistentFlags().Lookup("nitro-durable-store"))
+	viper.BindPFlag("nitro.runNodeInProcess", command.PersistentFlags().Lookup("nitro-run-node-in-process"))
+
+	viper.BindPFlag("nitro.inProcesssNode.pk", command.PersistentFlags().Lookup("nitro-pk"))
+	viper.BindPFlag("nitro.inProcesssNode.chainPk", command.PersistentFlags().Lookup("nitro-chain-pk"))
+	viper.BindPFlag("nitro.inProcesssNode.chainUrl", command.PersistentFlags().Lookup("nitro-chain-url"))
+	viper.BindPFlag("nitro.inProcesssNode.naAddress", command.PersistentFlags().Lookup("nitro-na-address"))
+	viper.BindPFlag("nitro.inProcesssNode.vpaAddress", command.PersistentFlags().Lookup("nitro-vpa-address"))
+	viper.BindPFlag("nitro.inProcesssNode.caAddress", command.PersistentFlags().Lookup("nitro-ca-address"))
+	viper.BindPFlag("nitro.inProcesssNode.useDurableStore", command.PersistentFlags().Lookup("nitro-use-durable-store"))
+	viper.BindPFlag("nitro.inProcesssNode.durableStoreFolder", command.PersistentFlags().Lookup("nitro-durable-store"))
+
+	viper.BindPFlag("nitro.remoteNode.nitroEndpoint", command.PersistentFlags().Lookup("nitro-endpoint"))
 }

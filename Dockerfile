@@ -43,6 +43,7 @@ USER $USER
 COPY --chown=5000:5000 --from=builder /go/src/github.com/cerc-io/ipld-eth-server/$CONFIG_FILE config.toml
 COPY --chown=5000:5000 --from=builder /go/src/github.com/cerc-io/ipld-eth-server/entrypoint.sh .
 
+RUN mkdir -p nitro-data && chown -R 5000:5000 nitro-data
 
 # keep binaries immutable
 COPY --from=builder /go/src/github.com/cerc-io/ipld-eth-server/ipld-eth-server ipld-eth-server
