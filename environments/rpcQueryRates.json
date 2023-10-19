@@ -1,0 +1,6 @@
+{
+  "eth_getBlockByNumber": 50,
+  "eth_getBlockByHash": 50,
+  "eth_getStorageAt": 50,
+  "eth_getLogs": 50
+}

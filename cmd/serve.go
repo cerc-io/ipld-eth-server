@@ -17,8 +17,10 @@ package cmd
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -94,48 +96,19 @@ func serve() {
 
 	var voucherValidator paymentsmanager.VoucherValidator
 
-	// TODO: Refactor into a function / subcommand
 	nitroConfig := serverConfig.Nitro
 	if nitroConfig.RunNodeInProcess {
 		log.Info("Running an in-process Nitro node")
 
-		nitroNode, err := initNitroNode(&nitroConfig.InProcessNode)
-		if err != nil {
-			logWithCommand.Fatal(err)
-		}
-
-		pm, err := paymentsmanager.NewPaymentsManager(nitroNode)
-		if err != nil {
-			logWithCommand.Fatal(err)
-		}
-		pm.Start(wg)
+		pm, nitroRpcServer := initNitroInProcess(wg, nitroConfig)
 		defer pm.Stop()
-
-		// TODO: Read from config file
-		rpcPort := 4005
-		tlsCertFilepath := ""
-		tlsKeyFilepath := ""
-
-		var cert *tls.Certificate
-		if tlsCertFilepath != "" && tlsKeyFilepath != "" {
-			*cert, err = tls.LoadX509KeyPair(tlsCertFilepath, tlsKeyFilepath)
-			if err != nil {
-				logWithCommand.Fatal(err)
-			}
-		}
-
-		nitroRpcServer, err := initNitroRpcServer(nitroNode, pm, cert, rpcPort)
-		if err != nil {
-			logWithCommand.Fatal(err)
-		}
 		defer nitroRpcServer.Close()
 
-		voucherValidator = paymentsmanager.InProcessVoucherValidator{PaymentsManager: pm}
+		voucherValidator = paymentsmanager.InProcessVoucherValidator{PaymentsManager: *pm}
 	} else {
 		log.Info("Connecting to a remote Nitro node")
 
-		// TODO: Read from config file
-		isSecure := false
+		isSecure := nitroConfig.RemoteNode.IsSecure
 		nitroRpcClient, err := nitroRpc.NewHttpRpcClient(nitroConfig.RemoteNode.NitroEndpoint, isSecure)
 		if err != nil {
 			logWithCommand.Fatal(err)
@@ -145,15 +118,16 @@ func serve() {
 		voucherValidator = nitroRpc.RemoteVoucherValidator{Client: nitroRpcClient}
 	}
 
-	// TODO: Read from config file
-	queryRates := map[string]*big.Int{
-		"eth_getBlockByNumber": big.NewInt(50),
-		"eth_getBlockByHash":   big.NewInt(50),
-		"eth_getStorageAt":     big.NewInt(50),
-		"eth_getLogs":          big.NewInt(50),
+	queryRates, err := readRpcQueryRates(nitroConfig.RpcQueryRatesFile)
+	if err != nil {
+		logWithCommand.Fatal(err)
 	}
 
-	if err := startServers(server, serverConfig, voucherValidator, queryRates); err != nil {
+	paymentMiddleware := func(next http.Handler) http.Handler {
+		return paymentsmanager.HTTPMiddleware(next, voucherValidator, queryRates)
+	}
+
+	if err := startServers(server, serverConfig, [](func(next http.Handler) http.Handler){paymentMiddleware}); err != nil {
 		logWithCommand.Fatal(err)
 	}
 	graphQL, err := startEthGraphQL(server, serverConfig)
@@ -182,8 +156,7 @@ func serve() {
 	server.Stop()
 }
 
-// TODO: Absorb voucherValidator and queryRates args into existing ones
-func startServers(server s.Server, settings *s.Config, voucherValidator paymentsmanager.VoucherValidator, queryRates map[string]*big.Int) error {
+func startServers(server s.Server, settings *s.Config, httpMiddlewares [](func(next http.Handler) http.Handler)) error {
 	if settings.IPCEnabled {
 		logWithCommand.Debug("starting up IPC server")
 		_, _, err := srpc.StartIPCEndpoint(settings.IPCEndpoint, server.APIs())
@@ -206,7 +179,7 @@ func startServers(server s.Server, settings *s.Config, voucherValidator payments
 
 	if settings.HTTPEnabled {
 		logWithCommand.Debug("starting up HTTP server")
-		_, err := srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"vdb", "eth", "debug", "net"}, nil, []string{"*"}, rpc.HTTPTimeouts{}, voucherValidator, queryRates)
+		_, err := srpc.StartHTTPEndpoint(settings.HTTPEndpoint, server.APIs(), []string{"vdb", "eth", "debug", "net"}, nil, []string{"*"}, rpc.HTTPTimeouts{}, httpMiddlewares)
 		if err != nil {
 			return err
 		}
@@ -420,16 +393,47 @@ func init() {
 	viper.BindPFlag("validator.everyNthBlock", serveCmd.PersistentFlags().Lookup("validator-every-nth-block"))
 }
 
+// Initializes an in-process Nitro node, payments manager and a Nitro RPC server
+func initNitroInProcess(wg *sync.WaitGroup, nitroConfig *s.NitroConfig) (*paymentsmanager.PaymentsManager, *nitroRpc.RpcServer) {
+	nitroNode, err := initNitroNode(&nitroConfig.InProcessNode)
+	if err != nil {
+		logWithCommand.Fatal(err)
+	}
+
+	pm, err := paymentsmanager.NewPaymentsManager(nitroNode)
+	if err != nil {
+		logWithCommand.Fatal(err)
+	}
+	pm.Start(wg)
+
+	tlsCertFilepath := nitroConfig.InProcessNode.TlsCertFilepath
+	tlsKeyFilepath := nitroConfig.InProcessNode.TlsKeyFilepath
+
+	var cert *tls.Certificate
+	if tlsCertFilepath != "" && tlsKeyFilepath != "" {
+		*cert, err = tls.LoadX509KeyPair(tlsCertFilepath, tlsKeyFilepath)
+		if err != nil {
+			logWithCommand.Fatal(err)
+		}
+	}
+
+	nitroRpcServer, err := initNitroRpcServer(nitroNode, pm, cert, nitroConfig.InProcessNode.RpcPort)
+	if err != nil {
+		logWithCommand.Fatal(err)
+	}
+
+	return &pm, nitroRpcServer
+}
+
 // https://github.com/cerc-io/go-nitro/blob/release-v0.1.1-ts-port-0.1.7/internal/node/node.go#L17
 func initNitroNode(config *s.InProcessNitroNodeConfig) (*nitroNode.Node, error) {
-	// TODO: Read from config file
 	pkString := config.Pk
 	useDurableStore := config.UseDurableStore
 	durableStoreFolder := config.DurableStoreFolder
-	msgPort := 3005
-	wsMsgPort := 5005
+	msgPort := config.MsgPort
+	wsMsgPort := config.WsMsgPort
 	chainUrl := config.ChainUrl
-	chainStartBlock := uint64(0)
+	chainStartBlock := config.ChainStartBlock
 	chainPk := config.ChainPk
 	naAddress := config.NaAddress
 	vpaAddress := config.VpaAddress
@@ -514,4 +518,32 @@ func initNitroRpcServer(node *nitroNode.Node, pm paymentsmanager.PaymentsManager
 
 	slog.Info("Completed Nitro RPC server initialization")
 	return rpcServer, nil
+}
+
+func readRpcQueryRates(filepath string) (map[string]*big.Int, error) {
+	result := make(map[string]*big.Int)
+
+	if filepath == "" {
+		logWithCommand.Warn("RPC query rates file path not provided")
+		return result, nil
+	}
+
+	jsonFile, err := os.Open(filepath)
+	defer jsonFile.Close()
+
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			logWithCommand.Warn("RPC query rates file does not exist")
+			return result, nil
+		}
+		return nil, err
+	}
+
+	decoder := json.NewDecoder(jsonFile)
+	err = decoder.Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

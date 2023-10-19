@@ -81,6 +81,7 @@ const (
 	DATABASE_MAX_CONN_LIFETIME    = "DATABASE_MAX_CONN_LIFETIME"
 
 	NITRO_RUN_NODE_IN_PROCESS  = "NITRO_RUN_NODE_IN_PROCESS"
+	NITRO_RPC_QUERY_RATES_FILE = "NITRO_RPC_QUERY_RATES_FILE"
 	NITRO_PK                   = "NITRO_PK"
 	NITRO_CHAIN_PK             = "NITRO_CHAIN_PK"
 	NITRO_CHAIN_URL            = "NITRO_CHAIN_URL"
@@ -90,6 +91,13 @@ const (
 	NITRO_USE_DURABLE_STORE    = "NITRO_USE_DURABLE_STORE"
 	NITRO_DURABLE_STORE_FOLDER = "NITRO_DURABLE_STORE_FOLDER"
 	NITRO_ENDPOINT             = "NITRO_ENDPOINT"
+	NITRO_IS_SECURE            = "NITRO_IS_SECURE"
+	NITRO_MSG_PORT             = "NITRO_MSG_PORT"
+	NITRO_WS_MSG_PORT          = "NITRO_WS_MSG_PORT"
+	NITRO_RPC_PORT             = "NITRO_RPC_PORT"
+	NITRO_CHAIN_START_BLOCK    = "NITRO_CHAIN_START_BLOCK"
+	NITRO_TLS_CERT_FILEPATH    = "NITRO_TLS_CERT_FILEPATH"
+	NITRO_TLS_KEY_FILEPATH     = "NITRO_TLS_KEY_FILEPATH"
 )
 
 type InProcessNitroNodeConfig struct {
@@ -101,16 +109,24 @@ type InProcessNitroNodeConfig struct {
 	CaAddress          string
 	UseDurableStore    bool
 	DurableStoreFolder string
+	RpcPort            int
+	MsgPort            int
+	WsMsgPort          int
+	ChainStartBlock    uint64
+	TlsCertFilepath    string
+	TlsKeyFilepath     string
 }
 
 type RemoteNitroNodeConfig struct {
 	NitroEndpoint string
+	IsSecure      bool
 }
 
 type NitroConfig struct {
-	RunNodeInProcess bool
-	InProcessNode    InProcessNitroNodeConfig
-	RemoteNode       RemoteNitroNodeConfig
+	RunNodeInProcess  bool
+	RpcQueryRatesFile string
+	InProcessNode     InProcessNitroNodeConfig
+	RemoteNode        RemoteNitroNodeConfig
 }
 
 // Config struct
@@ -320,6 +336,7 @@ func (c *Config) loadNitroConfig() {
 	c.Nitro = &NitroConfig{InProcessNode: InProcessNitroNodeConfig{}, RemoteNode: RemoteNitroNodeConfig{}}
 
 	viper.BindEnv("nitro.runNodeInProcess", NITRO_RUN_NODE_IN_PROCESS)
+	viper.BindEnv("nitro.rpcQueryRatesFile", NITRO_RPC_QUERY_RATES_FILE)
 
 	viper.BindEnv("nitro.inProcesssNode.pk", NITRO_PK)
 	viper.BindEnv("nitro.inProcesssNode.chainPk", NITRO_CHAIN_PK)
@@ -329,10 +346,18 @@ func (c *Config) loadNitroConfig() {
 	viper.BindEnv("nitro.inProcesssNode.caAddress", NITRO_CA_ADDRESS)
 	viper.BindEnv("nitro.inProcesssNode.useDurableStore", NITRO_USE_DURABLE_STORE)
 	viper.BindEnv("nitro.inProcesssNode.durableStoreFolder", NITRO_DURABLE_STORE_FOLDER)
+	viper.BindEnv("nitro.inProcesssNode.msgPort", NITRO_MSG_PORT)
+	viper.BindEnv("nitro.inProcesssNode.rpcPort", NITRO_RPC_PORT)
+	viper.BindEnv("nitro.inProcesssNode.wsMsgPort", NITRO_WS_MSG_PORT)
+	viper.BindEnv("nitro.inProcesssNode.chainStartBlock", NITRO_CHAIN_START_BLOCK)
+	viper.BindEnv("nitro.inProcesssNode.tlsCertFilepath", NITRO_TLS_CERT_FILEPATH)
+	viper.BindEnv("nitro.inProcesssNode.tlsKeyFilepath", NITRO_TLS_KEY_FILEPATH)
 
 	viper.BindEnv("nitro.remoteNode.nitroEndpoint", NITRO_ENDPOINT)
+	viper.BindEnv("nitro.remoteNode.isSecure", NITRO_IS_SECURE)
 
 	c.Nitro.RunNodeInProcess = viper.GetBool("nitro.runNodeInProcess")
+	c.Nitro.RpcQueryRatesFile = viper.GetString("nitro.rpcQueryRatesFile")
 
 	c.Nitro.InProcessNode.Pk = viper.GetString("nitro.inProcesssNode.pk")
 	c.Nitro.InProcessNode.ChainPk = viper.GetString("nitro.inProcesssNode.chainPk")
@@ -342,8 +367,15 @@ func (c *Config) loadNitroConfig() {
 	c.Nitro.InProcessNode.CaAddress = viper.GetString("nitro.inProcesssNode.caAddress")
 	c.Nitro.InProcessNode.UseDurableStore = viper.GetBool("nitro.inProcesssNode.useDurableStore")
 	c.Nitro.InProcessNode.DurableStoreFolder = viper.GetString("nitro.inProcesssNode.durableStoreFolder")
+	c.Nitro.InProcessNode.MsgPort = viper.GetInt("nitro.inProcesssNode.msgPort")
+	c.Nitro.InProcessNode.RpcPort = viper.GetInt("nitro.inProcesssNode.rpcPort")
+	c.Nitro.InProcessNode.WsMsgPort = viper.GetInt("nitro.inProcesssNode.wsMsgPort")
+	c.Nitro.InProcessNode.ChainStartBlock = viper.GetUint64("nitro.inProcesssNode.chainStartBlock")
+	c.Nitro.InProcessNode.TlsCertFilepath = viper.GetString("nitro.inProcesssNode.tlsCertFilepath")
+	c.Nitro.InProcessNode.TlsKeyFilepath = viper.GetString("nitro.inProcesssNode.tlsKeyFilepath")
 
 	c.Nitro.RemoteNode.NitroEndpoint = viper.GetString("nitro.remoteNode.nitroEndpoint")
+	c.Nitro.RemoteNode.IsSecure = viper.GetBool("nitro.remoteNode.isSecure")
 }
 
 func (c *Config) loadGroupCacheConfig() {

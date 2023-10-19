@@ -114,8 +114,8 @@ github.com/ceramicnetwork/go-dag-jose v0.1.0 h1:yJ/HVlfKpnD3LdYP03AHyTvbm3BpPiz2
 github.com/ceramicnetwork/go-dag-jose v0.1.0/go.mod h1:qYA1nYt0X8u4XoMAVoOV3upUVKtrxy/I670Dg5F0wjI=
 github.com/cerc-io/eth-ipfs-state-validator/v5 v5.1.1-alpha.0.20231013075659-56aa03028c43 h1:pkGCN+VWo5Qmu4iDjA7noGrE6wM8VOVeX1Mn6ucYhPg=
 github.com/cerc-io/eth-ipfs-state-validator/v5 v5.1.1-alpha.0.20231013075659-56aa03028c43/go.mod h1:snThUFpyCrpZhTuz3HibJRLL2XaS+lKNsM3XAE0gB/4=
-github.com/cerc-io/go-nitro v0.1.2-ts-port-0.1.8.0.20231018070130-e66ac486a763 h1:RTUK5AquaGw/aMbdgpDuj0IHhqgAg6R2own9lI14ZOQ=
-github.com/cerc-io/go-nitro v0.1.2-ts-port-0.1.8.0.20231018070130-e66ac486a763/go.mod h1:YYQvj9es00ZfLTwxZLM1M0ihUrqz8+lU2c10G06My3A=
+github.com/cerc-io/go-nitro v0.1.2-ts-port-0.1.9 h1:Q4hptIWBsSRQ9A16xQuPog2eihhspqwzP1Hm5TvahgA=
+github.com/cerc-io/go-nitro v0.1.2-ts-port-0.1.9/go.mod h1:YYQvj9es00ZfLTwxZLM1M0ihUrqz8+lU2c10G06My3A=
 github.com/cerc-io/ipfs-ethdb/v5 v5.0.1-alpha.0.20231013070931-0b1a36562a28 h1:5FXtMuZXTIXjjzzLdqgyzx9pjD22FB5os2vXayRn+BQ=
 github.com/cerc-io/ipfs-ethdb/v5 v5.0.1-alpha.0.20231013070931-0b1a36562a28/go.mod h1:W1C6qTXGsPcsK1HKUYPsXmBORjO2ekdm+101sJkpdNI=
 github.com/cespare/cp v0.1.0 h1:SE+dxFebS7Iik5LK0tsi1k9ZCxEaFX4AjQmoyA+1dJk=

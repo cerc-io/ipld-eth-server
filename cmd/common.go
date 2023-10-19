@@ -39,20 +39,29 @@ func addDatabaseFlags(command *cobra.Command) {
 func addNitroFlags(command *cobra.Command) {
 	// nitro flags
 	command.PersistentFlags().Bool("nitro-run-node-in-process", false, "nitro run node in process")
+	command.PersistentFlags().String("nitro-rpc-query-rates-file", "", "nitro rpcQueryRatesFile")
 
 	command.PersistentFlags().String("nitro-pk", "", "nitro pk")
 	command.PersistentFlags().String("nitro-chain-pk", "", "nitro chainPk")
-	command.PersistentFlags().String("nitro-chain-url", "", "nitro chainUrl")
+	command.PersistentFlags().String("nitro-chain-url", "ws://127.0.0.1:8545", "nitro chainUrl")
 	command.PersistentFlags().String("nitro-na-address", "", "nitro naAddress")
 	command.PersistentFlags().String("nitro-vpa-address", "", "nitro vpaAddress")
 	command.PersistentFlags().String("nitro-ca-address", "", "nitro caAddress")
 	command.PersistentFlags().Bool("nitro-use-durable-store", false, "nitro useDurableStore")
 	command.PersistentFlags().String("nitro-durable-store-folder", "", "nitro durableStoreFolder")
+	command.PersistentFlags().Int("nitro-msg-port", 3005, "nitro msgPort")
+	command.PersistentFlags().Int("nitro-rpc-port", 4005, "nitro rpcPort")
+	command.PersistentFlags().Int("nitro-ws-msg-port", 5005, "nitro wsMsgPort")
+	command.PersistentFlags().Uint("nitro-chain-start-block", 0, "nitro chainStartBlock")
+	command.PersistentFlags().String("nitro-tls-cert-filepath", "", "nitro tlsCertFilepath")
+	command.PersistentFlags().String("nitro-tls-key-filepath", "", "nitro tlsKeyFilepath")
 
 	command.PersistentFlags().String("nitro-endpoint", "", "nitro endpoint")
+	command.PersistentFlags().Bool("nitro-is-secure", false, "nitro isSecure")
 
 	// nitro flag bindings
 	viper.BindPFlag("nitro.runNodeInProcess", command.PersistentFlags().Lookup("nitro-run-node-in-process"))
+	viper.BindPFlag("nitro.rpcQueryRatesFile", command.PersistentFlags().Lookup("nitro-rpc-query-rates-file"))
 
 	viper.BindPFlag("nitro.inProcesssNode.pk", command.PersistentFlags().Lookup("nitro-pk"))
 	viper.BindPFlag("nitro.inProcesssNode.chainPk", command.PersistentFlags().Lookup("nitro-chain-pk"))
@@ -62,6 +71,13 @@ func addNitroFlags(command *cobra.Command) {
 	viper.BindPFlag("nitro.inProcesssNode.caAddress", command.PersistentFlags().Lookup("nitro-ca-address"))
 	viper.BindPFlag("nitro.inProcesssNode.useDurableStore", command.PersistentFlags().Lookup("nitro-use-durable-store"))
 	viper.BindPFlag("nitro.inProcesssNode.durableStoreFolder", command.PersistentFlags().Lookup("nitro-durable-store"))
+	viper.BindPFlag("nitro.inProcesssNode.msgPort", command.PersistentFlags().Lookup("nitro-msg-port"))
+	viper.BindPFlag("nitro.inProcesssNode.rpcPort", command.PersistentFlags().Lookup("nitro-rpc-port"))
+	viper.BindPFlag("nitro.inProcesssNode.wsMsgPort", command.PersistentFlags().Lookup("nitro-ws-msg-port"))
+	viper.BindPFlag("nitro.inProcesssNode.chainStartBlock", command.PersistentFlags().Lookup("nitro-chain-start-block"))
+	viper.BindPFlag("nitro.inProcesssNode.tlsCertFilepath", command.PersistentFlags().Lookup("nitro-tls-cert-filepath"))
+	viper.BindPFlag("nitro.inProcesssNode.tlsKeyFilepath", command.PersistentFlags().Lookup("nitro-tls-key-filepath"))
 
 	viper.BindPFlag("nitro.remoteNode.nitroEndpoint", command.PersistentFlags().Lookup("nitro-endpoint"))
+	viper.BindPFlag("nitro.remoteNode.isSecure", command.PersistentFlags().Lookup("nitro-is-secure"))
 }

@@ -34,6 +34,7 @@
 
 [nitro]
     runNodeInProcess = false # NITRO_RUN_NODE_IN_PROCESS
+    rpcQueryRatesFile = "environments/rpcQueryRates.json" # NITRO_RPC_QUERY_RATES_FILE
 
     [nitro.inProcesssNode]
         pk = "" # NITRO_PK
@@ -44,6 +45,13 @@
         caAddress = "" # NITRO_CA_ADDRESS
         useDurableStore = true # NITRO_USE_DURABLE_STORE
         durableStoreFolder = "./data/nitronode" # NITRO_DURABLE_STORE_FOLDER
+        msgPort = 3005 # NITRO_MSG_PORT
+        rpcPort = 4005 # NITRO_RPC_PORT
+        wsMsgPort = 5005 # NITRO_WS_MSG_PORT
+        chainStartBlock = 0 # NITRO_CHAIN_START_BLOCK
+        tlsCertFilepath = "" # NITRO_TLS_CERT_FILEPATH
+        tlsKeyFilepath = "" # NITRO_TLS_KEY_FILEPATH
 
     [nitro.remoteNode]
         nitroEndpoint = "127.0.0.1:4005/api/v1" # NITRO_ENDPOINT
+        isSecure = false # NITRO_IS_SECURE
