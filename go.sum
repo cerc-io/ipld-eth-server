@@ -47,7 +47,7 @@ dmitri.shuralyov.com/state v0.0.0-20180228185332-28bcc343414c/go.mod h1:0PRwlb0D
 git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 git.vdb.to/cerc-io/eth-ipfs-state-validator/v5 v5.1.1-alpha h1:tophBXLyhMKmQILsxjfUTwQW+TGHtEJNajVULJJLhe0=
 git.vdb.to/cerc-io/eth-ipfs-state-validator/v5 v5.1.1-alpha/go.mod h1:e/9QV7BeaAvR+E6G3fab5+OxKGOEwCmJzs8WReuqKZM=
-git.vdb.to/cerc-io/eth-iterator-utils v0.1.2 h1:PdMR5B9wrQSYuYpFhN+9Kc8AEZ0pTt5eKCmu8oCtFcY=
+git.vdb.to/cerc-io/eth-iterator-utils v0.1.2 h1:+3+T+J21J/VkhlCFujl8HT4XuwebavIuKj0+qfE+0QM=
 git.vdb.to/cerc-io/eth-iterator-utils v0.1.2/go.mod h1:OvXbdWbZ5viBXC/Ui1EkhsSmGB+AUX+TjGa3UDAfjfg=
 git.vdb.to/cerc-io/eth-testing v0.3.1 h1:sPnlMev6oEgTjsW7GtUkSsjKNG/+X6P9q0izSejLGpM=
 git.vdb.to/cerc-io/ipld-eth-statedb v0.0.6-alpha h1:0YnoohjuK7w2JhIqLDDyVUNnu1RjyeDqqyhm6MojD74=
