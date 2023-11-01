@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/cerc-io/plugeth-statediff"
+	statediff "github.com/cerc-io/plugeth-statediff"
 	"github.com/cerc-io/plugeth-statediff/adapt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/cerc-io/plugeth-statediff"
+	statediff "github.com/cerc-io/plugeth-statediff"
 	"github.com/cerc-io/plugeth-statediff/adapt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
