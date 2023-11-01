@@ -295,7 +295,7 @@ require (
 
 replace (
 	github.com/cerc-io/eth-ipfs-state-validator/v5 => git.vdb.to/cerc-io/eth-ipfs-state-validator/v5 v5.1.1-alpha
-	github.com/cerc-io/eth-iterator-utils => git.vdb.to/cerc-io/eth-iterator-utils v0.1.2
+	github.com/cerc-io/eth-iterator-utils => git.vdb.to/cerc-io/eth-iterator-utils v0.1.2-beta
 	github.com/cerc-io/eth-testing => git.vdb.to/cerc-io/eth-testing v0.3.1
 	github.com/cerc-io/ipld-eth-statedb => /Users/iannorden/go/src/github.com/cerc-io/ipld-eth-statedb // git.vdb.to/cerc-io/ipld-eth-statedb v0.0.6-alpha
 	github.com/cerc-io/plugeth-statediff => git.vdb.to/cerc-io/plugeth-statediff v0.1.4
