@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -32,10 +31,9 @@ const (
 
 // TracingAPI is the collection of tracing APIs exposed over the private debugging endpoint.
 type TracingAPI struct {
-	backend   *Backend
-	rpc       *rpc.Client
-	ethClient *ethclient.Client
-	config    APIConfig
+	backend *Backend
+	rpc     *rpc.Client
+	config  APIConfig
 }
 
 // NewTracingAPI creates a new TracingAPI with the provided underlying Backend
@@ -52,15 +50,10 @@ func NewTracingAPI(b *Backend, client *rpc.Client, config APIConfig) (*TracingAP
 	if config.ProxyOnError && client == nil {
 		return nil, errors.New("ipld-eth-server is configured to forward all calls to proxy node on errors but no proxy node is configured")
 	}
-	var ethClient *ethclient.Client
-	if client != nil {
-		ethClient = ethclient.NewClient(client)
-	}
 	return &TracingAPI{
-		backend:   b,
-		rpc:       client,
-		ethClient: ethClient,
-		config:    config,
+		backend: b,
+		rpc:     client,
+		config:  config,
 	}, nil
 }
 
@@ -87,6 +80,20 @@ type TraceCallConfig struct {
 // created during the execution of EVM if the given transaction was added on
 // top of the provided block and returns them as a JSON object.
 func (api *TracingAPI) TraceCall(ctx context.Context, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, config *TraceCallConfig) (interface{}, error) {
+	trace, err := api.localTraceCall(ctx, args, blockNrOrHash, config)
+	if trace != nil && err == nil {
+		return trace, nil
+	}
+	if api.config.ProxyOnError {
+		var res interface{}
+		if err := api.rpc.CallContext(ctx, &res, "debug_traceCall", args, blockNrOrHash, config); res != nil && err == nil {
+			return res, nil
+		}
+	}
+	return nil, err
+}
+
+func (api *TracingAPI) localTraceCall(ctx context.Context, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, config *TraceCallConfig) (interface{}, error) {
 	// Try to retrieve the specified block
 	var (
 		err   error
@@ -232,6 +239,20 @@ type txTraceResult struct {
 // TraceBlock returns the structured logs created during the execution of EVM
 // and returns them as a JSON object.
 func (api *TracingAPI) TraceBlock(ctx context.Context, blob hexutil.Bytes, config *TraceConfig) ([]*txTraceResult, error) {
+	trace, err := api.localTraceBlock(ctx, blob, config)
+	if trace != nil && err == nil {
+		return trace, nil
+	}
+	if api.config.ProxyOnError {
+		var res []*txTraceResult
+		if err := api.rpc.CallContext(ctx, &res, "debug_traceBlock", blob, config); res != nil && err == nil {
+			return res, nil
+		}
+	}
+	return nil, err
+}
+
+func (api *TracingAPI) localTraceBlock(ctx context.Context, blob hexutil.Bytes, config *TraceConfig) ([]*txTraceResult, error) {
 	block := new(types.Block)
 	if err := rlp.Decode(bytes.NewReader(blob), block); err != nil {
 		return nil, fmt.Errorf("could not decode block: %v", err)
