@@ -110,6 +110,8 @@ type Config struct {
 	ProxyOnError        bool
 	GetLogsBlockLimit   int64
 	NodeNetworkID       string
+	TracingEnabled      bool
+	TracingPublic       bool
 
 	// Cache configuration.
 	GroupCache *ethServerShared.GroupCacheConfig
@@ -154,6 +156,8 @@ func NewConfig() (*Config, error) {
 	c.ForwardGetStorageAt = viper.GetBool("ethereum.forwardGetStorageAt")
 	c.ProxyOnError = viper.GetBool("ethereum.proxyOnError")
 	c.EthHttpEndpoint = ethHTTPEndpoint
+	c.TracingEnabled = viper.GetBool("ethereum.tracingEnabled")
+	c.TracingPublic = viper.GetBool("ethereum.tracingPublic")
 
 	if viper.IsSet("ethereum.getLogsBlockLimit") {
 		c.GetLogsBlockLimit = viper.GetInt64("ethereum.getLogsBlockLimit")
