@@ -78,6 +78,10 @@ type Service struct {
 	proxyOnError bool
 	// eth node network id
 	nodeNetworkId string
+	// tracing enabled
+	tracingEnabled bool
+	// tracing public
+	tracingPublic bool
 }
 
 // NewServer creates a new Server using an underlying Service struct
@@ -93,6 +97,8 @@ func NewServer(settings *Config) (Server, error) {
 	sap.getLogsBlockLimit = settings.GetLogsBlockLimit
 	sap.proxyOnError = settings.ProxyOnError
 	sap.nodeNetworkId = settings.NodeNetworkID
+	sap.tracingEnabled = settings.TracingEnabled
+	sap.tracingPublic = settings.TracingPublic
 	var err error
 	sap.backend, err = eth.NewEthBackend(sap.db, &eth.Config{
 		ChainConfig:      settings.ChainConfig,
@@ -138,9 +144,10 @@ func (sap *Service) APIs() []rpc.API {
 		log.Fatalf("unable to create public eth api: %v", err)
 	}
 
+	// this uses stubbed StateAtBlock and StateAtTransaction methods and so does not support debug_traceBlock and debug_traceCall
 	debugTracerAPI := tracers.APIs(&debug.Backend{Backend: *sap.backend})[0]
 
-	return append(apis,
+	apis = append(apis,
 		rpc.API{
 			Namespace: eth.APIName,
 			Version:   eth.APIVersion,
@@ -149,6 +156,22 @@ func (sap *Service) APIs() []rpc.API {
 		},
 		debugTracerAPI,
 	)
+
+	if sap.tracingEnabled {
+		tracingAPI, err := eth.NewTracingAPI(sap.backend, sap.client, conf)
+		if err != nil {
+			log.Fatalf("unable to create tracing api: %v", err)
+		}
+		apis = append(apis, rpc.API{
+			// Uses same namespace as stubbed debug API above
+			// Need to test if this will properly overlay and form a union with the existing methods supported by that
+			// Or if only one is exposed
+			Namespace: "debug",
+			Service:   tracingAPI,
+			Public:    sap.tracingPublic,
+		})
+	}
+	return apis
 }
 
 // Serve listens for incoming converter data off the screenAndServePayload from the Sync process
