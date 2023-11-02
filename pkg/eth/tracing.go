@@ -236,6 +236,46 @@ type txTraceResult struct {
 	Error  string      `json:"error,omitempty"`  // Trace failure produced by the tracer
 }
 
+// TraceBlockByNumber returns the structured logs created during the execution of
+// EVM and returns them as a JSON object.
+func (api *TracingAPI) TraceBlockByNumber(ctx context.Context, number rpc.BlockNumber, config *TraceConfig) ([]*txTraceResult, error) {
+	block, err := api.blockByNumber(ctx, number)
+	if err != nil {
+		return nil, err
+	}
+	trace, err := api.traceBlock(ctx, block, config)
+	if trace != nil && err == nil {
+		return trace, nil
+	}
+	if api.config.ProxyOnError {
+		var res []*txTraceResult
+		if err := api.rpc.CallContext(ctx, &res, "debug_traceBlockByNumber", number, config); res != nil && err == nil {
+			return res, nil
+		}
+	}
+	return nil, err
+}
+
+// TraceBlockByHash returns the structured logs created during the execution of
+// EVM and returns them as a JSON object.
+func (api *TracingAPI) TraceBlockByHash(ctx context.Context, hash common.Hash, config *TraceConfig) ([]*txTraceResult, error) {
+	block, err := api.blockByHash(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	trace, err := api.traceBlock(ctx, block, config)
+	if trace != nil && err == nil {
+		return trace, nil
+	}
+	if api.config.ProxyOnError {
+		var res []*txTraceResult
+		if err := api.rpc.CallContext(ctx, &res, "debug_traceBlockByHash", hash, config); res != nil && err == nil {
+			return res, nil
+		}
+	}
+	return nil, err
+}
+
 // TraceBlock returns the structured logs created during the execution of EVM
 // and returns them as a JSON object.
 func (api *TracingAPI) TraceBlock(ctx context.Context, blob hexutil.Bytes, config *TraceConfig) ([]*txTraceResult, error) {
