@@ -161,9 +161,8 @@ var (
 )
 
 var _ = Describe("eth state reading tests", func() {
-
 	Describe("debug_traceCall", func() {
-		It("", func() {
+		It("Works", func() {
 			var testSuite = []struct {
 				blockNumber rpc.BlockNumber
 				call        eth.TransactionArgs
@@ -258,6 +257,55 @@ var _ = Describe("eth state reading tests", func() {
 					var want *logger.ExecutionResult
 					err = json.Unmarshal([]byte(testspec.expect), &want)
 					Expect(err).ToNot(HaveOccurred())
+					Expect(have).To(Equal(want))
+				}
+			}
+		})
+	})
+
+	Describe("debug_traceBlock", func() {
+		It("Works", func() {
+			var testSuite = []struct {
+				blockNumber rpc.BlockNumber
+				config      *eth.TraceConfig
+				want        string
+				expectErr   error
+			}{
+				// Trace genesis block, expect error
+				{
+					blockNumber: rpc.BlockNumber(0),
+					expectErr:   errors.New("genesis is not traceable"),
+				},
+				// Trace head block
+				{
+					blockNumber: rpc.BlockNumber(genBlocks),
+					want:        `[{"result":{"gas":21000,"failed":false,"returnValue":"","structLogs":[]}}]`,
+				},
+				// Trace non-existent block
+				{
+					blockNumber: rpc.BlockNumber(genBlocks + 1),
+					expectErr:   fmt.Errorf("block #%d not found", genBlocks+1),
+				},
+				// Trace latest block
+				{
+					blockNumber: rpc.LatestBlockNumber,
+					want:        `[{"result":{"gas":21000,"failed":false,"returnValue":"","structLogs":[]}}]`,
+				},
+				// Trace pending block
+				{
+					blockNumber: rpc.PendingBlockNumber,
+					want:        `[{"result":{"gas":21000,"failed":false,"returnValue":"","structLogs":[]}}]`,
+				},
+			}
+			for _, tc := range testSuite {
+				result, err := tracingAPI.TraceBlockByNumber(context.Background(), tc.blockNumber, tc.config)
+				if tc.expectErr != nil {
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(Equal(tc.expectErr))
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+					have, _ := json.Marshal(result)
+					want := tc.want
 					Expect(have).To(Equal(want))
 				}
 			}
