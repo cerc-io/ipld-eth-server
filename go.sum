@@ -50,6 +50,8 @@ git.vdb.to/cerc-io/eth-ipfs-state-validator/v5 v5.1.1-alpha/go.mod h1:e/9QV7BeaA
 git.vdb.to/cerc-io/eth-iterator-utils v0.1.2-beta h1:pv1HCRlD7/1X7i35MWylwGhji0aWI4QujsrJoYOW55U=
 git.vdb.to/cerc-io/eth-iterator-utils v0.1.2-beta/go.mod h1:OvXbdWbZ5viBXC/Ui1EkhsSmGB+AUX+TjGa3UDAfjfg=
 git.vdb.to/cerc-io/eth-testing v0.3.1 h1:sPnlMev6oEgTjsW7GtUkSsjKNG/+X6P9q0izSejLGpM=
+git.vdb.to/cerc-io/ipld-eth-statedb v0.0.7-alpha-0.0.1 h1:wIT5/LEYlBSDp2lzY8R9+RIkM4DALSP4VJg7FpKxR+c=
+git.vdb.to/cerc-io/ipld-eth-statedb v0.0.7-alpha-0.0.1/go.mod h1:isx+cwWmkOL6hzfbcjRt9lDR4vxT0s0kCR8wD01H1/8=
 git.vdb.to/cerc-io/plugeth v0.0.0-20230808125822-691dc334fab1 h1:KLjxHwp9Zp7xhECccmJS00RiL+VwTuUGLU7qeIctg8g=
 git.vdb.to/cerc-io/plugeth v0.0.0-20230808125822-691dc334fab1/go.mod h1:cYXZu70+6xmDgIgrTD81GPasv16piiAFJnKyAbwVPMU=
 git.vdb.to/cerc-io/plugeth-statediff v0.1.4 h1:swDJDAk1/yu6MOHAvxeyZz+MS1H9FCmSWGQRswFxFEw=

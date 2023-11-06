@@ -63,8 +63,6 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	chainConfig.LondonBlock = big.NewInt(100)
-
 	// db and type initializations
 	var err error
 	db = shared.SetupDB()
@@ -72,7 +70,7 @@ var _ = BeforeSuite(func() {
 	// Initialize test accounts
 	accounts = newAccounts(3)
 	genesis := &core.Genesis{
-		Config: params.TestChainConfig,
+		Config: chainConfig,
 		Alloc: core.GenesisAlloc{
 			accounts[0].addr: {Balance: big.NewInt(params.Ether)},
 			accounts[1].addr: {Balance: big.NewInt(params.Ether)},
@@ -95,7 +93,6 @@ var _ = BeforeSuite(func() {
 	builder := statediff.NewBuilder(adapt.GethStateView(tb.chain.StateCache()))
 	for i, block := range blocks {
 		var args statediff.Args
-		var rcts types.Receipts
 		if i == 0 {
 			args = statediff.Args{
 				OldStateRoot: common.Hash{},
@@ -110,11 +107,10 @@ var _ = BeforeSuite(func() {
 				BlockNumber:  block.Number(),
 				BlockHash:    block.Hash(),
 			}
-			rcts = receipts[i-1]
 		}
 		diff, err := builder.BuildStateDiffObject(args, params)
 		Expect(err).ToNot(HaveOccurred())
-		tx, err := transformer.PushBlock(block, rcts, mockTD)
+		tx, err := transformer.PushBlock(block, receipts[i], mockTD)
 		Expect(err).ToNot(HaveOccurred())
 		defer tx.RollbackOnFailure(err)
 
@@ -138,7 +134,7 @@ var _ = BeforeSuite(func() {
 		RPCGasCap:   big.NewInt(10000000000), // Max gas capacity for a rpc call.
 		GroupCacheConfig: &shared.GroupCacheConfig{
 			StateDB: shared.GroupConfig{
-				Name:                   "eth_state_test",
+				Name:                   "eth_debug_test",
 				CacheSizeInMB:          8,
 				CacheExpiryInMins:      60,
 				LogStatsIntervalInSecs: 0,
