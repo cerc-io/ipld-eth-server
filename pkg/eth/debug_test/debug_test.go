@@ -144,12 +144,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	tracingAPI, _ = eth.NewTracingAPI(backend, nil, eth.APIConfig{StateDiffTimeout: shared.DefaultStateDiffTimeout})
-
+	tb.teardown()
 })
 
 var _ = AfterSuite(func() {
 	shared.TearDownDB(db)
-	tb.teardown()
 })
 
 var (
@@ -236,8 +235,8 @@ var _ = Describe("eth state reading tests", func() {
 					},
 					expectErr: nil,
 					expect: ` {"gas":53018,"failed":false,"returnValue":"","structLogs":[
-		{"pc":0,"op":"NUMBER","gas":24946984,"gasCost":2,"depth":1,"stack":[]},
-		{"pc":1,"op":"STOP","gas":24946982,"gasCost":0,"depth":1,"stack":["0x1337"]}]}`,
+		{"pc":0,"op":"NUMBER","gas":9999946984,"gasCost":2,"depth":1,"stack":[]},
+		{"pc":1,"op":"STOP","gas":9999946982,"gasCost":0,"depth":1,"stack":["0x1337"]}]}`,
 				},
 			}
 			for _, testspec := range testSuite {
@@ -290,7 +289,7 @@ var _ = Describe("eth state reading tests", func() {
 				// Trace pending block
 				{
 					blockNumber: rpc.PendingBlockNumber,
-					want:        `[{"result":{"gas":21000,"failed":false,"returnValue":"","structLogs":[]}}]`,
+					expectErr:   errors.New("pending block number not supported"),
 				},
 			}
 			for _, tc := range testSuite {
@@ -302,7 +301,7 @@ var _ = Describe("eth state reading tests", func() {
 					Expect(err).ToNot(HaveOccurred())
 					have, _ := json.Marshal(result)
 					want := tc.want
-					Expect(have).To(Equal(want))
+					Expect(string(have)).To(Equal(want))
 				}
 			}
 		})

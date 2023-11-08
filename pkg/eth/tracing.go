@@ -236,9 +236,14 @@ type txTraceResult struct {
 	Error  string      `json:"error,omitempty"`  // Trace failure produced by the tracer
 }
 
+var noGenesisErr = errors.New("genesis is not traceable")
+
 // TraceBlockByNumber returns the structured logs created during the execution of
 // EVM and returns them as a JSON object.
 func (api *TracingAPI) TraceBlockByNumber(ctx context.Context, number rpc.BlockNumber, config *TraceConfig) ([]*txTraceResult, error) {
+	if number == 0 {
+		return nil, noGenesisErr
+	}
 	block, err := api.blockByNumber(ctx, number)
 	if err != nil {
 		return nil, err
@@ -262,6 +267,9 @@ func (api *TracingAPI) TraceBlockByHash(ctx context.Context, hash common.Hash, c
 	block, err := api.blockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
+	}
+	if block.NumberU64() == 0 {
+		return nil, noGenesisErr
 	}
 	trace, err := api.traceBlock(ctx, block, config)
 	if trace != nil && err == nil {
