@@ -1,2 +1,2 @@
-github.com/cerc-io/ipld-eth-db v5.0.5-alpha
+git.vdb.to/cerc-io/ipld-eth-db v5.2.0-alpha
 git.vdb.to/cerc-io/plugeth-statediff v0.1.1
