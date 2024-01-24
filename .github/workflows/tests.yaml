@@ -14,7 +14,7 @@ on:
 env:
   # Needed until we can incorporate docker startup into the executor container
   DOCKER_HOST: unix:///var/run/dind.sock
-  SO_VERSION: v1.1.0-e0b5318-202309201927   # contains fixes for plugeth stack
+  SO_VERSION: v1.1.0-b7f215d-202401282321   # contains fixes for plugeth stack
 
 jobs:
   test:
