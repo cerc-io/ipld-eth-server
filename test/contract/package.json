@@ -11,9 +11,9 @@
   "license": "ISC",
   "description": "Solidity contract deployment server for integration testing",
   "dependencies": {
-    "@openzeppelin/contracts": "^4.0.0",
-    "fastify": "^4.0.0",
-    "hardhat": "^2.14.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "fastify": "^4.26.2",
+    "hardhat": "^2.22.3",
     "solidity-create2-deployer": "^0.4.0"
   },
   "devDependencies": {

@@ -19,7 +19,6 @@ package eth_api_test
 import (
 	"context"
 	"math/big"
-	"strconv"
 
 	"github.com/cerc-io/plugeth-statediff/indexer/interfaces"
 	"github.com/cerc-io/plugeth-statediff/indexer/ipld"
@@ -44,12 +43,14 @@ import (
 var (
 	randomAddr     = common.HexToAddress("0x1C3ab14BBaD3D99F4203bd7a11aCB94882050E6f")
 	randomHash     = crypto.Keccak256Hash(randomAddr.Bytes())
-	number         = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
-	londonBlockNum = rpc.BlockNumber(test_helpers.LondonBlockNum.Int64())
+	number         = rpc.BlockNumber(test_helpers.BlockNumber1)
+	blockTime      = test_helpers.BlockTime1
+	londonBlockNum = rpc.BlockNumber(test_helpers.LondonBlockNum)
 	wrongNumber    = number + 1
 	blockHash      = test_helpers.MockBlock.Header().Hash()
 	baseFee        = test_helpers.MockLondonBlock.BaseFee()
 	ctx            = context.Background()
+	chainConfig    = &*params.TestChainConfig
 
 	expectedBlock = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
@@ -83,7 +84,6 @@ var (
 		"miner":            test_helpers.MockBlock.Header().Coinbase,
 		"difficulty":       (*hexutil.Big)(test_helpers.MockBlock.Header().Difficulty),
 		"extraData":        hexutil.Bytes(test_helpers.MockBlock.Header().Extra),
-		"size":             hexutil.Uint64(test_helpers.MockBlock.Header().Size()),
 		"gasLimit":         hexutil.Uint64(test_helpers.MockBlock.Header().GasLimit),
 		"gasUsed":          hexutil.Uint64(test_helpers.MockBlock.Header().GasUsed),
 		"timestamp":        hexutil.Uint64(test_helpers.MockBlock.Header().Time),
@@ -131,14 +131,22 @@ var (
 		"receiptsRoot":     test_helpers.MockUncles[1].ReceiptHash,
 		"uncles":           []common.Hash{},
 	}
-	expectedTransaction       = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 0, test_helpers.MockBlock.BaseFee())
-	expectedTransaction2      = eth.NewRPCTransaction(test_helpers.MockTransactions[1], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 1, test_helpers.MockBlock.BaseFee())
-	expectedTransaction3      = eth.NewRPCTransaction(test_helpers.MockTransactions[2], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), 2, test_helpers.MockBlock.BaseFee())
-	expectedLondonTransaction = eth.NewRPCTransaction(test_helpers.MockLondonTransactions[0], test_helpers.MockLondonBlock.Hash(), test_helpers.MockLondonBlock.NumberU64(), 0, test_helpers.MockLondonBlock.BaseFee())
-	expectRawTx, _            = test_helpers.MockTransactions[0].MarshalBinary()
-	expectRawTx2, _           = test_helpers.MockTransactions[1].MarshalBinary()
-	expectRawTx3, _           = test_helpers.MockTransactions[2].MarshalBinary()
-	expectedReceipt           = map[string]interface{}{
+	expectedTransaction       = eth.NewRPCTransaction(test_helpers.MockTransactions[0], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), blockTime, 0, test_helpers.MockBlock.BaseFee(), chainConfig)
+	expectedTransaction2      = eth.NewRPCTransaction(test_helpers.MockTransactions[1], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), blockTime, 1, test_helpers.MockBlock.BaseFee(), chainConfig)
+	expectedTransaction3      = eth.NewRPCTransaction(test_helpers.MockTransactions[2], test_helpers.MockBlock.Hash(), test_helpers.MockBlock.NumberU64(), blockTime, 2, test_helpers.MockBlock.BaseFee(), chainConfig)
+	expectedLondonTransaction = eth.NewRPCTransaction(
+		test_helpers.MockLondonTransactions[0],
+		test_helpers.MockLondonBlock.Hash(),
+		test_helpers.MockLondonBlock.NumberU64(),
+		test_helpers.MockLondonBlock.Time(),
+		0,
+		test_helpers.MockLondonBlock.BaseFee(),
+		chainConfig,
+	)
+	expectRawTx, _  = test_helpers.MockTransactions[0].MarshalBinary()
+	expectRawTx2, _ = test_helpers.MockTransactions[1].MarshalBinary()
+	expectRawTx3, _ = test_helpers.MockTransactions[2].MarshalBinary()
+	expectedReceipt = map[string]interface{}{
 		"blockHash":         blockHash,
 		"blockNumber":       hexutil.Uint64(uint64(number.Int64())),
 		"transactionHash":   expectedTransaction.Hash,
@@ -187,10 +195,10 @@ var (
 		"type":              hexutil.Uint64(types.LegacyTxType),
 	}
 )
+
 var (
-	db          *sqlx.DB
-	api         *eth.PublicEthAPI
-	chainConfig = params.TestChainConfig
+	db  *sqlx.DB
+	api *eth.PublicEthAPI
 )
 
 var _ = BeforeSuite(func() {
@@ -293,9 +301,7 @@ var _ = Describe("API", func() {
 	Describe("eth_blockNumber", func() {
 		It("Retrieves the head block number", func() {
 			bn := api.BlockNumber()
-			ubn := (uint64)(bn)
-			subn := strconv.FormatUint(ubn, 10)
-			Expect(subn).To(Equal(test_helpers.LondonBlockNum.String()))
+			Expect(bn).To(Equal(hexutil.Uint64(test_helpers.LondonBlockNum)))
 		})
 	})
 
@@ -317,7 +323,7 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			transactions := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
 			for i, trx := range test_helpers.MockBlock.Transactions() {
-				transactions[i] = eth.NewRPCTransactionFromBlockHash(test_helpers.MockBlock, trx.Hash())
+				transactions[i] = eth.NewRPCTransactionFromBlockHash(test_helpers.MockBlock, trx.Hash(), chainConfig)
 			}
 			expectedBlock["transactions"] = transactions
 			for key, val := range expectedBlock {
@@ -371,7 +377,7 @@ var _ = Describe("API", func() {
 			Expect(err).ToNot(HaveOccurred())
 			transactions := make([]interface{}, len(test_helpers.MockBlock.Transactions()))
 			for i, trx := range test_helpers.MockBlock.Transactions() {
-				transactions[i] = eth.NewRPCTransactionFromBlockHash(test_helpers.MockBlock, trx.Hash())
+				transactions[i] = eth.NewRPCTransactionFromBlockHash(test_helpers.MockBlock, trx.Hash(), chainConfig)
 			}
 			expectedBlock["transactions"] = transactions
 			for key, val := range expectedBlock {
@@ -1104,20 +1110,20 @@ var _ = Describe("API", func() {
 		It("Retrieves the eth balance for the provided account address at the block with the provided number", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithNumber(number))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(test_helpers.AccountBalance)))
+			Expect(bal).To(Equal((*hexutil.Big)(test_helpers.AccountBalance.ToBig())))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithNumber(number))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal.ToInt().Cmp(common.Big0)).To(Equal(0))
 		})
 		It("Retrieves the eth balance for the provided account address at the block with the provided hash", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.AccountAddresss, rpc.BlockNumberOrHashWithHash(blockHash, true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(test_helpers.AccountBalance)))
+			Expect(bal).To(Equal((*hexutil.Big)(test_helpers.AccountBalance.ToBig())))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddress, rpc.BlockNumberOrHashWithHash(blockHash, true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal.ToInt().Cmp(common.Big0)).To(Equal(0))
 		})
 		It("Retrieves the eth balance for the non-existing account address at the block with the provided hash", func() {
 			bal, err := api.GetBalance(ctx, randomAddr, rpc.BlockNumberOrHashWithHash(blockHash, true))

@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/cerc-io/ipld-eth-statedb/trie_by_cid/trie"
+	"github.com/cerc-io/ipld-eth-statedb/trie_by_cid/triedb"
 )
 
 // NodeType for explicitly setting type of node
@@ -73,7 +74,7 @@ type StorageNode struct {
 	LeafKey   []byte   `json:"leafKey"`
 }
 
-func ResolveNode(path []byte, node []byte, trieDB *trie.Database) (StateNode, []interface{}, error) {
+func ResolveNode(path []byte, node []byte, trieDB *triedb.Database) (StateNode, []interface{}, error) {
 	var nodeElements []interface{}
 	if err := rlp.DecodeBytes(node, &nodeElements); err != nil {
 		return StateNode{}, nil, err
@@ -93,7 +94,7 @@ func ResolveNode(path []byte, node []byte, trieDB *trie.Database) (StateNode, []
 }
 
 // ResolveNodeIt return the state diff node pointed by the iterator.
-func ResolveNodeIt(it trie.NodeIterator, trieDB *trie.Database) (StateNode, []interface{}, error) {
+func ResolveNodeIt(it trie.NodeIterator, trieDB *triedb.Database) (StateNode, []interface{}, error) {
 	node, err := it.NodeBlob(), it.Error()
 	if err != nil {
 		return StateNode{}, nil, err

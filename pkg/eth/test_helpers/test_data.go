@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/holiman/uint256"
 	"github.com/ipfs/go-cid"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/eth"
@@ -40,10 +41,11 @@ import (
 // Test variables
 var (
 	// block data
-	BlockNumber = big.NewInt(1)
-	MockHeader  = types.Header{
+	BlockNumber1 = int64(1)
+	BlockTime1   = uint64(0)
+	MockHeader   = types.Header{
 		Time:        0,
-		Number:      new(big.Int).Set(BlockNumber),
+		Number:      big.NewInt(BlockNumber1),
 		Root:        common.HexToHash("0x0"),
 		TxHash:      common.HexToHash("0x0"),
 		ReceiptHash: common.HexToHash("0x0"),
@@ -54,7 +56,7 @@ var (
 	MockUncles                                 = []*types.Header{
 		{
 			Time:        1,
-			Number:      new(big.Int).Add(BlockNumber, big.NewInt(1)),
+			Number:      big.NewInt(BlockNumber1 + 1),
 			Root:        common.HexToHash("0x1"),
 			TxHash:      common.HexToHash("0x1"),
 			ReceiptHash: common.HexToHash("0x1"),
@@ -64,7 +66,7 @@ var (
 		},
 		{
 			Time:        2,
-			Number:      new(big.Int).Add(BlockNumber, big.NewInt(2)),
+			Number:      big.NewInt(BlockNumber1 + 2),
 			Root:        common.HexToHash("0x2"),
 			TxHash:      common.HexToHash("0x2"),
 			ReceiptHash: common.HexToHash("0x2"),
@@ -76,7 +78,7 @@ var (
 	MockBlock       = createNewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts, trie.NewEmpty(nil))
 	MockChildHeader = types.Header{
 		Time:        0,
-		Number:      new(big.Int).Add(BlockNumber, common.Big1),
+		Number:      big.NewInt(BlockNumber1 + 1),
 		Root:        common.HexToHash("0x0"),
 		TxHash:      common.HexToHash("0x0"),
 		ReceiptHash: common.HexToHash("0x0"),
@@ -104,7 +106,7 @@ var (
 		Address:     Address,
 		Topics:      []common.Hash{mockTopic11, mockTopic12},
 		Data:        []byte{},
-		BlockNumber: BlockNumber.Uint64(),
+		BlockNumber: uint64(BlockNumber1),
 		TxIndex:     0,
 		Index:       0,
 	}
@@ -112,7 +114,7 @@ var (
 		Address:     AnotherAddress,
 		Topics:      []common.Hash{mockTopic21, mockTopic22},
 		Data:        []byte{},
-		BlockNumber: BlockNumber.Uint64(),
+		BlockNumber: uint64(BlockNumber1),
 		TxIndex:     1,
 		Index:       1,
 	}
@@ -120,7 +122,7 @@ var (
 		Address:     AnotherAddress1,
 		Topics:      []common.Hash{mockTopic31},
 		Data:        []byte{},
-		BlockNumber: BlockNumber.Uint64(),
+		BlockNumber: uint64(BlockNumber1),
 		TxIndex:     2,
 		Index:       2,
 	}
@@ -129,7 +131,7 @@ var (
 		Address:     AnotherAddress1,
 		Topics:      []common.Hash{mockTopic41, mockTopic42, mockTopic43},
 		Data:        []byte{},
-		BlockNumber: BlockNumber.Uint64(),
+		BlockNumber: uint64(BlockNumber1),
 		TxIndex:     2,
 		Index:       3,
 	}
@@ -137,7 +139,7 @@ var (
 		Address:     AnotherAddress1,
 		Topics:      []common.Hash{mockTopic51},
 		Data:        []byte{},
-		BlockNumber: BlockNumber.Uint64(),
+		BlockNumber: uint64(BlockNumber1),
 		TxIndex:     2,
 		Index:       4,
 	}
@@ -145,7 +147,7 @@ var (
 		Address:     AnotherAddress2,
 		Topics:      []common.Hash{mockTopic61},
 		Data:        []byte{},
-		BlockNumber: BlockNumber.Uint64(),
+		BlockNumber: uint64(BlockNumber1),
 		TxIndex:     3,
 		Index:       5,
 	}
@@ -217,7 +219,7 @@ var (
 	ContractLeafKey = crypto.Keccak256(ContractAddress[:])
 	ContractAccount = types.StateAccount{
 		Nonce:    uint64(1),
-		Balance:  big.NewInt(0),
+		Balance:  uint256.NewInt(0),
 		CodeHash: CodeHash.Bytes(),
 		Root:     common.HexToHash(ContractRoot),
 	}
@@ -229,7 +231,7 @@ var (
 	})
 
 	nonce0          = uint64(0)
-	AccountBalance  = big.NewInt(1000)
+	AccountBalance  = uint256.NewInt(1000)
 	AccountRoot     = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
 	AccountCodeHash = common.HexToHash("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
 	AccountAddresss = common.HexToAddress("0x0D3ab14BBaD3D99F4203bd7a11aCB94882050E7e")
@@ -290,21 +292,22 @@ var (
 		StateNodes:      MockStateNodes,
 	}
 
-	LondonBlockNum   = new(big.Int).Add(BlockNumber, big.NewInt(2))
+	LondonBlockNum   = (BlockNumber1 + 2)
+	LondonBlockTime  = BlockTime1 + 1
 	MockLondonHeader = types.Header{
-		Time:       0,
-		Number:     LondonBlockNum,
+		Time:       LondonBlockTime,
+		Number:     big.NewInt(LondonBlockNum),
 		Root:       common.HexToHash("0x00"),
 		Difficulty: big.NewInt(5000000),
 		Extra:      []byte{},
 		BaseFee:    big.NewInt(params.InitialBaseFee),
 	}
 
-	MockLondonTransactions, MockLondonReceipts, _ = createDynamicTransactionsAndReceipts(LondonBlockNum)
+	MockLondonTransactions, MockLondonReceipts, _ = createDynamicTransactionsAndReceipts(big.NewInt(LondonBlockNum), LondonBlockTime)
 	MockLondonUncles                              = []*types.Header{
 		{
 			Time:        1,
-			Number:      new(big.Int).Add(BlockNumber, big.NewInt(1)),
+			Number:      big.NewInt(BlockNumber1 + 1),
 			ParentHash:  common.HexToHash("0x2"),
 			Root:        common.HexToHash("0x1"),
 			TxHash:      common.HexToHash("0x1"),
@@ -314,7 +317,7 @@ var (
 		},
 		{
 			Time:        2,
-			Number:      new(big.Int).Add(BlockNumber, big.NewInt(1)),
+			Number:      big.NewInt(BlockNumber1 + 1),
 			ParentHash:  common.HexToHash("0x1"),
 			Root:        common.HexToHash("0x2"),
 			TxHash:      common.HexToHash("0x2"),
@@ -338,7 +341,7 @@ func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*ty
 }
 
 // createDynamicTransactionsAndReceipts is a helper function to generate signed mock transactions and mock receipts with mock logs
-func createDynamicTransactionsAndReceipts(blockNumber *big.Int) (types.Transactions, types.Receipts, common.Address) {
+func createDynamicTransactionsAndReceipts(blockNumber *big.Int, blockTime uint64) (types.Transactions, types.Receipts, common.Address) {
 	// make transactions
 	config := *params.TestChainConfig
 	config.LondonBlock = blockNumber
@@ -353,7 +356,7 @@ func createDynamicTransactionsAndReceipts(blockNumber *big.Int) (types.Transacti
 		Data:      []byte{},
 	})
 
-	transactionSigner := types.MakeSigner(&config, blockNumber)
+	transactionSigner := types.MakeSigner(&config, blockNumber, blockTime)
 	mockCurve := elliptic.P256()
 	mockPrvKey, err := ecdsa.GenerateKey(mockCurve, rand.Reader)
 	if err != nil {
@@ -391,7 +394,7 @@ func createLegacyTransactionsAndReceipts() (types.Transactions, types.Receipts, 
 	trx2 := types.NewTransaction(1, AnotherAddress, big.NewInt(2000), 100, big.NewInt(200), []byte{})
 	trx3 := types.NewContractCreation(2, big.NewInt(1500), 75, big.NewInt(150), ContractCode)
 	trx4 := types.NewTransaction(3, AnotherAddress1, big.NewInt(2000), 100, big.NewInt(200), []byte{})
-	transactionSigner := types.MakeSigner(params.MainnetChainConfig, new(big.Int).Set(BlockNumber))
+	transactionSigner := types.MakeSigner(params.MainnetChainConfig, big.NewInt(BlockNumber1), 0)
 	mockCurve := elliptic.P256()
 	mockPrvKey, err := ecdsa.GenerateKey(mockCurve, rand.Reader)
 	if err != nil {

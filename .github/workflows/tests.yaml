@@ -12,9 +12,7 @@ on:
       - ci-test
 
 env:
-  # Needed until we can incorporate docker startup into the executor container
-  DOCKER_HOST: unix:///var/run/dind.sock
-  SO_VERSION: v1.1.0-e0b5318-202309201927   # contains fixes for plugeth stack
+  SO_VERSION: v1.1.0-87fffca-202404110321
 
 jobs:
   test:
@@ -26,21 +24,12 @@ jobs:
         with:
           go-version-file: 'go.mod'
           check-latest: true
-      - name: Run dockerd
-        run: |
-          dockerd -H $DOCKER_HOST --userland-proxy=false &
-          sleep 5
       - name: Run DB container
         run: docker compose -f test/compose-db.yml up --wait --quiet-pull
-      - name: Configure Gitea access
-        env:
-          TOKEN: ${{ secrets.CICD_REPO_TOKEN }}
-        run: |
-          git config --global url."https://$TOKEN:@git.vdb.to/".insteadOf https://git.vdb.to/
       - name: Build and run tests
         run: |
           go install github.com/onsi/ginkgo/v2/ginkgo
-          ginkgo -v -r --skipPackage=./integration
+          ginkgo -v -r --skip-package=./integration
 
   integration-test:
     name: Run integration tests
@@ -51,10 +40,6 @@ jobs:
         with:
           go-version-file: 'go.mod'
           check-latest: true
-      - name: Run dockerd
-        run: |
-          dockerd -H $DOCKER_HOST --userland-proxy=false &
-          sleep 5
 
       - name: Build server image
         env:
@@ -67,7 +52,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: 3.11
       - name: Install stack-orchestrator
         uses: actions/checkout@v3
         with:
@@ -75,11 +60,6 @@ jobs:
           ref: ${{ env.SO_VERSION }}
           path: ./stack-orchestrator
       - run: pip install ./stack-orchestrator
-      - name: Configure Gitea access
-        env:
-          TOKEN: ${{ secrets.CICD_REPO_TOKEN }}
-        run: |
-          git config --global url."https://$TOKEN:@git.vdb.to/".insteadOf https://git.vdb.to/
 
       - name: Run testnet stack
         env:

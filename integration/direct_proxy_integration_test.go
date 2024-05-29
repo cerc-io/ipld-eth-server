@@ -22,13 +22,13 @@ var _ = Describe("Direct proxy integration test", Label("proxy"), func() {
 	var contractErr error
 	var txErr error
 
-	Describe("get Block", func() {
+	Describe("Get Block", func() {
 		BeforeEach(func() {
 			contract, contractErr = integration.DeployContract()
 			Expect(contractErr).ToNot(HaveOccurred())
 		})
 
-		It("get not existing block by number", func() {
+		It("gets not existing block by number", func() {
 			blockNum := contract.BlockNumber + 100
 
 			gethBlock, err := gethClient.BlockByNumber(ctx, big.NewInt(blockNum))
@@ -40,7 +40,7 @@ var _ = Describe("Direct proxy integration test", Label("proxy"), func() {
 			Expect(ipldBlock).To(BeZero())
 		})
 
-		It("get not existing block by hash", func() {
+		It("gets not existing block by hash", func() {
 			gethBlock, err := gethClient.BlockByHash(ctx, nonExistingBlockHash)
 			Expect(err).To(MatchError(ethereum.NotFound))
 			Expect(gethBlock).To(BeZero())
@@ -50,7 +50,7 @@ var _ = Describe("Direct proxy integration test", Label("proxy"), func() {
 			Expect(ipldBlock).To(BeZero())
 		})
 
-		It("get block by number", func() {
+		It("gets block by number", func() {
 			blockNum := contract.BlockNumber
 
 			_, err := gethClient.BlockByNumber(ctx, big.NewInt(blockNum))
@@ -60,7 +60,7 @@ var _ = Describe("Direct proxy integration test", Label("proxy"), func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("get block by hash", func() {
+		It("gets block by hash", func() {
 			_, err := gethClient.BlockByHash(ctx, contract.BlockHash)
 			Expect(err).ToNot(HaveOccurred())
 

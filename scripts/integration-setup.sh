@@ -4,11 +4,12 @@
 
 set -e
 
-export DOCKER_BUILDKIT=1
-# Prevent conflicting tty output
-export BUILDKIT_PROGRESS=plain
+laconic_so="${LACONIC_SO:-laconic-so} --stack $(readlink -f test) --verbose"
 
 CONFIG_DIR=$(readlink -f "${CONFIG_DIR:-$(mktemp -d)}")
+
+# Prevent conflicting tty output
+export BUILDKIT_PROGRESS=plain
 
 # By default assume we are running in the project root
 export CERC_REPO_BASE_DIR="${CERC_REPO_BASE_DIR:-..}"
@@ -16,22 +17,21 @@ export CERC_REPO_BASE_DIR="${CERC_REPO_BASE_DIR:-..}"
 echo CERC_STATEDIFF_DB_GOOSE_MIN_VER=18 >> $CONFIG_DIR/stack.env
 # Pass this in so we can run eth_call forwarding tests, which expect no IPLD DB
 echo CERC_RUN_STATEDIFF=${CERC_RUN_STATEDIFF:-true} >> $CONFIG_DIR/stack.env
-
-laconic_so="${LACONIC_SO:-laconic-so} --stack fixturenet-plugeth-tx --verbose"
+# don't run plugeth in the debugger
+echo CERC_REMOTE_DEBUG=false >> $CONFIG_DIR/stack.env
 
 set -x
 
 if [[ -z $SKIP_BUILD ]]; then
     $laconic_so setup-repositories \
-        --exclude github.com/cerc-io/ipld-eth-server,github.com/cerc-io/tx-spammer,github.com/dboreham/foundry \
-        --branches-file ./test/stack-refs.txt
-
+        --exclude git.vdb.to/cerc-io/ipld-eth-server
+    # Assume the tested image has been built separately
     $laconic_so build-containers \
-        --exclude cerc/ipld-eth-server,cerc/keycloak,cerc/tx-spammer,cerc/foundry
+        --exclude cerc/ipld-eth-server
 fi
 
 $laconic_so deploy \
-    --include fixturenet-plugeth,ipld-eth-db \
+    --exclude ipld-eth-server \
     --env-file $CONFIG_DIR/stack.env \
     --cluster test up
 

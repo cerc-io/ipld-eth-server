@@ -19,19 +19,25 @@ package eth
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/cerc-io/plugeth-statediff"
+	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
+	"github.com/cerc-io/ipld-eth-statedb/trie_by_cid/state"
+	"github.com/cerc-io/ipld-eth-statedb/trie_by_cid/trie"
+	statediff "github.com/cerc-io/plugeth-statediff"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -39,9 +45,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/holiman/uint256"
 
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
-	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
 )
 
 const (
@@ -105,6 +111,25 @@ func NewPublicEthAPI(b *Backend, client *rpc.Client, config APIConfig) (*PublicE
 Headers and blocks
 
 */
+
+// decodeHash parses a hex-encoded 32-byte hash. The input may optionally
+// be prefixed by 0x and can have a byte length up to 32.
+func decodeHash(s string) (h common.Hash, inputLength int, err error) {
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		s = s[2:]
+	}
+	if (len(s) & 1) > 0 {
+		s = "0" + s
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return common.Hash{}, 0, errors.New("hex string invalid")
+	}
+	if len(b) > 32 {
+		return common.Hash{}, len(b), errors.New("hex string too long, want at most 32 bytes")
+	}
+	return common.BytesToHash(b), len(b), nil
+}
 
 // GetHeaderByNumber returns the requested canonical block header.
 // * When blockNr is -1 the chain head is returned.
@@ -222,8 +247,7 @@ Uncles
 
 */
 
-// GetUncleByBlockNumberAndIndex returns the uncle block for the given block hash and index. When fullTx is true
-// all transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
+// GetUncleByBlockNumberAndIndex returns the uncle block for the given block hash and index.
 func (pea *PublicEthAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) (map[string]interface{}, error) {
 	block, err := pea.B.BlockByNumber(ctx, blockNr)
 	if block != nil && err == nil {
@@ -379,7 +403,7 @@ func (pea *PublicEthAPI) GetBlockTransactionCountByHash(ctx context.Context, blo
 // GetTransactionByBlockNumberAndIndex returns the transaction for the given block number and index.
 func (pea *PublicEthAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) *RPCTransaction {
 	if block, _ := pea.B.BlockByNumber(ctx, blockNr); block != nil {
-		return newRPCTransactionFromBlockIndex(block, uint64(index))
+		return newRPCTransactionFromBlockIndex(block, uint64(index), pea.B.ChainConfig())
 	}
 
 	if pea.config.ProxyOnError {
@@ -396,7 +420,7 @@ func (pea *PublicEthAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context
 // GetTransactionByBlockHashAndIndex returns the transaction for the given block hash and index.
 func (pea *PublicEthAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint) *RPCTransaction {
 	if block, _ := pea.B.BlockByHash(ctx, blockHash); block != nil {
-		return newRPCTransactionFromBlockIndex(block, uint64(index))
+		return newRPCTransactionFromBlockIndex(block, uint64(index), pea.B.ChainConfig())
 	}
 
 	if pea.config.ProxyOnError {
@@ -443,14 +467,14 @@ func (pea *PublicEthAPI) GetRawTransactionByBlockHashAndIndex(ctx context.Contex
 // GetTransactionByHash returns the transaction for the given hash
 // eth ipld-eth-server cannot currently handle pending/tx_pool txs
 func (pea *PublicEthAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) (*RPCTransaction, error) {
-	tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
+	_, tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
 	if tx != nil && err == nil {
 		header, err := pea.B.HeaderByHash(ctx, blockHash)
 		if err != nil {
 			return nil, err
 		}
 
-		return NewRPCTransaction(tx, blockHash, blockNumber, index, header.BaseFee), nil
+		return NewRPCTransaction(tx, blockHash, blockNumber, header.Time, index, header.BaseFee, pea.B.ChainConfig()), nil
 	}
 	if pea.config.ProxyOnError {
 		var tx *RPCTransaction
@@ -465,7 +489,7 @@ func (pea *PublicEthAPI) GetTransactionByHash(ctx context.Context, hash common.H
 // GetRawTransactionByHash returns the bytes of the transaction for the given hash.
 func (pea *PublicEthAPI) GetRawTransactionByHash(ctx context.Context, hash common.Hash) (hexutil.Bytes, error) {
 	// Retrieve a finalized transaction, or a pooled otherwise
-	tx, _, _, _, err := pea.B.GetTransaction(ctx, hash)
+	_, tx, _, _, _, err := pea.B.GetTransaction(ctx, hash)
 	if tx != nil && err == nil {
 		return tx.MarshalBinary()
 	}
@@ -580,7 +604,7 @@ func (pea *PublicEthAPI) GetTransactionReceipt(ctx context.Context, hash common.
 
 func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]interface{}, error) {
 	// TODO: this can be optimized for Postgres
-	tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
+	_, tx, blockHash, blockNumber, index, err := pea.B.GetTransaction(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -595,7 +619,11 @@ func (pea *PublicEthAPI) localGetTransactionReceipt(ctx context.Context, hash co
 	if err != nil {
 		return nil, err
 	}
-	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.BaseFee(), block.Transactions())
+	var blobGasPrice *big.Int
+	if excessBlobGas := block.ExcessBlobGas(); excessBlobGas != nil {
+		blobGasPrice = eip4844.CalcBlobFee(*excessBlobGas)
+	}
+	err = receipts.DeriveFields(pea.B.Config.ChainConfig, blockHash, blockNumber, block.Time(), block.BaseFee(), blobGasPrice, block.Transactions())
 	if err != nil {
 		return nil, err
 	}
@@ -793,7 +821,7 @@ func (pea *PublicEthAPI) localGetBalance(ctx context.Context, address common.Add
 	if err != nil {
 		return nil, err
 	}
-	return (*hexutil.Big)(account.Balance), nil
+	return (*hexutil.Big)(account.Balance.ToBig()), nil
 }
 
 // GetStorageAt returns the storage from the state at the given address, key and
@@ -822,7 +850,7 @@ func (pea *PublicEthAPI) GetStorageAt(ctx context.Context, address common.Addres
 		return value[:], nil
 	}
 	if pea.config.ProxyOnError {
-		log.Warnxf(ctx, "Missing eth_getStorageAt(%s, %s, %s)", address.Hash().String(), key, blockNrOrHash.String())
+		log.Warnxf(ctx, "Missing eth_getStorageAt(%s, %s, %s)", address, key, blockNrOrHash.String())
 		var res hexutil.Bytes
 		if err := pea.rpc.CallContext(ctx, &res, "eth_getStorageAt", address, key, blockNrOrHash); res != nil && err == nil {
 			return res, nil
@@ -868,57 +896,95 @@ func (pea *PublicEthAPI) GetProof(ctx context.Context, address common.Address, s
 	return nil, err
 }
 
+// proofList implements ethdb.KeyValueWriter and collects the proofs as
+// hex-strings for delivery to rpc-caller.
+type proofList []string
+
+func (n *proofList) Put(key []byte, value []byte) error {
+	*n = append(*n, hexutil.Encode(value))
+	return nil
+}
+
+func (n *proofList) Delete(key []byte) error {
+	panic("not supported")
+}
+
 // this continues to use ipfs-ethdb based geth StateDB as it requires trie access
 func (pea *PublicEthAPI) localGetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (*AccountResult, error) {
-	state, _, err := pea.B.IPLDTrieStateDBAndHeaderByNumberOrHash(ctx, blockNrOrHash)
-	if state == nil || err != nil {
-		return nil, err
-	}
-
-	storageTrie, err := state.StorageTrie(address)
-	if storageTrie == nil || err != nil {
-		return nil, err
-	}
-	storageHash := types.EmptyRootHash
-	codeHash := state.GetCodeHash(address)
-	storageProof := make([]StorageResult, len(storageKeys))
-
-	// if we have a storageTrie, (which means the account exists), we can update the storagehash
-	if storageTrie != nil {
-		storageHash = storageTrie.Hash()
-	} else {
-		// no storageTrie means the account does not exist, so the codeHash is the hash of an empty bytearray.
-		codeHash = crypto.Keccak256Hash(nil)
-	}
-
-	// create the proof for the storageKeys
-	for i, key := range storageKeys {
-		if storageTrie != nil {
-			proof, storageError := state.GetStorageProof(address, common.HexToHash(key))
-			if storageError != nil {
-				return nil, storageError
-			}
-			storageProof[i] = StorageResult{key, (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()), toHexSlice(proof)}
-		} else {
-			storageProof[i] = StorageResult{key, &hexutil.Big{}, []string{}}
+	var (
+		keys         = make([]common.Hash, len(storageKeys))
+		keyLengths   = make([]int, len(storageKeys))
+		storageProof = make([]StorageResult, len(storageKeys))
+	)
+	// Deserialize all keys. This prevents state access on invalid input.
+	for i, hexKey := range storageKeys {
+		var err error
+		keys[i], keyLengths[i], err = decodeHash(hexKey)
+		if err != nil {
+			return nil, err
 		}
 	}
-
-	// create the accountProof
-	accountProof, proofErr := state.GetProof(address)
-	if proofErr != nil {
-		return nil, proofErr
+	statedb, header, err := pea.B.IPLDTrieStateDBAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	// statedb, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if statedb == nil || err != nil {
+		return nil, err
 	}
+	codeHash := statedb.GetCodeHash(address)
+	storageRoot := statedb.GetStorageRoot(address)
 
+	if len(keys) > 0 {
+		var storageTrie state.Trie
+		if storageRoot != types.EmptyRootHash && storageRoot != (common.Hash{}) {
+			id := trie.StorageTrieID(header.Root, crypto.Keccak256Hash(address.Bytes()), storageRoot)
+			st, err := trie.NewStateTrie(id, statedb.Database().TrieDB())
+			if err != nil {
+				return nil, err
+			}
+			storageTrie = st
+		}
+		// Create the proofs for the storageKeys.
+		for i, key := range keys {
+			// Output key encoding is a bit special: if the input was a 32-byte hash, it is
+			// returned as such. Otherwise, we apply the QUANTITY encoding mandated by the
+			// JSON-RPC spec for getProof. This behavior exists to preserve backwards
+			// compatibility with older client versions.
+			var outputKey string
+			if keyLengths[i] != 32 {
+				outputKey = hexutil.EncodeBig(key.Big())
+			} else {
+				outputKey = hexutil.Encode(key[:])
+			}
+			if storageTrie == nil {
+				storageProof[i] = StorageResult{outputKey, &hexutil.Big{}, []string{}}
+				continue
+			}
+			var proof proofList
+			if err := storageTrie.Prove(crypto.Keccak256(key.Bytes()), &proof); err != nil {
+				return nil, err
+			}
+			value := (*hexutil.Big)(statedb.GetState(address, key).Big())
+			storageProof[i] = StorageResult{outputKey, value, proof}
+		}
+	}
+	// Create the accountProof.
+	tr, err := trie.NewStateTrie(trie.StateTrieID(header.Root), statedb.Database().TrieDB())
+	if err != nil {
+		return nil, err
+	}
+	var accountProof proofList
+	if err := tr.Prove(crypto.Keccak256(address.Bytes()), &accountProof); err != nil {
+		return nil, err
+	}
+	balance := statedb.GetBalance(address).ToBig()
 	return &AccountResult{
 		Address:      address,
-		AccountProof: toHexSlice(accountProof),
-		Balance:      (*hexutil.Big)(state.GetBalance(address)),
+		AccountProof: accountProof,
+		Balance:      (*hexutil.Big)(balance),
 		CodeHash:     codeHash,
-		Nonce:        hexutil.Uint64(state.GetNonce(address)),
-		StorageHash:  storageHash,
+		Nonce:        hexutil.Uint64(statedb.GetNonce(address)),
+		StorageHash:  storageRoot,
 		StorageProof: storageProof,
-	}, state.Error()
+	}, statedb.Error()
 }
 
 // GetSlice returns a slice of state or storage nodes from a provided root to a provided path and past it to a certain depth
@@ -989,7 +1055,7 @@ func (diff *StateOverride) Apply(state *ipld_direct_state.StateDB) error {
 		}
 		// Override account balance.
 		if account.Balance != nil {
-			state.SetBalance(addr, (*big.Int)(*account.Balance))
+			state.SetBalance(addr, uint256.MustFromBig((*big.Int)(*account.Balance)))
 		}
 		if account.State != nil && account.StateDiff != nil {
 			return fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
@@ -1175,11 +1241,7 @@ func (pea *PublicEthAPI) writeStateDiffFor(blockHash common.Hash) {
 
 // rpcMarshalBlock uses the generalized output filler, then adds the total difficulty field
 func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
-	if err != nil {
-		log.Errorf("error RPC marshalling block with hash %s: %s", b.Hash().String(), err)
-		return nil, err
-	}
+	fields := RPCMarshalBlock(b, inclTx, fullTx, pea.B.ChainConfig())
 	if inclTx {
 		td, err := pea.B.GetTd(b.Hash())
 		if err != nil {
@@ -1188,12 +1250,12 @@ func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx boo
 		}
 		fields["totalDifficulty"] = (*hexutil.Big)(td)
 	}
-	return fields, err
+	return fields, nil
 }
 
 // rpcMarshalBlockWithUncleHashes uses the generalized output filler, then adds the total difficulty field
 func (pea *PublicEthAPI) rpcMarshalBlockWithUncleHashes(b *types.Block, uncleHashes []common.Hash, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields, err := RPCMarshalBlockWithUncleHashes(b, uncleHashes, inclTx, fullTx)
+	fields, err := RPCMarshalBlockWithUncleHashes(b, uncleHashes, inclTx, fullTx, pea.B.ChainConfig())
 	if err != nil {
 		return nil, err
 	}

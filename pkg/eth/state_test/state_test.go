@@ -47,7 +47,7 @@ var (
 	parsedABI     abi.ABI
 	randomAddress = common.HexToAddress("0x9F4203bd7a11aCB94882050E6f1C3ab14BBaD3D9")
 	randomHash    = crypto.Keccak256Hash(randomAddress.Bytes())
-	number        = rpc.BlockNumber(test_helpers.BlockNumber.Int64())
+	number        = rpc.BlockNumber(test_helpers.BlockNumber1)
 
 	block1StateRoot    = common.HexToHash("0xa1f614839ebdd58677df2c9d66a3e0acc9462acc49fad6006d0b6e5d2b98ed21")
 	rootDataHashBlock1 = "a1f614839ebdd58677df2c9d66a3e0acc9462acc49fad6006d0b6e5d2b98ed21"
@@ -152,7 +152,6 @@ var _ = BeforeSuite(func() {
 		"miner":            canonicalHeader.Coinbase,
 		"difficulty":       (*hexutil.Big)(canonicalHeader.Difficulty),
 		"extraData":        hexutil.Bytes([]byte{}),
-		"size":             hexutil.Uint64(canonicalHeader.Size()),
 		"gasLimit":         hexutil.Uint64(canonicalHeader.GasLimit),
 		"gasUsed":          hexutil.Uint64(canonicalHeader.GasUsed),
 		"timestamp":        hexutil.Uint64(canonicalHeader.Time),
@@ -294,198 +293,198 @@ var _ = Describe("eth state reading tests", func() {
 		It("Retrieves account balance by block number", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(0))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock0))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock0))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(1))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(1))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt((common.Big0)))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(1))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt((common.Big0)))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(1))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(2))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(2))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct2BalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedAcct2BalanceBlock2))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(2))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedContractBalance))
+			Expect(bal).To(EqualBigHex(expectedContractBalance))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(2))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock2))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(3))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(3))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct2BalanceBlock3))
+			Expect(bal).To(EqualBigHex(expectedAcct2BalanceBlock3))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(3))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedContractBalance))
+			Expect(bal).To(EqualBigHex(expectedContractBalance))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(3))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock2))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(4))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(4))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct2BalanceBlock4))
+			Expect(bal).To(EqualBigHex(expectedAcct2BalanceBlock4))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(4))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedContractBalance))
+			Expect(bal).To(EqualBigHex(expectedContractBalance))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(4))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock2))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock5))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock5))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct2BalanceBlock4))
+			Expect(bal).To(EqualBigHex(expectedAcct2BalanceBlock4))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedContractBalance))
+			Expect(bal).To(EqualBigHex(expectedContractBalance))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithNumber(5))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock2))
 		})
 		It("Retrieves account balance by block hash", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock0))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock0))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[1].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[1].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt((common.Big0)))
 
 			_, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[1].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt((common.Big0)))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[1].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[2].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[2].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(bal).To(Equal(expectedAcct2BalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedAcct2BalanceBlock2))
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[2].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedContractBalance))
+			Expect(bal).To(EqualBigHex(expectedContractBalance))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[2].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock2))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct2BalanceBlock3))
+			Expect(bal).To(EqualBigHex(expectedAcct2BalanceBlock3))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedContractBalance))
+			Expect(bal).To(EqualBigHex(expectedContractBalance))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[3].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock2))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[4].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock1))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock1))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[4].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct2BalanceBlock4))
+			Expect(bal).To(EqualBigHex(expectedAcct2BalanceBlock4))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[4].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedContractBalance))
+			Expect(bal).To(EqualBigHex(expectedContractBalance))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[4].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock2))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct1BalanceBlock5))
+			Expect(bal).To(EqualBigHex(expectedAcct1BalanceBlock5))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedAcct2BalanceBlock4))
+			Expect(bal).To(EqualBigHex(expectedAcct2BalanceBlock4))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedContractBalance))
+			Expect(bal).To(EqualBigHex(expectedContractBalance))
 
 			bal, err = api.GetBalance(ctx, test_helpers.TestBankAddress, rpc.BlockNumberOrHashWithHash(blocks[5].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal(expectedBankBalanceBlock2))
+			Expect(bal).To(EqualBigHex(expectedBankBalanceBlock2))
 		})
 		It("Returns 0 if account balance not found by block number", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithNumber(0))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt(common.Big0))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithNumber(0))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt(common.Big0))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithNumber(0))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt(common.Big0))
 		})
 		It("Returns 0 if account balance not found by block hash", func() {
 			bal, err := api.GetBalance(ctx, test_helpers.Account1Addr, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt(common.Big0))
 
 			bal, err = api.GetBalance(ctx, test_helpers.Account2Addr, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt(common.Big0))
 
 			bal, err = api.GetBalance(ctx, test_helpers.ContractAddr, rpc.BlockNumberOrHashWithHash(blocks[0].Hash(), true))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bal).To(Equal((*hexutil.Big)(common.Big0)))
+			Expect(bal).To(EqualBigInt(common.Big0))
 		})
 	})
 

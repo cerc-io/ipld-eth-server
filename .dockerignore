@@ -14,3 +14,4 @@ scripts
 Dockerfile
 
 **/node_modules
+build

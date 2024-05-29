@@ -1,5 +1,5 @@
 # Downgrade from 18.16, see https://github.com/NomicFoundation/hardhat/issues/3877
-FROM node:18.15-slim
+FROM node:20-slim
 
 WORKDIR /usr/src/app
 COPY package*.json ./

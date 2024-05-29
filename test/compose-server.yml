@@ -28,7 +28,7 @@ services:
 
   contract-deployer:
     restart: on-failure
-    image: cerc/ipld-eth-server/contract-deployer:local
+    image: cerc/ipld-eth-server/test-contract-deployer:local
     build: ./contract
     networks:
       - test_default

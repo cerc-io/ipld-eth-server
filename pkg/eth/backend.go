@@ -25,6 +25,12 @@ import (
 	"math/big"
 	"time"
 
+	validator "github.com/cerc-io/eth-ipfs-state-validator/v5/pkg"
+	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v5/postgres/v0"
+	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
+	ipld_sql "github.com/cerc-io/ipld-eth-statedb/sql"
+	ipld_trie_state "github.com/cerc-io/ipld-eth-statedb/trie_by_cid/state"
+	ipld_trie "github.com/cerc-io/ipld-eth-statedb/trie_by_cid/trie"
 	"github.com/cerc-io/plugeth-statediff/indexer/ipld"
 	"github.com/cerc-io/plugeth-statediff/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -42,15 +48,11 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/holiman/uint256"
 	"github.com/jmoiron/sqlx"
 
-	validator "github.com/cerc-io/eth-ipfs-state-validator/v5/pkg"
-	ipfsethdb "github.com/cerc-io/ipfs-ethdb/v5/postgres/v0"
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/log"
 	"github.com/cerc-io/ipld-eth-server/v5/pkg/shared"
-	ipld_direct_state "github.com/cerc-io/ipld-eth-statedb/direct_by_leaf"
-	ipld_sql "github.com/cerc-io/ipld-eth-statedb/sql"
-	ipld_trie_state "github.com/cerc-io/ipld-eth-statedb/trie_by_cid/state"
 )
 
 var (
@@ -80,7 +82,7 @@ type Backend struct {
 	// ethereum interfaces
 	EthDB ethdb.Database
 	// We use this state.Database for eth_call and any place we don't need trie access
-	IpldDirectStateDatabase ipld_direct_state.StateDatabase
+	IpldDirectStateDatabase ipld_direct_state.Database
 	// We use this where state must be accessed by trie
 	IpldTrieStateDatabase ipld_trie_state.Database
 
@@ -115,7 +117,7 @@ func NewEthBackend(db *sqlx.DB, c *Config) (*Backend, error) {
 		DB:                      db,
 		Retriever:               r,
 		EthDB:                   ethDB,
-		IpldDirectStateDatabase: ipld_direct_state.NewStateDatabase(driver),
+		IpldDirectStateDatabase: ipld_direct_state.NewDatabase(driver),
 		IpldTrieStateDatabase:   ipld_trie_state.NewDatabase(ethDB),
 		Config:                  c,
 	}, nil
@@ -347,8 +349,15 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		return nil, err
 	}
 
+	// Placeholder for withdrawal processing (TODO: https://git.vdb.to/cerc-io/ipld-eth-server/pulls/265)
+	var withdrawals types.Withdrawals
+	if b.Config.ChainConfig.IsShanghai(header.Number, header.Time) {
+		// All blocks after Shanghai must include a withdrawals root.
+		withdrawals = make(types.Withdrawals, 0)
+	}
+
 	// Compose everything together into a complete block
-	return types.NewBlock(header, transactions, uncles, receipts, trie.NewEmpty(nil)), err
+	return types.NewBlockWithWithdrawals(header, transactions, uncles, receipts, withdrawals, trie.NewEmpty(nil)), err
 }
 
 // GetHeaderByBlockHash retrieves header for a provided block hash
@@ -494,7 +503,7 @@ func (b *Backend) GetReceiptsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash,
 
 // GetTransaction retrieves a tx by hash
 // It also returns the blockhash, blocknumber, and tx index associated with the transaction
-func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
+func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (bool, *types.Transaction, common.Hash, uint64, uint64, error) {
 	type txRes struct {
 		Data        []byte `db:"data"`
 		HeaderID    string `db:"header_id"`
@@ -503,22 +512,22 @@ func (b *Backend) GetTransaction(ctx context.Context, txHash common.Hash) (*type
 	}
 	var res = make([]txRes, 0)
 	if err := b.DB.Select(&res, RetrieveRPCTransaction, txHash.String()); err != nil {
-		return nil, common.Hash{}, 0, 0, err
+		return false, nil, common.Hash{}, 0, 0, err
 	}
 
 	if len(res) == 0 {
-		return nil, common.Hash{}, 0, 0, errTxHashNotFound
+		return false, nil, common.Hash{}, 0, 0, errTxHashNotFound
 	} else if len(res) > 1 {
 		// a transaction can be part of a only one canonical block
-		return nil, common.Hash{}, 0, 0, errTxHashInMultipleBlocks
+		return false, nil, common.Hash{}, 0, 0, errTxHashInMultipleBlocks
 	}
 
 	var transaction types.Transaction
 	if err := transaction.UnmarshalBinary(res[0].Data); err != nil {
-		return nil, common.Hash{}, 0, 0, err
+		return false, nil, common.Hash{}, 0, 0, err
 	}
 
-	return &transaction, common.HexToHash(res[0].HeaderID), res[0].BlockNumber, res[0].Index, nil
+	return true, &transaction, common.HexToHash(res[0].HeaderID), res[0].BlockNumber, res[0].Index, nil
 }
 
 // GetReceipts retrieves receipts for provided block hash
@@ -778,7 +787,7 @@ func (b *Backend) GetAccountByHash(ctx context.Context, address common.Address, 
 	}
 	return &types.StateAccount{
 		Nonce:    acctRecord.Nonce,
-		Balance:  balance,
+		Balance:  uint256.MustFromBig(balance),
 		Root:     common.HexToHash(acctRecord.Root),
 		CodeHash: acctRecord.CodeHash,
 	}, nil
@@ -917,7 +926,10 @@ func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage boo
 	var t ipld_trie_state.Trie
 	var err error
 	if storage {
-		t, err = b.IpldTrieStateDatabase.OpenStorageTrie(common.Hash{}, common.Hash{}, root)
+		// Note 1: once Verkle tries are used, this will be the same as state trie
+		// Note 2: a dummy hash is passed as owner here, and is only used to signal to ipld-eth-statedb
+		// that a storage, not state trie is being accessed
+		t, err = b.IpldTrieStateDatabase.OpenStorageTrie(common.Hash{}, common.Hash{1}, root, nil)
 	} else {
 		t, err = b.IpldTrieStateDatabase.OpenTrie(root)
 	}
@@ -929,21 +941,24 @@ func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage boo
 	// Convert the head hex path to a decoded byte path
 	headPath := common.FromHex(path)
 
+	// Convert the Trie object to its concrete type for raw node access
+	stateTrie := t.(*ipld_trie.StateTrie)
+
 	// Get Stem nodes
-	err = b.getSliceStem(headPath, t, response, &metaData, storage)
+	err = b.getSliceStem(headPath, stateTrie, response, &metaData, storage)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get Head node
-	err = b.getSliceHead(headPath, t, response, &metaData, storage)
+	err = b.getSliceHead(headPath, stateTrie, response, &metaData, storage)
 	if err != nil {
 		return nil, err
 	}
 
 	if depth > 0 {
 		// Get Slice nodes
-		err = b.getSliceTrie(headPath, t, response, &metaData, depth, storage)
+		err = b.getSliceTrie(headPath, stateTrie, response, &metaData, depth, storage)
 		if err != nil {
 			return nil, err
 		}
@@ -954,7 +969,7 @@ func (b *Backend) GetSlice(path string, depth int, root common.Hash, storage boo
 	return response, nil
 }
 
-func (b *Backend) getSliceStem(headPath []byte, t ipld_trie_state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+func (b *Backend) getSliceStem(headPath []byte, t *ipld_trie.StateTrie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
 	leavesFetchTime := int64(0)
 	totalStemStartTime := makeTimestamp()
 
@@ -963,7 +978,7 @@ func (b *Backend) getSliceStem(headPath []byte, t ipld_trie_state.Trie, response
 		// nodePath := make([]byte, len(headPath[:i]))
 		nodePath := headPath[:i]
 
-		rawNode, _, err := t.TryGetNode(utils.HexToCompact(nodePath))
+		rawNode, _, err := t.GetNode(utils.HexToCompact(nodePath))
 		if err != nil {
 			return err
 		}
@@ -1002,10 +1017,10 @@ func (b *Backend) getSliceStem(headPath []byte, t ipld_trie_state.Trie, response
 	return nil
 }
 
-func (b *Backend) getSliceHead(headPath []byte, t ipld_trie_state.Trie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
+func (b *Backend) getSliceHead(headPath []byte, t *ipld_trie.StateTrie, response *GetSliceResponse, metaData *metaDataFields, storage bool) error {
 	totalHeadStartTime := makeTimestamp()
 
-	rawNode, _, err := t.TryGetNode(utils.HexToCompact(headPath))
+	rawNode, _, err := t.GetNode(utils.HexToCompact(headPath))
 	if err != nil {
 		return err
 	}
@@ -1043,7 +1058,10 @@ func (b *Backend) getSliceHead(headPath []byte, t ipld_trie_state.Trie, response
 }
 
 func (b *Backend) getSliceTrie(headPath []byte, t ipld_trie_state.Trie, response *GetSliceResponse, metaData *metaDataFields, depth int, storage bool) error {
-	it, timeTaken := getIteratorAtPath(t, headPath)
+	it, timeTaken, err := getIteratorAtPath(t, headPath)
+	if err != nil {
+		return nil
+	}
 	metaData.trieLoadingTime += timeTaken
 
 	leavesFetchTime := int64(0)

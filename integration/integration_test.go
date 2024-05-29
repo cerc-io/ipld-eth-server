@@ -34,7 +34,7 @@ var _ = Describe("Basic integration test", func() {
 	var contractErr error
 	var txErr error
 
-	Describe("get Block", func() {
+	Describe("Get Block", func() {
 		BeforeEach(func() {
 			contract, contractErr = integration.DeployContract()
 			Expect(contractErr).ToNot(HaveOccurred())
@@ -43,7 +43,7 @@ var _ = Describe("Basic integration test", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("get not existing block by number", func() {
+		It("gets not existing block by number", func() {
 			blockNum := big.NewInt(contract.BlockNumber + 100)
 
 			gethBlock, err := gethClient.BlockByNumber(ctx, blockNum)
@@ -55,7 +55,7 @@ var _ = Describe("Basic integration test", func() {
 			Expect(ipldBlock).To(BeZero())
 		})
 
-		It("get not existing block by hash", func() {
+		It("gets not existing block by hash", func() {
 			gethBlock, err := gethClient.BlockByHash(ctx, nonExistingBlockHash)
 			Expect(err).To(MatchError(ethereum.NotFound))
 			Expect(gethBlock).To(BeZero())
@@ -65,7 +65,7 @@ var _ = Describe("Basic integration test", func() {
 			Expect(ipldBlock).To(BeZero())
 		})
 
-		It("get block by number", func() {
+		It("gets block by number", func() {
 			blockNum := big.NewInt(contract.BlockNumber)
 
 			gethBlock, err := gethClient.BlockByNumber(ctx, blockNum)
@@ -84,7 +84,7 @@ var _ = Describe("Basic integration test", func() {
 			Expect(types.TxDifference(gethTxs, ipldTxs).Len()).To(Equal(0))
 		})
 
-		It("get block by hash", func() {
+		It("gets block by hash", func() {
 			gethBlock, err := gethClient.BlockByHash(ctx, contract.BlockHash)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -391,7 +391,7 @@ var _ = Describe("Basic integration test", func() {
 			Expect(ipldCountA).To(Equal(slvCountA))
 		})
 
-		It("gets storage after destruction and redeploy", func() {
+		It("gets storage after destruction", func() {
 			slvContract, contractErr := integration.Create2Contract("SLVToken", contractSalt)
 			Expect(contractErr).ToNot(HaveOccurred())
 
@@ -431,21 +431,6 @@ var _ = Describe("Basic integration test", func() {
 			ipldStorage, err := ipldClient.StorageAt(ctx, slvContract.Address, countAIndex, big.NewInt(slvTx.BlockNumber))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ipldStorage).To(Equal(gethStorage))
-
-			// Redeploy to same address
-			slvContract, contractErr = integration.Create2Contract("SLVToken", contractSalt)
-			Expect(contractErr).ToNot(HaveOccurred())
-
-			gethStorage, err = gethClient.StorageAt(ctx, slvContract.Address, countAIndex, big.NewInt(slvContract.BlockNumber))
-			Expect(err).ToNot(HaveOccurred())
-
-			ipldStorage, err = ipldClient.StorageAt(ctx, slvContract.Address, countAIndex, big.NewInt(slvContract.BlockNumber))
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(gethStorage).To(Equal(ipldStorage))
-			ipldCountA := new(big.Int).SetBytes(ipldStorage)
-			Expect(ipldCountA.String()).To(Equal("0"))
-
 		})
 	})
 
