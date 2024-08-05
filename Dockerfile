@@ -1,9 +1,9 @@
-FROM golang:1.21-alpine as debugger
+FROM golang:1.21-alpine AS debugger
 
 # Include dlv
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
-FROM golang:1.21-alpine as builder
+FROM golang:1.21-alpine AS builder
 
 RUN apk --update --no-cache add gcc musl-dev binutils-gold git
 

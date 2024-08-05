@@ -107,6 +107,21 @@ WHERE header_cids.block_hash = $1
 	AND blocks.key = receipt_cids.cid
 ORDER BY eth.transaction_cids.index ASC
 `
+	RetrieveWithdrawalsPgStr = `
+SELECT withdrawal_cids.cid,
+	   blocks.data
+  FROM eth.withdrawal_cids
+       JOIN eth.header_cids
+           ON header_cids.block_hash = $1
+           AND header_cids.block_number = $2
+           AND header_cids.canonical
+           AND withdrawal_cids.block_number = header_cids.block_number
+           AND withdrawal_cids.header_id = header_cids.block_hash
+       JOIN ipld.blocks
+           ON blocks.block_number = header_cids.block_number
+           AND blocks.key = withdrawal_cids.cid
+ ORDER BY eth.withdrawal_cids.index ASC`
+
 	RetrieveAccountByLeafKeyAndBlockHashPgStr = `
 SELECT state_cids.nonce,
 	state_cids.balance,

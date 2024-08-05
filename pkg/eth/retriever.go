@@ -506,6 +506,24 @@ func (r *Retriever) RetrieveReceiptsByBlockHash(tx *sqlx.Tx, hash common.Hash) (
 	return cids, rcts, txs, nil
 }
 
+// RetrieveWithdrawals returns the CIDs and RLP bytes for the withdrawals corresponding to the
+// provided block hash, number.  Returned CIDs correspond to the leaf node data which contains the
+// withdrawal object.
+func (r *Retriever) RetrieveWithdrawals(tx *sqlx.Tx, hash common.Hash, number uint64) ([]string, [][]byte, error) {
+	results := make([]ipldResult, 0)
+	if err := tx.Select(&results, RetrieveWithdrawalsPgStr, hash.Hex(), number); err != nil {
+		return nil, nil, err
+	}
+	cids := make([]string, len(results))
+	withdrawals := make([][]byte, len(results))
+
+	for i, res := range results {
+		cids[i] = res.CID
+		withdrawals[i] = res.Data
+	}
+	return cids, withdrawals, nil
+}
+
 // RetrieveAccountByAddressAndBlockHash returns the cid and rlp bytes for the account corresponding to the provided address and block hash
 // TODO: ensure this handles deleted accounts appropriately
 func (r *Retriever) RetrieveAccountByAddressAndBlockHash(address common.Address, hash common.Hash) (StateAccountRecord, error) {

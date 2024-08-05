@@ -53,7 +53,11 @@ var (
 		Extra:       []byte{},
 	}
 	MockTransactions, MockReceipts, SenderAddr = createLegacyTransactionsAndReceipts()
-	MockUncles                                 = []*types.Header{
+	MockWithdrawals                            = types.Withdrawals{
+		{Index: 0, Validator: 1, Address: Address, Amount: 1000000000},
+		{Index: 1, Validator: 5, Address: AnotherAddress, Amount: 2000000000},
+	}
+	MockUncles = []*types.Header{
 		{
 			Time:        1,
 			Number:      big.NewInt(BlockNumber1 + 1),
@@ -75,7 +79,7 @@ var (
 			ParentHash:  Genesis.Hash(),
 		},
 	}
-	MockBlock       = createNewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts, trie.NewEmpty(nil))
+	MockBlock       = createNewBlock(&MockHeader, MockTransactions, MockUncles, MockReceipts, nil, trie.NewEmpty(nil))
 	MockChildHeader = types.Header{
 		Time:        0,
 		Number:      big.NewInt(BlockNumber1 + 1),
@@ -326,11 +330,11 @@ var (
 			Extra:       []byte{},
 		},
 	}
-	MockLondonBlock = createNewBlock(&MockLondonHeader, MockLondonTransactions, MockLondonUncles, MockLondonReceipts, trie.NewEmpty(nil))
+	MockLondonBlock = createNewBlock(&MockLondonHeader, MockLondonTransactions, MockLondonUncles, MockLondonReceipts, MockWithdrawals, trie.NewEmpty(nil))
 )
 
-func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, hasher types.TrieHasher) *types.Block {
-	block := types.NewBlock(header, txs, uncles, receipts, hasher)
+func createNewBlock(header *types.Header, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, withdrawals types.Withdrawals, hasher types.TrieHasher) *types.Block {
+	block := types.NewBlockWithWithdrawals(header, txs, uncles, receipts, withdrawals, hasher)
 	bHash := block.Hash()
 	for _, r := range receipts {
 		for _, l := range r.Logs {
@@ -455,7 +459,7 @@ func createLegacyTransactionsAndReceipts() (types.Transactions, types.Receipts, 
 func getReceiptCIDs(rcts []*types.Receipt) ([]cid.Cid, error) {
 	cids := make([]cid.Cid, len(rcts))
 	for i, rct := range rcts {
-		ethRct, err := ipld.NewReceipt(rct)
+		ethRct, err := ipld.EncodeReceipt(rct)
 		if err != nil {
 			return nil, err
 		}

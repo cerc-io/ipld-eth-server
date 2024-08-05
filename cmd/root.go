@@ -95,7 +95,7 @@ func init() {
 
 func initConfig() {
 	if cfgFile == "" && envFile == "" {
-		log.Fatal("No configuration file specified, use --config , --env flag to provide configuration")
+		log.Warn("No configuration file specified, use --config , --env flag to provide configuration")
 	}
 
 	if cfgFile != "" {

@@ -50,7 +50,7 @@ var (
 	blockHash      = test_helpers.MockBlock.Header().Hash()
 	baseFee        = test_helpers.MockLondonBlock.BaseFee()
 	ctx            = context.Background()
-	chainConfig    = &*params.TestChainConfig
+	chainConfig    = &*params.MergedTestChainConfig
 
 	expectedBlock = map[string]interface{}{
 		"number":           (*hexutil.Big)(test_helpers.MockBlock.Number()),
@@ -390,7 +390,7 @@ var _ = Describe("API", func() {
 			Expect(block).To(BeZero())
 		})
 		It("Fetch BaseFee from london block by block hash, returns `nil` for legacy block", func() {
-			block, err := api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), true)
+			block, err := api.GetBlockByHash(ctx, test_helpers.MockBlock.Hash(), false)
 			Expect(err).ToNot(HaveOccurred())
 			_, ok := block["baseFeePerGas"]
 			Expect(ok).To(Equal(false))

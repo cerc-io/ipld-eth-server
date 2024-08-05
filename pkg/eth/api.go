@@ -1245,7 +1245,8 @@ func (pea *PublicEthAPI) rpcMarshalBlock(b *types.Block, inclTx bool, fullTx boo
 	if inclTx {
 		td, err := pea.B.GetTd(b.Hash())
 		if err != nil {
-			log.Errorf("error getting td for block with hash and number %s, %s: %s", b.Hash().String(), b.Number().String(), err)
+			err = fmt.Errorf("error getting TD for block at (%s, %s): %s", b.Number(), b.Hash(), err)
+			log.Error(err)
 			return nil, err
 		}
 		fields["totalDifficulty"] = (*hexutil.Big)(td)

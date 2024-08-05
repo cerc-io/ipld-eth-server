@@ -4,10 +4,10 @@ go 1.21
 
 require (
 	github.com/cerc-io/eth-ipfs-state-validator/v5 v5.2.0-alpha
-	github.com/cerc-io/eth-iterator-utils v0.2.0
+	github.com/cerc-io/eth-iterator-utils v0.3.1
 	github.com/cerc-io/ipfs-ethdb/v5 v5.1.0-alpha
-	github.com/cerc-io/ipld-eth-statedb v0.1.0
-	github.com/cerc-io/plugeth-statediff v0.2.1
+	github.com/cerc-io/ipld-eth-statedb v0.1.1
+	github.com/cerc-io/plugeth-statediff v0.3.2
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/google/uuid v1.6.0
 	github.com/graph-gophers/graphql-go v1.3.0

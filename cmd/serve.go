@@ -60,6 +60,7 @@ func serve() {
 		logWithCommand.Fatal(err)
 	}
 	logWithCommand.Debugf("server config: %+v", serverConfig)
+	logWithCommand.Debugf("chain config: %+v", serverConfig.ChainConfig)
 	server, err := s.NewServer(serverConfig)
 	if err != nil {
 		logWithCommand.Fatal(err)

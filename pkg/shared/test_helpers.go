@@ -27,6 +27,7 @@ import (
 	"github.com/cerc-io/plugeth-statediff/indexer/interfaces"
 	"github.com/cerc-io/plugeth-statediff/indexer/models"
 	"github.com/cerc-io/plugeth-statediff/indexer/node"
+	"github.com/cerc-io/plugeth-statediff/indexer/test_helpers"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/jmoiron/sqlx"
@@ -55,30 +56,7 @@ func SetupDB() *sqlx.DB {
 
 // TearDownDB is used to tear down the watcher dbs after tests
 func TearDownDB(db *sqlx.DB) {
-	tx, err := db.Beginx()
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM nodes`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM ipld.blocks`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.header_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.uncle_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.transaction_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.receipt_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.state_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.storage_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth.log_cids`)
-	Expect(err).NotTo(HaveOccurred())
-	_, err = tx.Exec(`DELETE FROM eth_meta.watched_addresses`)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = tx.Commit()
+	err := test_helpers.ClearSqlxDB(db)
 	Expect(err).NotTo(HaveOccurred())
 }
 

@@ -271,7 +271,7 @@ func (b *Backend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.Blo
 func (b *Backend) BlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*types.Block, error) {
 	number, err := b.NormalizeBlockNumber(blockNumber)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to normalize block number: %w", err)
 	}
 	canonicalHash, err := b.GetCanonicalHash(uint64(number))
 	if err != nil {
@@ -349,11 +349,16 @@ func (b *Backend) BlockByHash(ctx context.Context, hash common.Hash) (*types.Blo
 		return nil, err
 	}
 
-	// Placeholder for withdrawal processing (TODO: https://git.vdb.to/cerc-io/ipld-eth-server/pulls/265)
+	// Fetch withdrawals
 	var withdrawals types.Withdrawals
 	if b.Config.ChainConfig.IsShanghai(header.Number, header.Time) {
-		// All blocks after Shanghai must include a withdrawals root.
-		withdrawals = make(types.Withdrawals, 0)
+		withdrawals, err = b.GetWithdrawals(tx, hash, blockNumber)
+		if err != nil && err != sql.ErrNoRows {
+			log.Error("error fetching withdrawals: ", err)
+			return nil, err
+		}
+	} else if len(withdrawals) > 0 {
+		return nil, errors.New("withdrawals set before Shanghai activation")
 	}
 
 	// Compose everything together into a complete block
@@ -499,6 +504,23 @@ func (b *Backend) GetReceiptsByBlockHashAndNumber(tx *sqlx.Tx, hash common.Hash,
 		rcts[i] = rct
 	}
 	return rcts, nil
+}
+
+// GetWithdrawals retrieves transactions for a provided block hash and number
+func (b *Backend) GetWithdrawals(tx *sqlx.Tx, hash common.Hash, number uint64) (types.Withdrawals, error) {
+	_, rlpBytes, err := b.Retriever.RetrieveWithdrawals(tx, hash, number)
+	if err != nil {
+		return nil, err
+	}
+
+	withdrawals := make(types.Withdrawals, len(rlpBytes))
+	for i, bytes := range rlpBytes {
+		withdrawals[i] = new(types.Withdrawal)
+		if err := rlp.DecodeBytes(bytes, withdrawals[i]); err != nil {
+			return nil, err
+		}
+	}
+	return withdrawals, nil
 }
 
 // GetTransaction retrieves a tx by hash

@@ -12,7 +12,9 @@ on:
       - ci-test
 
 env:
-  SO_VERSION: v1.1.0-87fffca-202404110321
+  SO_VERSION: v1.1.0-36d4969-202407091537
+  FIXTURENET_ETH_STACKS_REF: main
+  SYSTEM_TESTS_REF: main
 
 jobs:
   test:
@@ -49,7 +51,15 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: apt-get update && apt-get install -y jq
-      - name: Install Python
+      # At present the stock setup-python action fails on Linux/aarch64
+      # Conditional steps below workaroud this by using deadsnakes for that case only
+      - name: "Install Python for ARM on Linux"
+        if: ${{ runner.arch == 'arm64' && runner.os == 'Linux' }}
+        uses: deadsnakes/action@v3.0.1
+        with:
+          python-version: 3.11
+      - name: "Install Python cases other than ARM on Linux"
+        if: ${{ ! (runner.arch == 'arm64' && runner.os == 'Linux') }}
         uses: actions/setup-python@v4
         with:
           python-version: 3.11
@@ -60,11 +70,18 @@ jobs:
           ref: ${{ env.SO_VERSION }}
           path: ./stack-orchestrator
       - run: pip install ./stack-orchestrator
+      - name: Clone fixturenet stack repo
+        uses: actions/checkout@v4
+        with:
+          repository: cerc-io/fixturenet-eth-stacks
+          ref: ${{ env.FIXTURENET_ETH_STACKS_REF }}
+          path: ./fixturenet-eth-stacks
+          progress: false
 
       - name: Run testnet stack
         env:
           CERC_GO_AUTH_TOKEN: ${{ secrets.CICD_REPO_TOKEN }}
-        run: ./scripts/integration-setup.sh
+        run: ./scripts/run-test-stack.sh ./fixturenet-eth-stacks/stack-orchestrator/stacks/fixturenet-plugeth
       - name: Run server
         env:
           ETH_FORWARD_ETH_CALLS: false
@@ -75,11 +92,26 @@ jobs:
           go install github.com/onsi/ginkgo/v2/ginkgo
           ginkgo -v --label-filter '!proxy' -r ./integration
 
+      - name: Clone system-tests
+        uses: actions/checkout@v4
+        with:
+          repository: cerc-io/system-tests
+          ref: ${{ env.SYSTEM_TESTS_REF }}
+          path: ./system-tests
+          token: ${{ secrets.CICD_REPO_TOKEN }}
+          progress: false
+      - name: Run system tests
+        working-directory: ./system-tests
+        run: |
+          pip install pytest
+          pip install -r requirements.txt
+          pytest -vv
+
       - name: Run testnet stack without statediff
         env:
           CERC_RUN_STATEDIFF: false
           SKIP_BUILD: 1
-        run: ./scripts/integration-setup.sh
+        run: ./scripts/run-test-stack.sh ./fixturenet-eth-stacks/stack-orchestrator/stacks/fixturenet-plugeth
       - name: Run server with call forwarding
         env:
           ETH_FORWARD_ETH_CALLS: true
