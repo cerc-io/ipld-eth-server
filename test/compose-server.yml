@@ -4,6 +4,8 @@ services:
   ipld-eth-server:
     restart: unless-stopped
     image: cerc/ipld-eth-server:local
+    build:
+      context: ..
     networks:
       - test_default
     environment:

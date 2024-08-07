@@ -128,9 +128,10 @@ func NewConfig() (*Config, error) {
 	viper.BindEnv("server.ipcPath", SERVER_IPC_PATH)
 	viper.BindEnv("server.graphqlPath", SERVER_GRAPHQL_PATH)
 
+	viper.BindEnv("ethereum.chainID", ETH_CHAIN_ID)
+	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
 	viper.BindEnv("ethereum.httpPath", ETH_HTTP_PATH)
 	viper.BindEnv("ethereum.rpcGasCap", ETH_RPC_GAS_CAP)
-	viper.BindEnv("ethereum.chainConfig", ETH_CHAIN_CONFIG)
 	viper.BindEnv("ethereum.supportsStateDiff", ETH_SUPPORTS_STATEDIFF)
 	viper.BindEnv("ethereum.stateDiffTimeout", ETH_STATEDIFF_TIMEOUT)
 	viper.BindEnv("ethereum.forwardEthCalls", ETH_FORWARD_ETH_CALLS)
@@ -143,11 +144,32 @@ func NewConfig() (*Config, error) {
 	c.dbInit()
 	ethHTTP := viper.GetString("ethereum.httpPath")
 	ethHTTPEndpoint := fmt.Sprintf("http://%s", ethHTTP)
-	nodeInfo, cli, err := getEthNodeAndClient(ethHTTPEndpoint)
-	c.NodeNetworkID = nodeInfo.NetworkID
+
+	// At least one of chain ID and chain config must be passed.
+	// If both are passed, the chain ID must match the config.
+	chainID := viper.GetUint64("ethereum.chainID")
+	chainConfigPath := viper.GetString("ethereum.chainConfig")
+	var err error
+	if chainConfigPath != "" {
+		if c.ChainConfig, err = utils.LoadConfig(chainConfigPath); err != nil {
+			return nil, err
+		}
+		// Only validate the chain ID if it was actually passed
+		if viper.GetString("ethereum.chainID") != "" && c.ChainConfig.ChainID.Uint64() != chainID {
+			return nil, fmt.Errorf("passed chain ID %d does not match chain config chain ID %d",
+				chainID, c.ChainConfig.ChainID.Uint64())
+		}
+	} else {
+		if c.ChainConfig, err = utils.ChainConfig(chainID); err != nil {
+			return nil, err
+		}
+	}
+
+	nodeInfo, cli, err := getEthNodeAndClient(ethHTTPEndpoint, chainID)
 	if err != nil {
 		return nil, err
 	}
+	c.NodeNetworkID = nodeInfo.NetworkID
 	c.Client = cli
 	c.SupportStateDiff = viper.GetBool("ethereum.supportsStateDiff")
 	c.ForwardEthCalls = viper.GetBool("ethereum.forwardEthCalls")
@@ -237,12 +259,6 @@ func NewConfig() (*Config, error) {
 	if c.StateDiffTimeout < 0 {
 		return nil, errors.New("ethereum.stateDiffTimeout < 0")
 	}
-	chainConfigPath := viper.GetString("ethereum.chainConfig")
-	if chainConfigPath != "" {
-		c.ChainConfig, err = utils.LoadConfig(chainConfigPath)
-	} else {
-		c.ChainConfig, err = utils.ChainConfig(nodeInfo.ChainID)
-	}
 
 	c.loadGroupCacheConfig()
 
@@ -312,12 +328,11 @@ func (c *Config) loadValidatorConfig() {
 }
 
 // GetEthNodeAndClient returns eth node info and client from path url
-func getEthNodeAndClient(path string) (node.Info, *rpc.Client, error) {
+func getEthNodeAndClient(path string, chainid uint64) (node.Info, *rpc.Client, error) {
 	viper.BindEnv("ethereum.nodeID", ETH_NODE_ID)
 	viper.BindEnv("ethereum.clientName", ETH_CLIENT_NAME)
 	viper.BindEnv("ethereum.genesisBlock", ETH_GENESIS_BLOCK)
 	viper.BindEnv("ethereum.networkID", ETH_NETWORK_ID)
-	viper.BindEnv("ethereum.chainID", ETH_CHAIN_ID)
 
 	rpcClient, err := rpc.Dial(path)
 	if err != nil {
@@ -328,6 +343,6 @@ func getEthNodeAndClient(path string) (node.Info, *rpc.Client, error) {
 		ClientName:   viper.GetString("ethereum.clientName"),
 		GenesisBlock: viper.GetString("ethereum.genesisBlock"),
 		NetworkID:    viper.GetString("ethereum.networkID"),
-		ChainID:      viper.GetUint64("ethereum.chainID"),
+		ChainID:      chainid,
 	}, rpcClient, nil
 }

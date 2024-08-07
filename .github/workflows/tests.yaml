@@ -102,10 +102,15 @@ jobs:
           progress: false
       - name: Run system tests
         working-directory: ./system-tests
+        # Work around dependency conflict in system-tests:
+        # web3 uses an older eth-account until (unreleased) v7
         run: |
-          pip install pytest
-          pip install -r requirements.txt
-          pytest -vv
+          pip3 install pytest
+          pip3 install -r requirements.txt
+          pip3 install --no-deps 'eth-account>=0.12.3,<0.13'
+          pip3 install 'pydantic>=2.0.0'
+          # Skips tests that require Blob indexing
+          python3 -m pytest -vv -m "not blob_db"
 
       - name: Run testnet stack without statediff
         env:

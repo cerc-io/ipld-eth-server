@@ -22,11 +22,15 @@ if [[ -z $SKIP_BUILD ]]; then
   # Prevent conflicting tty output
   export BUILDKIT_PROGRESS=plain
 
-  $laconic_so setup-repositories
-  $laconic_so build-containers
+  # The server itself will be run separately
+  $laconic_so setup-repositories \
+    --exclude git.vdb.to/cerc-io/ipld-eth-server
+  $laconic_so build-containers \
+    --exclude cerc/ipld-eth-server
 fi
 
 if ! $laconic_so deploy \
+  --exclude ipld-eth-server \
   --env-file $CONFIG_DIR/stack.env \
   --cluster test up
 then

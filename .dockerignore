@@ -12,6 +12,7 @@ integration
 test
 scripts
 Dockerfile
+environments
 
 **/node_modules
 build
