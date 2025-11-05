@@ -1,7 +1,7 @@
 FROM golang:1.21-alpine AS debugger
 
 # Include dlv
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN go install github.com/go-delve/delve/cmd/dlv@v1.22.1
 
 FROM golang:1.21-alpine AS builder
 
