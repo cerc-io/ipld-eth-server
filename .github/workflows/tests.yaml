@@ -104,8 +104,10 @@ jobs:
         working-directory: ./system-tests
         # Work around dependency conflict in system-tests:
         # web3 uses an older eth-account until (unreleased) v7
+        # web3 also requires eth-typing<5.0.0 (ContractName was removed in 5.0.0)
         run: |
           pip3 install pytest
+          pip3 install 'eth-typing<5.0.0'
           pip3 install -r requirements.txt
           pip3 install --no-deps 'eth-account>=0.12.3,<0.13'
           pip3 install 'pydantic>=2.0.0'
