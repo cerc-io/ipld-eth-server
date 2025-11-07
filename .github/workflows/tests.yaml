@@ -109,6 +109,8 @@ jobs:
           pip3 install pytest
           pip3 install 'eth-typing<5.0.0'
           pip3 install -r requirements.txt
+          # Reinstall eth-typing<5.0.0 after requirements.txt to override any newer version
+          pip3 install --force-reinstall 'eth-typing<5.0.0'
           pip3 install --no-deps 'eth-account>=0.12.3,<0.13'
           pip3 install 'pydantic>=2.0.0'
           # Skips tests that require Blob indexing
